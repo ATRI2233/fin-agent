@@ -383,7 +383,7 @@ configure_mcp_servers() {
         mkdir -p "$(dirname "$mcp_file")"
     fi
 
-    python << PYEOF
+    python3 << PYEOF
 import json, sys, os
 
 try:
@@ -396,30 +396,41 @@ if "mcpServers" not in data:
 
 ms = data["mcpServers"]
 
+# 读取已有配置的 env 作为 fallback（更新时保留原有 API key）
+existing_env = ms.get("$FIN_AGENT_NAME", {}).get("env", {})
+def env_val(key, fallback=""):
+    val = os.environ.get(key, "").strip()
+    return val if val else existing_env.get(key, fallback)
+
 # fin-agent
 ms["$FIN_AGENT_NAME"] = {
     "command": "node",
     "args": ["$fin_path"],
     "env": {
-        "FINNHUB_API_KEY": os.environ.get("FINNHUB_API_KEY", ""),
-        "FRED_API_KEY": os.environ.get("FRED_API_KEY", ""),
-        "OILPRICE_API_KEY": os.environ.get("OILPRICE_API_KEY", ""),
-        "OILPRICEAPI_KEY": os.environ.get("OILPRICEAPI_KEY", ""),
-        "FMP_API_KEY": os.environ.get("FMP_API_KEY", ""),
-        "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
-        "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
+        "FINNHUB_API_KEY": env_val("FINNHUB_API_KEY"),
+        "FRED_API_KEY": env_val("FRED_API_KEY"),
+        "OILPRICE_API_KEY": env_val("OILPRICE_API_KEY"),
+        "OILPRICEAPI_KEY": env_val("OILPRICEAPI_KEY"),
+        "FMP_API_KEY": env_val("FMP_API_KEY"),
+        "HTTP_PROXY": env_val("HTTP_PROXY"),
+        "HTTPS_PROXY": env_val("HTTPS_PROXY"),
     }
 }
 
 # fred-mcp
+fred_existing_env = ms.get("$FRED_MCP_NAME", {}).get("env", {})
+def fred_env_val(key, fallback=""):
+    val = os.environ.get(key, "").strip()
+    return val if val else fred_existing_env.get(key, fallback)
+
 if os.path.exists("$fred_path"):
     ms["$FRED_MCP_NAME"] = {
         "command": "node",
         "args": ["$fred_path"],
         "env": {
-            "FRED_API_KEY": os.environ.get("FRED_API_KEY", ""),
-            "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
-            "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
+            "FRED_API_KEY": fred_env_val("FRED_API_KEY"),
+            "HTTP_PROXY": fred_env_val("HTTP_PROXY"),
+            "HTTPS_PROXY": fred_env_val("HTTPS_PROXY"),
         }
     }
 
@@ -446,7 +457,7 @@ main() {
         --uninstall)
             ASTRBOT_DATA=$(detect_astrbot_data)
             echo "卸载 ..."
-            python -c "
+            python3 -c "
 import json, os
 f='$ASTRBOT_DATA/mcp_server.json'
 if os.path.exists(f):
@@ -465,7 +476,7 @@ if os.path.exists(f):
         --astrbot-data)
             export ASTRBOT_ROOT="$2"; shift 2 ;;
         --update)
-            shift;;
+            ACTION="update"; shift;;
     esac
 
     if [[ "${1:-}" == "--update" || "$ACTION" == "update" ]]; then
@@ -473,8 +484,16 @@ if os.path.exists(f):
         echo "  fin-agent 更新模式"
         echo "============================================"
         echo ""
-        echo "[1] 拉取最新代码 ..."
+        echo "[1] 备份 .env 并拉取最新代码 ..."
+        if [[ -f "$FIN_AGENT_DIR/.env" ]]; then
+            cp "$FIN_AGENT_DIR/.env" /tmp/fin-agent-env-backup
+        fi
         git pull --ff-only 2>/dev/null || echo "      git pull 失败，继续使用当前代码"
+        if [[ -f /tmp/fin-agent-env-backup && ! -f "$FIN_AGENT_DIR/.env" ]]; then
+            cp /tmp/fin-agent-env-backup "$FIN_AGENT_DIR/.env"
+            echo "      已恢复 .env 文件"
+        fi
+        rm -f /tmp/fin-agent-env-backup
         echo ""
 
         ASTRBOT_DATA=$(detect_astrbot_data)
@@ -496,7 +515,10 @@ if os.path.exists(f):
         rm -rf "$ASTRBOT_DATA/skills/fin-agent" 2>/dev/null
         for sk in "${SKILL_NAMES[@]}"; do
             src="$SKILL_SOURCE_BASE/$sk/SKILL.md"
-            [[ -f "$src" ]] && cp "$src" "$ASTRBOT_DATA/skills/$sk/SKILL.md" && echo "      $sk"
+            if [[ -f "$src" ]]; then
+                mkdir -p "$ASTRBOT_DATA/skills/$sk"
+                cp "$src" "$ASTRBOT_DATA/skills/$sk/SKILL.md" && echo "      $sk"
+            fi
         done
         echo ""
 
@@ -535,7 +557,10 @@ if os.path.exists(f):
     rm -rf "$ASTRBOT_DATA/skills/fin-agent" 2>/dev/null
     for sk in "${SKILL_NAMES[@]}"; do
         src="$SKILL_SOURCE_BASE/$sk/SKILL.md"
-        [[ -f "$src" ]] && cp "$src" "$ASTRBOT_DATA/skills/$sk/SKILL.md" && echo "      $sk"
+        if [[ -f "$src" ]]; then
+            mkdir -p "$ASTRBOT_DATA/skills/$sk"
+            cp "$src" "$ASTRBOT_DATA/skills/$sk/SKILL.md" && echo "      $sk"
+        fi
     done
     echo ""
 
