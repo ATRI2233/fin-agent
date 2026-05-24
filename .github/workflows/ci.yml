@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: fin-agent-mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: fin-agent-mcp-server
+
+      - name: Build TypeScript
+        run: npm run build
+        working-directory: fin-agent-mcp-server
+
+      - name: Verify dist output
+        run: test -f dist/index.js && echo "Build OK" || (echo "Build failed" && exit 1)
+        working-directory: fin-agent-mcp-server
+
+      - name: Validate install script syntax
+        run: bash -n fin-agent-astrbot-install.sh

@@ -31,6 +31,7 @@ usage() {
     echo "OPTIONS:"
     echo "  --astrbot-data PATH   AstrBot 数据目录 (默认: 自动检测)"
     echo "  --uninstall           卸载 fin-agent (停止接入)"
+    echo "  --update              更新 fin-agent (git pull + 重建 + 更新 skills)"
     echo "  --help                显示帮助"
 }
 
@@ -463,7 +464,51 @@ if os.path.exists(f):
             ;;
         --astrbot-data)
             export ASTRBOT_ROOT="$2"; shift 2 ;;
+        --update)
+            shift;;
     esac
+
+    if [[ "${1:-}" == "--update" || "$ACTION" == "update" ]]; then
+        echo "============================================"
+        echo "  fin-agent 更新模式"
+        echo "============================================"
+        echo ""
+        echo "[1] 拉取最新代码 ..."
+        git pull --ff-only 2>/dev/null || echo "      git pull 失败，继续使用当前代码"
+        echo ""
+
+        ASTRBOT_DATA=$(detect_astrbot_data)
+        echo "AstrBot: $ASTRBOT_DATA"
+        echo ""
+
+        echo "[2] 重建 fin-agent-mcp-server ..."
+        (cd "$FIN_AGENT_DIR" && npm install --silent 2>/dev/null && npm run build)
+        echo "      完成"
+        echo ""
+
+        echo "[3] 更新 fred-mcp-server ..."
+        if [[ -d "$MCP_SERVERS_BASE/fred-mcp-server/.git" ]]; then
+            (cd "$MCP_SERVERS_BASE/fred-mcp-server" && git pull --ff-only 2>/dev/null && npm install --silent 2>/dev/null && npm run build 2>/dev/null) || echo "      更新跳过"
+        fi
+        echo ""
+
+        echo "[4] 更新 Skills ..."
+        rm -rf "$ASTRBOT_DATA/skills/fin-agent" 2>/dev/null
+        for sk in "${SKILL_NAMES[@]}"; do
+            src="$SKILL_SOURCE_BASE/$sk/SKILL.md"
+            [[ -f "$src" ]] && cp "$src" "$ASTRBOT_DATA/skills/$sk/SKILL.md" && echo "      $sk"
+        done
+        echo ""
+
+        echo "[5] 更新 mcp_server.json ..."
+        configure_mcp_servers "$ASTRBOT_DATA"
+        echo ""
+
+        echo "============================================"
+        echo "  更新完成，重启 AstrBot 后生效"
+        echo "============================================"
+        exit 0
+    fi
 
     echo "============================================"
     echo "  fin-agent 完整接入安装"
