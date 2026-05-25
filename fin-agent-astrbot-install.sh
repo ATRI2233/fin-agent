@@ -761,32 +761,22 @@ PYEOF
 
 # ---------- 主流程 ----------
 main() {
-    case "${1:-}" in
+    # ---------- 参数解析 ----------
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --help|-h) usage; exit 0 ;;
-        --uninstall)
-            ASTRBOT_DATA=$(detect_astrbot_data)
-            echo "卸载 ..."
-            python3 -c "
-import json, os
-f='$ASTRBOT_DATA/mcp_server.json'
-if os.path.exists(f):
-    d=json.load(open(f))
-    for s in ['$FIN_AGENT_NAME','$FRED_MCP_NAME','$RISK_MCP_NAME','$ASHARE_MCP_NAME']:
-        d.get('mcpServers',{}).pop(s,None)
-    json.dump(d,open(f,'w'),indent=2)
-" 2>/dev/null
-            for sk in market-briefing stock-deep fin-review position-watch; do
-                rm -rf "$ASTRBOT_DATA/skills/$sk" 2>/dev/null
-                echo "已删除 $sk"
-            done
-            echo "卸载完成"
-            exit 0
-            ;;
+        --uninstall) ACTION="uninstall"; shift ;;
+        --update) ACTION="update"; shift ;;
         --astrbot-data)
+            if [[ -z "$2" || "$2" == "--"* ]]; then
+                echo "ERROR: --astrbot-data 需要一个路径参数" >&2; exit 1
+            fi
             export ASTRBOT_ROOT="$2"; shift 2 ;;
-        --update)
-            ACTION="update"; shift;;
+        *) POSITIONAL+=("$1"); shift ;;
     esac
+done
+set -- "${POSITIONAL[@]}"
 
     if [[ "${1:-}" == "--update" || "$ACTION" == "update" ]]; then
         echo "============================================"
@@ -838,6 +828,26 @@ if os.path.exists(f):
         echo "============================================"
         echo "  更新完成，重启 AstrBot 后生效"
         echo "============================================"
+        exit 0
+    fi
+
+    if [[ "$ACTION" == "uninstall" ]]; then
+        ASTRBOT_DATA=$(detect_astrbot_data)
+        echo "卸载 ..."
+        python3 -c "
+import json, os
+f='$ASTRBOT_DATA/mcp_server.json'
+if os.path.exists(f):
+    d=json.load(open(f))
+    for s in ['$FIN_AGENT_NAME','$FRED_MCP_NAME','$RISK_MCP_NAME','$ASHARE_MCP_NAME']:
+        d.get('mcpServers',{}).pop(s,None)
+    json.dump(d,open(f,'w'),indent=2)
+" 2>/dev/null
+        for sk in market-briefing stock-deep fin-review position-watch; do
+            rm -rf "$ASTRBOT_DATA/skills/$sk" 2>/dev/null
+            echo "已删除 $sk"
+        done
+        echo "卸载完成"
         exit 0
     fi
 
