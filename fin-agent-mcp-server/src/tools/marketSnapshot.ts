@@ -12,7 +12,22 @@ const TV_INDEX_MAP: Record<string, string> = {
 };
 
 const DEFAULT_INDICES = ["^GSPC", "^IXIC", "^DJI", "VIX"];
-const SECTOR_ETFS = ["XLK", "XLF", "XLE", "XLV", "XLY", "XLI", "XLP", "XLU", "XLB", "XLRE", "XLC"];
+
+function extractData(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.content && Array.isArray(raw.content)) {
+    const texts = raw.content
+      .filter((c: any) => c.type === "text" && c.text != null)
+      .map((c: any) => c.text);
+    const results: any[] = [];
+    for (const t of texts) {
+      try { results.push(JSON.parse(t)); }
+      catch { if (t) results.push(t); }
+    }
+    return results;
+  }
+  return [];
+}
 
 export function registerMarketSnapshot(
   mcpManager: MCPClientManager
@@ -50,19 +65,19 @@ export function registerMarketSnapshot(
           const mktIndices = await mcpManager.callTool(
             "stock-scanner", "tradingview_market_indices", {}, 20000
           );
-          if (Array.isArray(mktIndices)) {
-            for (const item of mktIndices) {
-              indicesData.push({
-                symbol: item.symbol,
-                name: item.data?.description || item.data?.name || item.symbol,
-                price: item.data?.close,
-                change: item.data?.change,
-                change_abs: item.data?.change_abs,
-                high: item.data?.high,
-                low: item.data?.low,
-                open: item.data?.open,
-              });
-            }
+          const rawIndices = extractData(mktIndices);
+          for (const item of rawIndices) {
+            const data = item.data || item;
+            indicesData.push({
+              symbol: item.symbol,
+              name: data?.description || data?.name || item.symbol,
+              price: data?.close ?? data?.last,
+              change: data?.change,
+              change_abs: data?.change_abs,
+              high: data?.high,
+              low: data?.low,
+              open: data?.open,
+            });
           }
         } catch { errors.push("指数数据获取失败"); }
 
@@ -76,19 +91,19 @@ export function registerMarketSnapshot(
             const extraQuotes = await mcpManager.callTool(
               "stock-scanner", "tradingview_quote", { tickers: tvTickers }, 20000
             );
-            if (Array.isArray(extraQuotes)) {
-              for (const item of extraQuotes) {
-                indicesData.push({
-                  symbol: item.symbol,
-                  name: item.data?.description || item.data?.name || item.symbol,
-                  price: item.data?.close,
-                  change: item.data?.change,
-                  change_abs: item.data?.change_abs,
-                  high: item.data?.high || item.data?.premarket_close,
-                  low: item.data?.low,
-                  open: item.data?.open,
-                });
-              }
+            const rawQuotes = extractData(extraQuotes);
+            for (const item of rawQuotes) {
+              const data = item.data || item;
+              indicesData.push({
+                symbol: item.symbol,
+                name: data?.description || data?.name || item.symbol,
+                price: data?.close ?? data?.last,
+                change: data?.change,
+                change_abs: data?.change_abs,
+                high: data?.high || data?.premarket_close,
+                low: data?.low,
+                open: data?.open,
+              });
             }
           } catch { /* 额外报价可选 */ }
         }
@@ -100,9 +115,10 @@ export function registerMarketSnapshot(
             const sectorPerf = await mcpManager.callTool(
               "stock-scanner", "tradingview_sector_performance", {}, 20000
             );
-            if (Array.isArray(sectorPerf)) {
-              sectorsData = sectorPerf.map((s: any) => ({
-                ticker: s.symbol.replace("AMEX:", ""),
+            const rawSectors = extractData(sectorPerf);
+            if (rawSectors.length > 0) {
+              sectorsData = rawSectors.map((s: any) => ({
+                ticker: (s.symbol || "").replace("AMEX:", ""),
                 name: s.data?.description || s.data?.name,
                 price: s.data?.close,
                 change_pct: s.data?.change,

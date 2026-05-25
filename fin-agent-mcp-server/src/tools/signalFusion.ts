@@ -2,6 +2,22 @@ import { ToolRegistration } from "../types.js";
 import { MCPClientManager } from "../mcp/mcpClientManager.js";
 import { getSignalWeights, autoLogAnalysis, getJudgments, getAllExperience } from "../memory/memoryStore.js";
 
+function extractData(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.content && Array.isArray(raw.content)) {
+    const texts = raw.content
+      .filter((c: any) => c.type === "text" && c.text != null)
+      .map((c: any) => c.text);
+    const results: any[] = [];
+    for (const t of texts) {
+      try { results.push(JSON.parse(t)); }
+      catch { if (t) results.push(t); }
+    }
+    return results;
+  }
+  return [];
+}
+
 const WEIGHTS = {
   technical: 0.35,
   fundamental: 0.30,
@@ -102,7 +118,9 @@ export function registerSignalFusion(
         ]);
 
         // ── 技术面信号 ─────────────────────────────────────────
-        const tech = techResult.status === "fulfilled" ? techResult.value?.[0]?.data : null;
+        const rawTech = techResult.status === "fulfilled" ? techResult.value : null;
+        const techItems = extractData(rawTech);
+        const tech = techItems[0]?.data || techItems[0] || null;
         if (tech) {
           const rsi = tech.RSI ?? 50;
           const macd = (tech["MACD.macd"] ?? 0) - (tech["MACD.signal"] ?? 0);
@@ -141,7 +159,9 @@ export function registerSignalFusion(
         }
 
         // ── 基本面信号 ─────────────────────────────────────────
-        const fund = fundResult.status === "fulfilled" ? fundResult.value?.[0]?.data : null;
+        const rawFund = fundResult.status === "fulfilled" ? fundResult.value : null;
+        const fundItems = extractData(rawFund);
+        const fund = fundItems[0]?.data || fundItems[0] || null;
         if (fund) {
           let fundScore = 0;
           const reasons: string[] = [];
@@ -240,8 +260,9 @@ export function registerSignalFusion(
         else if (fund?.close) currentPrice = fund.close;
         else {
           try {
-            const quoteData = await mcpManager.callTool("stock-scanner", "tradingview_quote", { tickers: [symbol] }, 15000);
-            currentPrice = quoteData?.[0]?.data?.close || 0;
+            const rawQuote = await mcpManager.callTool("stock-scanner", "tradingview_quote", { tickers: [symbol] }, 15000);
+            const quoteItems = extractData(rawQuote);
+            currentPrice = quoteItems[0]?.data?.close ?? quoteItems[0]?.close ?? 0;
           } catch {}
         }
 

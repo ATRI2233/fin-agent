@@ -1,6 +1,22 @@
 import { ToolRegistration } from "../types.js";
 import { MCPClientManager } from "../mcp/mcpClientManager.js";
 
+function extractData(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.content && Array.isArray(raw.content)) {
+    const texts = raw.content
+      .filter((c: any) => c.type === "text" && c.text != null)
+      .map((c: any) => c.text);
+    const results: any[] = [];
+    for (const t of texts) {
+      try { results.push(JSON.parse(t)); }
+      catch { if (t) results.push(t); }
+    }
+    return results;
+  }
+  return [];
+}
+
 interface TechnicalResult {
   symbol: string;
   current_price: number;
@@ -65,14 +81,20 @@ export function registerTechnicalLevels(
           mcpManager.callTool("stock-scanner", "tradingview_quote", { tickers: [symbol] }, 20000),
         ]);
 
-        const tech = techData.status === "fulfilled" ? techData.value?.[0]?.data : null;
-        const quote = quoteData.status === "fulfilled" ? quoteData.value?.[0]?.data : null;
+        const rawTech = techData.status === "fulfilled" ? techData.value : null;
+        const rawQuote = quoteData.status === "fulfilled" ? quoteData.value : null;
+
+        const techItems = extractData(rawTech);
+        const quoteItems = extractData(rawQuote);
+
+        const tech = techItems[0]?.data || techItems[0] || null;
+        const quote = quoteItems[0]?.data || quoteItems[0] || null;
 
         if (!tech) {
           throw new Error("无法获取技术指标数据");
         }
 
-        const currentPrice = quote?.close || tech.SMA20 || 0;
+        const currentPrice = quote?.close ?? quote?.last ?? tech.SMA20 ?? 0;
         if (!currentPrice) throw new Error("无法获取当前价格");
 
         // ── 枢轴点 ──────────────────────────────────────────

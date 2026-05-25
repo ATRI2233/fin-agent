@@ -45,8 +45,24 @@ async function fetchFromFMP(symbol: string, daysAhead: number): Promise<any> {
 }
 
 async function fetchFromTradingView(mcpManager: MCPClientManager, symbol: string): Promise<any> {
+  function extractData(raw: any): any[] {
+    if (Array.isArray(raw)) return raw;
+    if (raw?.content && Array.isArray(raw.content)) {
+      const texts = raw.content
+        .filter((c: any) => c.type === "text" && c.text != null)
+        .map((c: any) => c.text);
+      const results: any[] = [];
+      for (const t of texts) {
+        try { results.push(JSON.parse(t)); }
+        catch { if (t) results.push(t); }
+      }
+      return results;
+    }
+    return [];
+  }
   try {
-    return await mcpManager.callTool("stock-scanner", "tradingview_earnings", { tickers: [symbol] }, 20000);
+    const raw = await mcpManager.callTool("stock-scanner", "tradingview_earnings", { tickers: [symbol] }, 20000);
+    return extractData(raw);
   } catch {
     return null;
   }

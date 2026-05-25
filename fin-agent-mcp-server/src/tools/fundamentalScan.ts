@@ -1,6 +1,22 @@
 import { ToolRegistration } from "../types.js";
 import { MCPClientManager } from "../mcp/mcpClientManager.js";
 
+function extractData(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.content && Array.isArray(raw.content)) {
+    const texts = raw.content
+      .filter((c: any) => c.type === "text" && c.text != null)
+      .map((c: any) => c.text);
+    const results: any[] = [];
+    for (const t of texts) {
+      try { results.push(JSON.parse(t)); }
+      catch { if (t) results.push(t); }
+    }
+    return results;
+  }
+  return [];
+}
+
 interface FundamentalResult {
   symbol: string;
   timestamp: string;
@@ -90,8 +106,12 @@ export function registerFundamentalScan(
           }, 25000),
         ]);
 
-        const scanItem = scanData.status === "fulfilled" ? scanData.value?.[0]?.data : null;
-        const compareItem = compareData.status === "fulfilled" ? compareData.value?.[0]?.data : null;
+        const scanResult = scanData.status === "fulfilled" ? scanData.value : null;
+        const compareResult = compareData.status === "fulfilled" ? compareData.value : null;
+        const scanItems = extractData(scanResult);
+        const compareItems = extractData(compareResult);
+        const scanItem = scanItems[0]?.data || scanItems[0] || null;
+        const compareItem = compareItems[0]?.data || compareItems[0] || null;
         const data = { ...scanItem, ...compareItem };
 
         if (!data || !data.close) {

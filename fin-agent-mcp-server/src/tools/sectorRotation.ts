@@ -1,6 +1,22 @@
 import { ToolRegistration } from "../types.js";
 import { MCPClientManager } from "../mcp/mcpClientManager.js";
 
+function extractData(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.content && Array.isArray(raw.content)) {
+    const texts = raw.content
+      .filter((c: any) => c.type === "text" && c.text != null)
+      .map((c: any) => c.text);
+    const results: any[] = [];
+    for (const t of texts) {
+      try { results.push(JSON.parse(t)); }
+      catch { if (t) results.push(t); }
+    }
+    return results;
+  }
+  return [];
+}
+
 const SECTOR_MAP: Record<string, string> = {
   XLK: "科技", XLF: "金融", XLE: "能源", XLV: "医疗",
   XLY: "可选消费", XLP: "必需消费", XLI: "工业", XLU: "公用事业",
@@ -50,9 +66,10 @@ export function registerSectorRotation(
         // ── 获取板块表现数据 ──────────────────────────────────
         let sectorPerf: any[] = [];
         try {
-          sectorPerf = await mcpManager.callTool(
+          const rawPerf = await mcpManager.callTool(
             "stock-scanner", "tradingview_sector_performance", {}, 20000
-          ) || [];
+          );
+          sectorPerf = extractData(rawPerf);
         } catch { /* fallback to empty */ }
 
         const sectorScores: SectorScore[] = [];

@@ -1,6 +1,22 @@
 import { ToolRegistration } from "../types.js";
 import { MCPClientManager } from "../mcp/mcpClientManager.js";
 
+function extractData(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.content && Array.isArray(raw.content)) {
+    const texts = raw.content
+      .filter((c: any) => c.type === "text" && c.text != null)
+      .map((c: any) => c.text);
+    const results: any[] = [];
+    for (const t of texts) {
+      try { results.push(JSON.parse(t)); }
+      catch { if (t) results.push(t); }
+    }
+    return results;
+  }
+  return [];
+}
+
 const SOURCE_CREDIBILITY: Record<string, number> = {
   "reuters": 0.95, "bloomberg": 0.93, "wsj": 0.90, "ft": 0.90,
   "cnbc": 0.80, "marketwatch": 0.75, "yahoo": 0.70,
@@ -60,13 +76,18 @@ export function registerNewsSentiment(
           mcpManager.callTool("stock-scanner", "finnhub_company_news", { symbol: ticker }, 20000),
         ]);
 
-        const quote = quoteResult.status === "fulfilled" ? quoteResult.value?.[0]?.data : null;
-        const fg = fgResult.status === "fulfilled" ? fgResult.value : null;
-        const rawNews = newsResult.status === "fulfilled" ? newsResult.value : [];
+        const quoteResultRaw = quoteResult.status === "fulfilled" ? quoteResult.value : null;
+        const fgResultRaw = fgResult.status === "fulfilled" ? fgResult.value : null;
+        const newsResultRaw = newsResult.status === "fulfilled" ? newsResult.value : null;
+        const quoteItems = extractData(quoteResultRaw);
+        const fgItems = extractData(fgResultRaw);
+        const newsItemsRaw = extractData(newsResultRaw);
+        const quote = quoteItems[0]?.data || quoteItems[0] || null;
+        const fg = fgItems[0] || null;
+        const rawNews = newsItemsRaw;
 
         const currentPrice = quote?.close || 0;
         const priceChange = quote?.change || 0;
-        const isMarketOpen = !!quote?.premarket_close;
 
         // ── 新闻处理 ─────────────────────────────────────────
         const newsItems: NewsItem[] = [];
@@ -98,8 +119,6 @@ export function registerNewsSentiment(
 
         // ── 情绪计算 ─────────────────────────────────────────
         let rawSentiment = 0;
-        let decayedSentiment = 0;
-        let avgCredibility = 0.5;
         let extremeFlag = false;
 
         if (newsItems.length > 0) {
@@ -117,12 +136,6 @@ export function registerNewsSentiment(
           }
 
           rawSentiment = totalWeight > 0 ? weightedSum / totalWeight : 0;
-          decayedSentiment = rawSentiment;
-
-          avgCredibility = newsItems.reduce((a, n) => {
-            const src = n.source.toLowerCase();
-            return a + (Object.entries(SOURCE_CREDIBILITY).find(([k]) => src.includes(k))?.[1] ?? 0.5);
-          }, 0) / newsItems.length;
 
           extremeFlag = Math.abs(rawSentiment) > 0.7;
         }
