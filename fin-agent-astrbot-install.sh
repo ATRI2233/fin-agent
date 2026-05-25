@@ -437,7 +437,7 @@ if os.path.exists("$fred_path"):
 # risk-mcp
 if os.path.exists("$risk_path"):
     ms["$RISK_MCP_NAME"] = {
-        "command": "python",
+        "command": "python3",
         "args": ["$risk_path"],
         "env": {}
     }
