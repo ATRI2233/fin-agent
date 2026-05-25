@@ -10,7 +10,13 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEPLOY_BASE="${DEPLOY_BASE:-$(dirname "$SCRIPT_DIR")}"
+
+# 源码构建目录（git clone 位置，含 package.json，用于 npm install/build 和 git pull）
+BUILD_DIR="${BUILD_DIR:-$SCRIPT_DIR}"
+
+# 部署路径前缀（写到 mcp_server.json 的路径）
+DEPLOY_BASE="${DEPLOY_BASE:-$SCRIPT_DIR}"
+
 FIN_AGENT_DIR="$DEPLOY_BASE/fin-agent-mcp-server"
 MCP_SERVERS_BASE="$DEPLOY_BASE/mcp_servers"
 
@@ -20,7 +26,7 @@ RISK_MCP_NAME="risk-mcp"
 ASHARE_MCP_NAME="ashare-mcp"
 
 SKILL_NAMES=("market-briefing" "stock-deep" "fin-review" "position-watch")
-SKILL_SOURCE_BASE="$DEPLOY_BASE/fin-agent-skill"
+SKILL_SOURCE_BASE="$BUILD_DIR/fin-agent-skill"
 
 IS_WINDOWS=false
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$(uname -s)" == *"MINGW"* ]]; then
