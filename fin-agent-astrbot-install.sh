@@ -807,7 +807,7 @@ set -- "${POSITIONAL[@]}"
         echo ""
 
         echo "[2] 重建 fin-agent-mcp-server ..."
-        (cd "$FIN_AGENT_DIR" && npm install && npm run build)
+(cd "$BUILD_DIR/fin-agent-mcp-server" && npm install && npm run build)
         echo "      完成"
         echo ""
 
@@ -867,7 +867,7 @@ if os.path.exists(f):
     echo ""
 
     echo "[1/6] 构建 fin-agent-mcp-server ..."
-    [[ ! -f "$FIN_AGENT_DIR/dist/index.js" ]] && (cd "$FIN_AGENT_DIR" && npm install && npm run build)
+    [[ ! -f "$BUILD_DIR/fin-agent-mcp-server/dist/index.js" ]] && (cd "$BUILD_DIR/fin-agent-mcp-server" && npm install && npm run build)
     echo "      完成"
     echo ""
 
