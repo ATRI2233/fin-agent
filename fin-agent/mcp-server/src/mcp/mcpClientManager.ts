@@ -45,7 +45,8 @@ function getMCPConfig(): Record<string, MCPClientConfig> {
   return {
     "stock-scanner": {
       command: "npx",
-      args: ["-y", "stock-scanner-mcp", "--enable-workspace"],
+      args: ["-y", "stock-scanner-mcp", "--enable-workspace",
+        "--modules", "tradingview,tradingview-crypto,sec-edgar,coingecko,options,options-cboe,sentiment,frankfurter,workspace,finnhub,fred"],
       env: {
         FINNHUB_API_KEY: readEnv("FINNHUB_API_KEY"),
         FRED_API_KEY: readEnv("FRED_API_KEY"),
@@ -269,6 +270,13 @@ export class MCPClientManager {
       this.clients.delete(serverName);
     };
     transport.onerror = (err) => {
+      // JSON 解析错误通常是由子进程向 stdout 输出非 JSON 文本导致的
+      // （例如 MCP 服务器的启动横幅），这不意味着连接已断开，
+      // transport 在跳过无效行后会继续处理后续的合法消息。
+      if (err instanceof SyntaxError) {
+        console.warn(`[MCPClientManager] ${serverName} stdout 包含非 JSON 输出，已跳过:`, err.message);
+        return;
+      }
       console.error(`[MCPClientManager] ${serverName} 传输错误:`, err);
       entry.disconnected = true;
     };
