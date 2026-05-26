@@ -116,7 +116,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   const AUTO_LOG_TOOLS = ["market_snapshot", "signal_fusion", "consistency_check"];
   if (AUTO_LOG_TOOLS.includes(request.params.name)) {
     try {
-      const { autoLogAnalysis } = require("./memory/memoryStore.js");
+      const { autoLogAnalysis } = await import("./memory/memoryStore.js");
       const args = request.params.arguments || {};
       const parsed = result.content?.[0]?.text ? JSON.parse(result.content[0].text) : {};
       autoLogAnalysis({
