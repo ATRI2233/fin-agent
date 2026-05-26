@@ -1,5 +1,5 @@
 import { ToolRegistration } from "../types.js";
-import { MemoryStore } from "../memory/sqliteStore.js";
+import { getJudgments } from "../memory/memoryStore.js";
 
 interface ConsistencyReport {
   symbol: string;
@@ -17,7 +17,7 @@ interface ConsistencyReport {
   confidence_stability: number;
 }
 
-export function registerConsistencyCheck(memory: MemoryStore): ToolRegistration {
+export function registerConsistencyCheck(): ToolRegistration {
   return {
     name: "consistency_check",
     description:
@@ -50,14 +50,14 @@ export function registerConsistencyCheck(memory: MemoryStore): ToolRegistration 
     handler: async (request: any) => {
       const args = request.params.arguments || {};
       const symbol = args.symbol;
-      const currentDirection = args.current_direction;
+      const currentDirection = args.current_direction as string | undefined;
       const currentConfidence = args.current_confidence || 50;
       const checkOnly = args.check_only || false;
 
       try {
-        const judgments = await memory.getJudgments(symbol, 20);
+        const judgments = getJudgments(symbol, 20);
 
-        if (judgments.length === 0) {
+        if (!Array.isArray(judgments) || judgments.length === 0) {
           return {
             content: [{ type: "text", text: JSON.stringify({
               symbol,
@@ -69,15 +69,15 @@ export function registerConsistencyCheck(memory: MemoryStore): ToolRegistration 
         }
 
         const thirtyDaysAgo = Date.now() - 30 * 86400000;
-        const previousDirections = judgments.slice(0, 10).map((j) => ({
-          timestamp: j.timestamp,
+        const previousDirections = judgments.slice(0, 10).map((j: any) => ({
+          timestamp: j.created_at || j.timestamp,
           direction: j.direction,
           confidence: j.confidence,
-          age_days: Math.round((Date.now() - new Date(j.timestamp).getTime()) / 86400000),
+          age_days: Math.round((Date.now() - new Date(j.created_at || j.timestamp).getTime()) / 86400000),
         }));
 
         const recentFlips = previousDirections.filter(
-          (d) => new Date(d.timestamp).getTime() > thirtyDaysAgo
+          (d: any) => new Date(d.timestamp).getTime() > thirtyDaysAgo
         );
         let flipCount30d = 0;
         for (let i = 1; i < recentFlips.length; i++) {
@@ -90,12 +90,12 @@ export function registerConsistencyCheck(memory: MemoryStore): ToolRegistration 
 
         const flipWarning = flipCount30d >= 3;
 
-        const confidenceValues = judgments.slice(0, 10).map((j) => j.confidence);
+        const confidenceValues = judgments.slice(0, 10).map((j: any) => j.confidence as number);
         const avgConfidence = confidenceValues.length > 0
-          ? confidenceValues.reduce((a, b) => a + b, 0) / confidenceValues.length
+          ? confidenceValues.reduce((a: number, b: number) => a + b, 0) / confidenceValues.length
           : 50;
         const maxDeviation = confidenceValues.length > 0
-          ? Math.max(...confidenceValues.map((c) => Math.abs(c - avgConfidence)))
+          ? Math.max(...confidenceValues.map((c: number) => Math.abs(c - avgConfidence)))
           : 0;
         const confidenceStability = Math.max(0, 100 - maxDeviation * 2);
 

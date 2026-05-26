@@ -1,23 +1,24 @@
-import sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, "..", "..", "data", "fin-agent.db");
-let db: sqlite3.Database;
+let db: Database.Database;
 
-function getDb(): sqlite3.Database {
+function getDb(): Database.Database {
   if (!db) {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-    db = new sqlite3.Database(DB_PATH);
+    db = new Database(DB_PATH);
+    db.pragma("journal_mode = WAL");
     initTables(db);
   }
   return db;
 }
 
-function initTables(db: sqlite3.Database) {
-  db.exec(`
+function initTables(database: Database.Database) {
+  database.exec(`
     CREATE TABLE IF NOT EXISTS analysis_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       symbol TEXT NOT NULL,
@@ -61,8 +62,8 @@ function initTables(db: sqlite3.Database) {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
-  
-  db.exec(`INSERT OR IGNORE INTO signal_weights (signal_name, base_weight) VALUES
+
+  database.exec(`INSERT OR IGNORE INTO signal_weights (signal_name, base_weight) VALUES
     ('technical', 0.40),
     ('fundamental', 0.35),
     ('sentiment', 0.10),
@@ -96,7 +97,7 @@ export function autoLogAnalysis(result: {
 
 export function recallMemory(symbol: string, limit = 5): any[] {
   const d = getDb();
-  return (d.prepare(`
+  return d.prepare(`
     SELECT a.*,
       (SELECT COUNT(*) FROM market_outcomes m WHERE m.analysis_id = a.id AND m.was_correct = 1) as correct_count,
       (SELECT COUNT(*) FROM market_outcomes m WHERE m.analysis_id = a.id AND m.was_correct IS NOT NULL) as total_verified
@@ -104,7 +105,7 @@ export function recallMemory(symbol: string, limit = 5): any[] {
     WHERE a.symbol = ?
     ORDER BY a.created_at DESC
     LIMIT ?
-  `) as any).all(symbol, limit);
+  `).all(symbol, limit) as any[];
 }
 
 export function verifyOutcome(analysisId: number, actualPrice: number) {
@@ -115,7 +116,7 @@ export function verifyOutcome(analysisId: number, actualPrice: number) {
   const keyPrices = JSON.parse(analysis.key_prices || "{}");
   const support = keyPrices.support?.[0] || 0;
   const resistance = keyPrices.resistance?.[0] || 0;
-  
+
   let wasCorrect: number;
   if (analysis.direction === "bullish" && actualPrice > support) wasCorrect = 1;
   else if (analysis.direction === "bearish" && actualPrice < resistance) wasCorrect = 1;
@@ -135,9 +136,9 @@ export function verifyOutcome(analysisId: number, actualPrice: number) {
 
 export function getExperienceSummary(days = 7): string {
   const d = getDb();
-  
-  const signalStats = (d.prepare(`
-    SELECT 
+
+  const signalStats = d.prepare(`
+    SELECT
       json_extract(a.source_signals, '$.technical') as tech,
       a.direction,
       m.was_correct
@@ -145,28 +146,28 @@ export function getExperienceSummary(days = 7): string {
     LEFT JOIN market_outcomes m ON m.analysis_id = a.id
     WHERE a.created_at >= datetime('now', '-${days} days')
       AND m.was_correct IS NOT NULL
-  `) as any).all() as any[];
+  `).all() as any[];
 
-  const totalStats = (d.prepare(`
-    SELECT 
+  const totalStats = d.prepare(`
+    SELECT
       COUNT(*) as total,
       SUM(CASE WHEN m.was_correct = 1 THEN 1 ELSE 0 END) as correct
     FROM analysis_log a
     JOIN market_outcomes m ON m.analysis_id = a.id
     WHERE a.created_at >= datetime('now', '-${days} days')
-  `) as any).get() as any;
+  `).get() as any;
 
-  const hitRate = totalStats.total > 0 
-    ? Math.round((totalStats.correct / totalStats.total) * 100) 
+  const hitRate = totalStats.total > 0
+    ? Math.round((totalStats.correct / totalStats.total) * 100)
     : null;
 
-  const rules = (d.prepare(
+  const rules = d.prepare(
     "SELECT rule, confidence, hit_count, miss_count FROM learned_rules WHERE active = 1 ORDER BY confidence DESC"
-  ) as any).all() as any[];
+  ).all() as any[];
 
   const parts: string[] = [];
   parts.push(`[记忆系统] 近${days}天经验回顾:`);
-  
+
   if (hitRate !== null) {
     parts.push(`- 总命中率: ${hitRate}% (${totalStats.correct}/${totalStats.total})`);
   } else {
@@ -210,17 +211,17 @@ export function updateRuleAccuracy(ruleId: number, wasCorrect: boolean) {
 
 export function listRules(activeOnly = true): any[] {
   const clause = activeOnly ? "WHERE active = 1" : "";
-  return (getDb().prepare(`SELECT * FROM learned_rules ${clause} ORDER BY confidence DESC`) as any).all();
+  return getDb().prepare(`SELECT * FROM learned_rules ${clause} ORDER BY confidence DESC`).all() as any[];
 }
 
 export function getSignalWeights(): any[] {
-  return (getDb().prepare("SELECT signal_name, base_weight, accuracy_30d FROM signal_weights") as any).all();
+  return getDb().prepare("SELECT signal_name, base_weight, accuracy_30d FROM signal_weights").all() as any[];
 }
 
 export function getJudgments(symbol: string, limit = 10): any[] {
-  return (getDb().prepare("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?") as any).all(symbol, limit);
+  return getDb().prepare("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?").all(symbol, limit) as any[];
 }
 
 export function getAllExperience(minConfidence = 0): any[] {
-  return (getDb().prepare("SELECT * FROM learned_rules WHERE active = 1 AND confidence >= ? ORDER BY confidence DESC") as any).all(minConfidence);
+  return getDb().prepare("SELECT * FROM learned_rules WHERE active = 1 AND confidence >= ? ORDER BY confidence DESC").all(minConfidence) as any[];
 }

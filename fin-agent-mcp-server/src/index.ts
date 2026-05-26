@@ -51,6 +51,7 @@ import { registerCommodityPrices } from "./tools/commodityPrices.js";
 import { registerRiskGauge } from "./tools/riskGauge.js";
 import { registerEarningsCalendar } from "./tools/earningsCalendar.js";
 import { registerMemoryRecall, registerMemoryVerify, registerExperienceSummary, registerRuleManage } from "./tools/memoryTools.js";
+import { registerConsistencyCheck } from "./tools/consistencyCheck.js";
 import { MCPClientManager } from "./mcp/mcpClientManager.js";
 import { ToolRegistration } from "./types.js";
 
@@ -77,6 +78,7 @@ const tools: ToolRegistration[] = [
   registerMemoryVerify(),
   registerExperienceSummary(),
   registerRuleManage(),
+  registerConsistencyCheck(),
 ];
 
 // ── 创建 MCP Server ──────────────────────────────────────
