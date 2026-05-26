@@ -59,7 +59,7 @@ exit /b 0
 ::=============================================================================
 :detect_data
 if not "%ASTRBOT_ROOT%"=="" (
-    set "ASTRBOT_DATA=%ASTRBOT_ROOT%\data"
+    set "ASTRBOT_DATA=%ASTRBOT_ROOT%"
     exit /b 0
 )
 
@@ -108,7 +108,7 @@ if not exist "%MCP_SERVER_DIST%" (
         exit /b 1
     )
     pushd "%MCP_SERVER_SOURCE%"
-    call npm install --silent 2>nul || call npm install
+    call npm install --silent --include=dev 2>nul || call npm install --include=dev
     call npm run build
     popd
     echo       构建完成

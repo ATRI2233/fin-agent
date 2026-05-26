@@ -60,7 +60,7 @@ exit /b 0
 ::=============================================================================
 :detect_data
 if not "%ASTRBOT_ROOT%"=="" (
-    set "ASTRBOT_DATA=%ASTRBOT_ROOT%\data"
+    set "ASTRBOT_DATA=%ASTRBOT_ROOT%"
     exit /b 0
 )
 
@@ -115,7 +115,7 @@ echo.
 echo [2/6] 安装 MCP Server 依赖 ...
 if exist "%MCP_SERVER_SOURCE%\package.json" (
     pushd "%MCP_SERVER_SOURCE%"
-    call npm install --silent 2>nul || call npm install
+    call npm install --silent --include=dev 2>nul || call npm install --include=dev
     call npm run build
     popd
     echo       MCP Server 依赖安装完成
@@ -128,7 +128,8 @@ echo.
 echo [3/6] 安装 FRED MCP Server ...
 if exist "%FRED_MCP_SOURCE%\package.json" (
     pushd "%FRED_MCP_SOURCE%"
-    call npm install --silent 2>nul || call npm install
+    call npm install --silent --include=dev 2>nul || call npm install --include=dev
+    call npm run build
     popd
     echo       FRED MCP Server 依赖安装完成
 ) else (

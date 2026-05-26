@@ -43,7 +43,7 @@ usage() {
 # ---------- 检测 AstrBot 数据目录 ----------
 detect_astrbot_data() {
     if [[ -n "$ASTRBOT_ROOT" ]]; then
-        echo "$ASTRBOT_ROOT/data"
+        echo "$ASTRBOT_ROOT"
         return 0
     fi
 
@@ -79,7 +79,7 @@ install_npm_deps() {
     local dir="$1"
     if [[ ! -d "$dir/node_modules" ]]; then
         echo "      安装 npm 依赖 ..."
-        (cd "$dir" && npm install)
+        (cd "$dir" && npm install --include=dev)
     fi
 }
 
@@ -236,12 +236,12 @@ main() {
         echo ""
 
         echo "[1] 重建 fin-agent-mcp-server ..."
-        (cd "$FIN_AGENT_DIR" && npm install && npm run build)
+        (cd "$FIN_AGENT_DIR" && npm install --include=dev && npm run build)
         echo "      完成"
         echo ""
 
         echo "[2] 重建 fred-mcp-server ..."
-        (cd "$MCP_SERVERS_BASE/fred" && npm install && npm run build 2>/dev/null) || echo "      更新跳过"
+        (cd "$MCP_SERVERS_BASE/fred" && npm install --include=dev && npm run build 2>/dev/null) || echo "      更新跳过"
         echo ""
 
         echo "[3] 更新 Skills ..."
@@ -294,13 +294,13 @@ if os.path.exists(f):
     echo ""
 
     echo "[1/6] 构建 fin-agent-mcp-server ..."
-    [[ ! -f "$FIN_AGENT_DIR/dist/index.js" ]] && (cd "$FIN_AGENT_DIR" && npm install && npm run build)
+    [[ ! -f "$FIN_AGENT_DIR/dist/index.js" ]] && (cd "$FIN_AGENT_DIR" && npm install --include=dev && npm run build)
     echo "      完成"
     echo ""
 
     echo "[2/6] 构建 fred-mcp-server ..."
     if [[ -d "$MCP_SERVERS_BASE/fred" ]]; then
-        (cd "$MCP_SERVERS_BASE/fred" && npm install && npm run build) || echo "      构建跳过"
+        (cd "$MCP_SERVERS_BASE/fred" && npm install --include=dev && npm run build) || echo "      构建跳过"
     fi
     echo ""
 
