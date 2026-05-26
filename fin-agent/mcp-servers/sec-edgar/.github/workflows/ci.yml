@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11', '3.12', '3.13']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      
+      - name: Lint with ruff
+        run: |
+          ruff check sec_edgar_mcp
+          ruff format --check sec_edgar_mcp
+      
+      - name: Type check with mypy
+        run: mypy sec_edgar_mcp
+      
+      - name: Test package functionality
+        env:
+          SEC_EDGAR_USER_AGENT: "Test User (test@example.com)"
+        run: |
+          python -c "
+          import os
+          os.environ['SEC_EDGAR_USER_AGENT'] = 'Test User (test@example.com)'
+          
+          # Test imports
+          import sec_edgar_mcp
+          print(f'[OK] Package version: {sec_edgar_mcp.__version__}')
+          
+          # Test core imports
+          from sec_edgar_mcp.core import EdgarClient
+          from sec_edgar_mcp.tools import CompanyTools, FilingsTools
+          print('[OK] Core modules imported successfully')
+          
+          # Test that tools can be instantiated
+          client = EdgarClient()
+          company_tools = CompanyTools()
+          filings_tools = FilingsTools()
+          print('[OK] Tools instantiated successfully')
+          
+          # Test server can be imported
+          import sec_edgar_mcp.server
+          print('[OK] Server module imported successfully')
+          
+          print('All tests passed!')
+          "
+  
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      
+      - name: Build package
+        run: python -m build
+      
+      - name: Check package with twine
+        run: twine check dist/*
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/

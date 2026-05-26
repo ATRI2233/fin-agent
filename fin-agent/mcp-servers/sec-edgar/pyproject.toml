@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sec-edgar-mcp"
+version = "1.0.8"
+description = "SEC EDGAR MCP server for company filings and financial data"
+authors = [{ name = "Stefano Amorelli", email = "stefano@amorelli.tech" }]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: GNU Affero General Public License v3",
+  "Operating System :: OS Independent",
+]
+dependencies = ["mcp[cli]>=1.7.1", "edgartools>=4.4.0", "requests>=2.31.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sec_edgar_mcp*"]
+
+[project.urls]
+"Homepage" = "https://github.com/stefanoamorelli/sec-edgar-mcp"
+"Bug Tracker" = "https://github.com/stefanoamorelli/sec-edgar-mcp/issues"
+
+[project.scripts]
+sec-edgar-mcp = "sec_edgar_mcp.server:main"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.1.14", "mypy>=1.8"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

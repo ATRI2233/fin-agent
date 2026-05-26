@@ -1,18 +1,67 @@
-# dependencies
+# Node
 node_modules/
+npm-debug.log*
+*.log
 
-# build output
+# Build outputs
 dist/
+build/
 
-# env files
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Linters & type checkers
+.ruff_cache/
+.mypy_cache/
+.pytype/
+tsconfig.tsbuildinfo
+
+# Environment
 .env
-
-# backup files
-*.bak
-
-# Claude local settings
-.claude/settings.local.json
+.env.local
+.env.*.local
+*.local
 
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# Data files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# Backup files
+*.bak
+*.tmp
+*.swp
+
+# Test coverage
+coverage/
+.nyc_output/
