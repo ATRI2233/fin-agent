@@ -70,10 +70,14 @@ export function registerNewsSentiment(
 
       try {
         // ── 并行获取各数据源 ──────────────────────────────────
+        const now = new Date();
+        const toDate = now.toISOString().slice(0, 10);
+        const fromDate = new Date(now.getTime() - hours * 3600000).toISOString().slice(0, 10);
+
         const [quoteResult, fgResult, newsResult] = await Promise.allSettled([
-          mcpManager.callTool("stock-scanner", "tradingview_quote", { tickers: [ticker] }, 15000),
+          mcpManager.callTool("stock-scanner", "finnhub_quote", { symbol: ticker }, 15000),
           mcpManager.callTool("stock-scanner", "sentiment_fear_greed", {}, 15000),
-          mcpManager.callTool("stock-scanner", "finnhub_company_news", { symbol: ticker }, 20000),
+          mcpManager.callTool("stock-scanner", "finnhub_company_news", { symbol: ticker, from: fromDate, to: toDate }, 20000),
         ]);
 
         const quoteResultRaw = quoteResult.status === "fulfilled" ? quoteResult.value : null;
@@ -82,12 +86,12 @@ export function registerNewsSentiment(
         const quoteItems = extractData(quoteResultRaw);
         const fgItems = extractData(fgResultRaw);
         const newsItemsRaw = extractData(newsResultRaw);
-        const quote = quoteItems[0]?.data || quoteItems[0] || null;
+        const quoteData = quoteItems[0]?.data || quoteItems[0] || null;
         const fg = fgItems[0] || null;
         const rawNews = newsItemsRaw;
 
-        const currentPrice = quote?.close || 0;
-        const priceChange = quote?.change || 0;
+        const currentPrice = quoteData?.price || quoteData?.close || 0;
+        const priceChange = quoteData?.changePercent || quoteData?.change || 0;
 
         // ── 新闻处理 ─────────────────────────────────────────
         const newsItems: NewsItem[] = [];
