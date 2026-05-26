@@ -695,7 +695,7 @@ Phase 5: 清理 + 最终验证
 
 ## 提交策略
 
-- [ ] 22. 最终提交 — 统一提交所有重构变更
+- [x] 22. 最终提交 — 统一提交所有重构变更
 
   **What to do**:
   - 执行 `git add .`（确认 .gitignore 已生效）
@@ -719,8 +719,8 @@ Phase 5: 清理 + 最终验证
   **Blocked By**: 任务 1-16 全部完成
 
   **Acceptance Criteria**:
-  - [ ] `git status` 显示预期的变更文件
-  - [ ] `git commit` 成功
+  - [x] `git status` 显示预期的变更文件
+  - [x] `git commit` 成功
 
 ---
 

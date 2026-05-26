@@ -61,18 +61,26 @@ def _run_akshare(script):
 
 
 def is_ashare(symbol):
-    """判断是否为 A 股：代码以 6、0、3 开头"""
-    return symbol.startswith(("6", "0", "3"))
+    """判断是否为 A 股（含 ETF 基金）"""
+    code = symbol.strip().upper()
+    # 6/0/3: 股票；159xxx: 深交所 ETF；51/56/58xxx: 上交所 ETF；16xxx: 深交所 ETF；8/4xxx: 北交所
+    return (
+        code.startswith(("6", "0", "3"))
+        or code.startswith("159")
+        or code.startswith(("51", "56", "58"))
+        or code.startswith("16")
+        or code.startswith(("8", "4"))
+    )
 
 
 def normalize_symbol(symbol):
     """标准化 A 股代码：添加市场后缀"""
     symbol = symbol.strip().upper()
     if is_ashare(symbol):
-        if symbol.startswith("6"):
-            return symbol + ".SS"
-        elif symbol.startswith(("0", "3")):
-            return symbol + ".SZ"
+        market, code = parse_ashare_code(symbol)
+        if market:
+            suffix = {"sh": ".SS", "sz": ".SZ", "bj": ".BJ"}.get(market, "")
+            return code + suffix
     return symbol
 
 
