@@ -7,6 +7,7 @@ try:
     import yfinance as yf
     import numpy as np
     import pandas as pd
+
     HAS_DEPS = True
 except ImportError:
     HAS_DEPS = False
@@ -22,14 +23,22 @@ def _close_series(data):
 # Tool 1: risk_gauge — 风控指标计算
 # ═══════════════════════════════════════════════
 
+
 def calculate_risk(symbol):
     if not HAS_DEPS:
-        return error_result(symbol, "yfinance/numpy not installed. Run: pip install yfinance numpy pandas")
+        return error_result(
+            symbol,
+            "yfinance/numpy not installed. Run: pip install yfinance numpy pandas",
+        )
 
     try:
         data = yf.download(symbol, period="1y", progress=False, timeout=30)
         if data.empty or len(data) < 60:
-            return {**base_result(symbol), "error": "Insufficient data (need >=60 trading days)", "risk_level": "unknown"}
+            return {
+                **base_result(symbol),
+                "error": "Insufficient data (need >=60 trading days)",
+                "risk_level": "unknown",
+            }
 
         close = _close_series(data).dropna()
         price = float(close.iloc[-1])
@@ -59,15 +68,22 @@ def calculate_risk(symbol):
         if var_95_pct > 3:
             warnings.append(f"高VaR: {var_95_pct}%（>3%单日最大预期亏损）")
 
-        levels = {"high": "HIGH — 降低仓位", "medium": "MEDIUM — 轻仓试探", "low": "LOW — 正常操作范围"}
+        levels = {
+            "high": "HIGH — 降低仓位",
+            "medium": "MEDIUM — 轻仓试探",
+            "low": "LOW — 正常操作范围",
+        }
         warnings.append(f"风险等级: {levels[risk_level]}")
 
         return {
-            "symbol": symbol, "last_price": round(price, 2),
-            "volatility_20d_pct": vol_20d_pct, "volatility_60d_pct": vol_60d_pct,
+            "symbol": symbol,
+            "last_price": round(price, 2),
+            "volatility_20d_pct": vol_20d_pct,
+            "volatility_60d_pct": vol_60d_pct,
             "drawdown_from_52w_high_pct": drawdown_pct,
             "var_95_daily_pct": var_95_pct,
-            "risk_level": risk_level, "warnings": warnings,
+            "risk_level": risk_level,
+            "warnings": warnings,
         }
     except Exception as e:
         return error_result(symbol, str(e))
@@ -77,7 +93,10 @@ def calculate_risk(symbol):
 # Tool 2: position_sizing — 凯利公式仓位计算
 # ═══════════════════════════════════════════════
 
-def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_fraction=0.25):
+
+def calculate_position(
+    symbol, expected_return=None, risk_free_rate=0.05, kelly_fraction=0.25
+):
     """
     基于凯利公式优化和波动率目标计算建议仓位。
 
@@ -93,7 +112,11 @@ def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_
     try:
         data = yf.download(symbol, period="1y", progress=False, timeout=30)
         if data.empty or len(data) < 120:
-            return {**base_result(symbol), "error": "Insufficient data (need >=120 trading days)", "confidence": "low"}
+            return {
+                **base_result(symbol),
+                "error": "Insufficient data (need >=120 trading days)",
+                "confidence": "low",
+            }
 
         close = _close_series(data).dropna()
         price = float(close.iloc[-1])
@@ -107,7 +130,7 @@ def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_
         # 凯利公式: f* = (R - r_f) / σ²
         # R=预期收益率, r_f=无风险利率, σ=波动率
         excess_return = exp_ret - risk_free_rate
-        variance = annual_vol ** 2
+        variance = annual_vol**2
 
         if variance <= 0:
             kelly_pct = 0
@@ -120,7 +143,9 @@ def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_
 
         # 波动率目标仓位（目标波动率 20%）
         target_vol = 0.20
-        vol_parity = round((target_vol / annual_vol) * 100, 2) if annual_vol > 0 else 100
+        vol_parity = (
+            round((target_vol / annual_vol) * 100, 2) if annual_vol > 0 else 100
+        )
         vol_parity = round(min(vol_parity, 100), 2)
 
         # 综合建议 = 凯利和波动率目标中较低者（保守原则）
@@ -164,6 +189,7 @@ def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_
 # Tool 3: institutional_flow — 机构持仓分析
 # ═══════════════════════════════════════════════
 
+
 def get_institutional_flow(symbol, top_n=10):
     """
     通过 yfinance 获取机构持仓数据。
@@ -184,14 +210,22 @@ def get_institutional_flow(symbol, top_n=10):
         if holders_raw is not None and not holders_raw.empty:
             try:
                 df = holders_raw.head(top_n)
-                if hasattr(df, 'iterrows'):
+                if hasattr(df, "iterrows"):
                     for _, row in df.iterrows():
                         holder = {
                             "holder": str(row.get("Holder", "")),
-                            "shares": int(row["Shares"]) if pd.notna(row.get("Shares")) else 0,
-                            "value": float(row["Value"]) if pd.notna(row.get("Value")) else 0,
-                            "pct_held": float(row["pctHeld"]) if pd.notna(row.get("pctHeld")) else 0,
-                            "pct_change": float(row["pctChange"]) if pd.notna(row.get("pctChange")) else 0,
+                            "shares": int(row["Shares"])
+                            if pd.notna(row.get("Shares"))
+                            else 0,
+                            "value": float(row["Value"])
+                            if pd.notna(row.get("Value"))
+                            else 0,
+                            "pct_held": float(row["pctHeld"])
+                            if pd.notna(row.get("pctHeld"))
+                            else 0,
+                            "pct_change": float(row["pctChange"])
+                            if pd.notna(row.get("pctChange"))
+                            else 0,
                             "date": str(row.get("Date Reported", ""))[:10],
                         }
                         total_value += holder["value"]
@@ -204,10 +238,12 @@ def get_institutional_flow(symbol, top_n=10):
         major_raw = ticker.major_holders
         if major_raw is not None and not major_raw.empty:
             try:
-                if hasattr(major_raw, 'iterrows'):
+                if hasattr(major_raw, "iterrows"):
                     for idx_name, row in major_raw.iterrows():
-                        val = str(row.iloc[0]) if hasattr(row, 'iloc') else str(row)
-                        if "Institution" in str(idx_name) or "institution" in str(idx_name):
+                        val = str(row.iloc[0]) if hasattr(row, "iloc") else str(row)
+                        if "Institution" in str(idx_name) or "institution" in str(
+                            idx_name
+                        ):
                             pct = val
             except Exception:
                 pass
@@ -217,18 +253,22 @@ def get_institutional_flow(symbol, top_n=10):
         share_trend = []
         if shares_full is not None and not shares_full.empty:
             recent = shares_full.tail(4)
-            if hasattr(recent, 'items'):
+            if hasattr(recent, "items"):
                 for date_str, val in recent.items():
-                    share_trend.append({
-                        "date": str(date_str)[:10],
-                        "shares_outstanding": int(val),
-                    })
-            elif hasattr(recent, 'iterrows'):
+                    share_trend.append(
+                        {
+                            "date": str(date_str)[:10],
+                            "shares_outstanding": int(val),
+                        }
+                    )
+            elif hasattr(recent, "iterrows"):
                 for date_str, row in recent.iterrows():
-                    share_trend.append({
-                        "date": str(date_str)[:10],
-                        "shares_outstanding": int(row.iloc[0]),
-                    })
+                    share_trend.append(
+                        {
+                            "date": str(date_str)[:10],
+                            "shares_outstanding": int(row.iloc[0]),
+                        }
+                    )
 
         result = {
             "symbol": symbol,
@@ -251,8 +291,10 @@ def get_institutional_flow(symbol, top_n=10):
 # 辅助函数
 # ═══════════════════════════════════════════════
 
+
 def base_result(symbol):
     return {"symbol": symbol}
+
 
 def error_result(symbol, msg):
     return {**base_result(symbol), "error": msg}
@@ -281,9 +323,18 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
-                "expected_return": {"type": "number", "description": "预期年化收益率（小数），如 0.15 表示15%，不传则用历史数据估算"},
-                "risk_free_rate": {"type": "number", "description": "无风险利率（小数），默认 0.05"},
-                "kelly_fraction": {"type": "number", "description": "凯利比例上限，默认 0.25（全凯利过于激进）"},
+                "expected_return": {
+                    "type": "number",
+                    "description": "预期年化收益率（小数），如 0.15 表示15%，不传则用历史数据估算",
+                },
+                "risk_free_rate": {
+                    "type": "number",
+                    "description": "无风险利率（小数），默认 0.05",
+                },
+                "kelly_fraction": {
+                    "type": "number",
+                    "description": "凯利比例上限，默认 0.25（全凯利过于激进）",
+                },
             },
             "required": ["symbol"],
         },
@@ -308,6 +359,22 @@ def handle_request(req):
     params = req.get("params", {})
     req_id = req.get("id")
 
+    # MCP 协议握手
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "risk-mcp-server", "version": "1.0.0"},
+            },
+            "id": req_id,
+        }
+
+    if method == "notifications/initialized":
+        # 握手完成确认，不需要回复
+        return None
+
     if method == "tools/list":
         return {"jsonrpc": "2.0", "result": {"tools": TOOLS}, "id": req_id}
 
@@ -318,13 +385,21 @@ def handle_request(req):
         if name == "risk_gauge":
             symbol = args.get("symbol", "")
             if not symbol:
-                return {"jsonrpc": "2.0", "error": {"message": "缺少 symbol"}, "id": req_id}
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {"message": "缺少 symbol"},
+                    "id": req_id,
+                }
             result = calculate_risk(symbol.upper())
 
         elif name == "position_sizing":
             symbol = args.get("symbol", "")
             if not symbol:
-                return {"jsonrpc": "2.0", "error": {"message": "缺少 symbol"}, "id": req_id}
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {"message": "缺少 symbol"},
+                    "id": req_id,
+                }
             result = calculate_position(
                 symbol.upper(),
                 expected_return=args.get("expected_return"),
@@ -335,19 +410,38 @@ def handle_request(req):
         elif name == "institutional_flow":
             symbol = args.get("symbol", "")
             if not symbol:
-                return {"jsonrpc": "2.0", "error": {"message": "缺少 symbol"}, "id": req_id}
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {"message": "缺少 symbol"},
+                    "id": req_id,
+                }
             result = get_institutional_flow(symbol.upper(), top_n=args.get("top_n", 10))
 
         else:
-            return {"jsonrpc": "2.0", "error": {"message": f"Unknown tool: {name}"}, "id": req_id}
+            return {
+                "jsonrpc": "2.0",
+                "error": {"message": f"Unknown tool: {name}"},
+                "id": req_id,
+            }
 
         return {
             "jsonrpc": "2.0",
-            "result": {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False, default=str)}]},
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(result, ensure_ascii=False, default=str),
+                    }
+                ]
+            },
             "id": req_id,
         }
 
-    return {"jsonrpc": "2.0", "error": {"message": f"Unknown method: {method}"}, "id": req_id}
+    return {
+        "jsonrpc": "2.0",
+        "error": {"message": f"Unknown method: {method}"},
+        "id": req_id,
+    }
 
 
 if __name__ == "__main__":
@@ -357,8 +451,9 @@ if __name__ == "__main__":
             continue
         try:
             resp = handle_request(json.loads(line))
-            print(json.dumps(resp, ensure_ascii=False))
-            sys.stdout.flush()
+            if resp is not None:
+                print(json.dumps(resp, ensure_ascii=False))
+                sys.stdout.flush()
         except Exception as e:
             print(json.dumps({"jsonrpc": "2.0", "error": {"message": str(e)}}))
             sys.stdout.flush()

@@ -82,7 +82,112 @@ def get_market_code(symbol):
         return "sh"
     elif symbol.endswith(".SZ"):
         return "sz"
+    elif symbol.endswith(".BJ"):
+        return "bj"
     return None
+
+
+def is_etf(symbol):
+    """判断是否为 ETF（基金代码特征）"""
+    code = symbol.strip().upper()
+    # 159xxx: 深交所 ETF（如 159632）
+    # 51xxx / 56xxx / 58xxx: 上交所 ETF（如 510050, 512000, 588000）
+    # 16xxx: 深交所 ETF（如 159600）
+    # 8xxxx / 4xxxx: 北交所基金（如 833171）
+    return (
+        code.startswith("159")
+        or code.startswith("51")
+        or code.startswith("56")
+        or code.startswith("58")
+        or code.startswith("16")
+        or code.startswith("8")
+        or code.startswith("4")
+    )
+
+
+def parse_ashare_code(symbol):
+    """解析 A 股代码，返回 (市场前缀, 6位代码)
+
+    分类规则：
+    - 159xxx → sz（深交所 ETF）
+    - 51/56/58xxx → sh（上交所 ETF）
+    - 16xxx → sz（深交所 ETF）
+    - 8/4xxx → bj（北交所）
+    - 6xxx → sh（上交所）
+    - 0/3xxx → sz（深交所）
+    """
+    code = symbol.strip().upper()
+    if len(code) != 6 and not code.isdigit():
+        return None, symbol
+
+    prefix = code[:3]
+    if prefix.startswith("159"):
+        return "sz", code
+    elif prefix.startswith(("51", "56", "58")):
+        return "sh", code
+    elif prefix.startswith("16"):
+        return "sz", code
+    elif prefix.startswith(("8", "4")):
+        return "bj", code
+    elif code.startswith("6"):
+        return "sh", code
+    elif code.startswith(("0", "3")):
+        return "sz", code
+    else:
+        return None, code
+
+
+def get_daily_data(symbol):
+    """统一获取 A 股日线数据，自动处理 ETF 和不同市场
+
+    Returns:
+        dict: 包含 klines 列表，每项含 date/open/high/low/close/vol
+              或 {"error": ...} 表示失败
+    """
+    market, code = parse_ashare_code(symbol)
+    if not market:
+        return {"error": f"无法识别的 A 股代码: {symbol}"}
+
+    try:
+        import json
+
+        if market == "bj":
+            # 北交所：使用腾讯接口
+            url = f"https://qt.gtimg.cn/q=sh{code}"
+            text = _http_get(url, encoding="gbk")
+            if not text or "failed" in text:
+                return {"error": f"北交所 {symbol} 数据获取失败"}
+            return {"klines": [], "raw": text, "market": "bj"}  # 北交所暂不支持 K 线
+
+        elif is_etf(symbol):
+            # ETF：使用新浪基金历史数据
+            url = (
+                f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php"
+                f"/CN_MarketData.getKLineData"
+                f"?symbol=sh{code}&scale=240&ma=no&datalen=250"
+            )
+            text = _http_get(url, encoding="utf-8")
+            if not text:
+                return {"error": f"ETF {symbol} 历史数据获取失败"}
+            klines = json.loads(text) if text.startswith("[") else []
+            return {"klines": klines, "market": "etf", "code": code}
+
+        else:
+            # 普通股票：使用新浪 K 线接口
+            market_prefix = "sh" if market == "sh" else "sz"
+            url = (
+                f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php"
+                f"/CN_MarketData.getKLineData"
+                f"?symbol={market_prefix}{code}&scale=240&ma=no&datalen=250"
+            )
+            text = _http_get(url, encoding="utf-8")
+            if not text:
+                return {"error": f"股票 {symbol} 历史数据获取失败"}
+            klines = json.loads(text) if text.startswith("[") else []
+            return {"klines": klines, "market": "stock", "code": code}
+
+    except Exception as e:
+        return {"error": f"获取日线数据失败: {str(e)}"}
 
 
 def _http_get(url, headers=None, timeout=15, encoding="gbk"):
@@ -234,28 +339,11 @@ def get_technical_levels(symbol):
         return {"error": f"{symbol} 不是 A 股代码"}
 
     try:
-        stock_code = symbol[:6]
-        market_prefix = "sh" if symbol.startswith("6") else "sz"
+        data = get_daily_data(symbol)
+        if "error" in data:
+            return data
 
-        url = (
-            f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php"
-            f"/CN_MarketData.getKLineData"
-            f"?symbol={market_prefix}{stock_code}&scale=240&ma=no&datalen=250"
-        )
-        text = _http_get(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://finance.sina.com.cn/",
-            },
-            encoding="utf-8",
-        )
-        if not text:
-            return {"error": "无法获取历史数据（网络问题）"}
-
-        import json
-
-        klines = json.loads(text)
+        klines = data.get("klines", [])
         if not klines or not isinstance(klines, list):
             return {"error": "K线数据为空或格式错误"}
 
@@ -388,11 +476,18 @@ def get_fundamental_scan(symbol):
     if not is_ashare(symbol):
         return {"error": f"{symbol} 不是 A 股代码"}
 
-    try:
-        stock_code = symbol[:6]
-        market_prefix = "sh" if symbol.startswith("6") else "sz"
+    if is_etf(symbol):
+        return {
+            "error": f"{symbol} 是 ETF 基金，无传统基本面数据（PE/PB/ROE 不适用）",
+            "symbol": symbol,
+        }
 
-        url = f"https://qt.gtimg.cn/q={market_prefix}{stock_code}"
+    try:
+        market, code = parse_ashare_code(symbol)
+        if not market:
+            return {"error": f"无法识别的代码: {symbol}"}
+
+        url = f"https://qt.gtimg.cn/q={market}{code}"
         text = _http_get(
             url,
             headers={
@@ -603,10 +698,11 @@ def get_fund_flow(symbol):
         return {"error": f"{symbol} 不是 A 股代码"}
 
     try:
-        stock_code = symbol[:6]
-        market_prefix = "sh" if symbol.startswith("6") else "sz"
+        market, code = parse_ashare_code(symbol)
+        if not market:
+            return {"error": f"无法识别的代码: {symbol}"}
 
-        url = f"https://qt.gtimg.cn/q={market_prefix}{stock_code}"
+        url = f"https://qt.gtimg.cn/q={market}{code}"
         text = _http_get(
             url,
             headers={
@@ -789,6 +885,22 @@ def handle_request(req):
     params = req.get("params", {})
     req_id = req.get("id")
 
+    # MCP 协议握手
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "ashare-mcp-server", "version": "1.0.0"},
+            },
+            "id": req_id,
+        }
+
+    if method == "notifications/initialized":
+        # 握手完成确认，不需要回复
+        return None
+
     if method == "tools/list":
         return {"jsonrpc": "2.0", "result": {"tools": TOOLS}, "id": req_id}
 
@@ -859,8 +971,9 @@ if __name__ == "__main__":
             continue
         try:
             resp = handle_request(json.loads(line))
-            print(json.dumps(resp, ensure_ascii=False))
-            sys.stdout.flush()
+            if resp is not None:
+                print(json.dumps(resp, ensure_ascii=False))
+                sys.stdout.flush()
         except Exception as e:
             print(json.dumps({"jsonrpc": "2.0", "error": {"message": str(e)}}))
             sys.stdout.flush()
