@@ -8,7 +8,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "daily": "ts-node src/index.ts daily",
-    "weekly": "ts-node src/index.ts weekly"
+    "weekly": "ts-node src/index.ts weekly",
+    "orchestrate": "ts-node src/orchestrator.ts"
   },
   "dependencies": {
     "z-ai-web-dev-sdk": "latest"

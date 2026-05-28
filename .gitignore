@@ -65,3 +65,23 @@ data/
 # Test coverage
 coverage/
 .nyc_output/
+
+# OpenCode working files
+.omo/
+
+# IDE
+.idea/
+
+# Temp files
+temp_*.txt
+vite_err.txt
+vite_out.txt
+
+# Build artifacts
+opencode-plugin/web/server/dist/
+opencode-plugin/web/dist/
+opencode-plugin/dist/
+
+# Deployment package (rebuild from source)
+deploy/
+*.zip
