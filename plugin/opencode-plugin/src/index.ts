@@ -27,25 +27,25 @@ const MCP_SERVERS: Record<string, Record<string, unknown>> = {
   "fin-agent-mcp-server": {
     type: "stdio",
     command: "node",
-    args: ["fin-agent/mcp-server/dist/index.js"],
+    args: ["src/mcp-server/dist/index.js"],
     description: "核心金融分析 MCP - 聚合多源数据，提供技术分析、记忆层、逻辑一致性引擎",
   },
   "fred-mcp-server": {
     type: "stdio",
     command: "node",
-    args: ["fin-agent/mcp-servers/fred/build/index.js"],
+    args: ["src/mcp-servers/fred/build/index.js"],
     description: "美联储经济数据 (FRED) - 800,000+ 经济时序数据",
   },
   "ashare-mcp-server": {
     type: "stdio",
     command: "python",
-    args: ["fin-agent/mcp-servers/ashare/ashare_mcp_server.py"],
+    args: ["src/mcp-servers/ashare/ashare_mcp_server.py"],
     description: "A 股数据 - 使用 akshare 提供行情、技术面、基本面、新闻数据",
   },
   "risk-mcp-server": {
     type: "stdio",
     command: "python",
-    args: ["fin-agent/mcp-servers/risk/risk_mcp_server.py"],
+    args: ["src/mcp-servers/risk/risk_mcp_server.py"],
     description: "本地风控计算 - 仓位管理，机构持仓分析",
   },
     "sec-edgar-mcp": {
@@ -127,7 +127,7 @@ function getAgentDescription(name: string): string {
  */
 function resolvePluginRoot(): string {
   // import.meta.url gives us the URL of the current module
-  // e.g., file:///D:/path/to/opencode-plugin/dist/index.js
+  // e.g., file:///D:/path/to/plugin/opencode-plugin/dist/index.js
   const currentFileUrl = import.meta.url;
   const currentFilePath = new URL(currentFileUrl).pathname;
 

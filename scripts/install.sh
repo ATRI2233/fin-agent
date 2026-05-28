@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #==============================================================================
-# fin-agent/install.sh - Fin Agent MCP Server 安装脚本
+# scripts/install.sh (formerly fin-agent/install.sh) - FinAgent MCP Server 安装脚本
 #
 # 将 fin-agent MCP Server 及相关 MCP Server 接入 AstrBot
 #

@@ -193,7 +193,7 @@ async function main() {
   }
 
   console.log("\nNote: The plugin package itself was not removed.");
-  console.log("To fully remove the plugin, delete the opencode-plugin/ directory.");
+  console.log("To fully remove the plugin, delete the plugin/opencode-plugin/ directory.");
   console.log("\nPlease restart opencode for changes to take effect.");
 }
 

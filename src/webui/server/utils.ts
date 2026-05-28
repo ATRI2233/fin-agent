@@ -15,7 +15,7 @@ export function resolveProjectRoot(): string {
   }
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  // server/dist/ → server/ → web/ → opencode-plugin/ → project root
+  // server/dist/ → server/ → webui/ → src/ → project root (was opencode-plugin/)
   return path.resolve(__dirname, '..', '..', '..', '..');
 }
 

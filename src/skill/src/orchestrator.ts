@@ -2,7 +2,7 @@
  * 多 Agent 调度器 — 8 Agent 并行协作
  *
  * 流程：
- *   1. 解析 agent 配置（fin-agent/skill/agents/*.md）
+ *   1. 解析 agent 配置（src/skill/agents/*.md）
  *   2. 并行执行 Agent 1-7（各自调用白名单内的 MCP 工具）
  *   3. 收集结果传入 Agent 8（Fusion Brain 做融合计算）
  *   4. 输出最终结果
