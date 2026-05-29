@@ -134,7 +134,7 @@ export default function OHMYEditorPage() {
                       </Tag>
                     )}
                   </Space>
-                  <Text type="secondary" ellipsis={{ rows: 2 }}>
+                  <Text type="secondary" ellipsis>
                     {agent.description || 'No description'}
                   </Text>
                 </Space>
@@ -167,7 +167,7 @@ export default function OHMYEditorPage() {
                       <Tag>{category.agents.length} agents</Tag>
                     )}
                   </Space>
-                  <Text type="secondary" ellipsis={{ rows: 2 }}>
+                  <Text type="secondary" ellipsis>
                     {category.description || 'No description'}
                   </Text>
                   {category.agents && category.agents.length > 0 && (

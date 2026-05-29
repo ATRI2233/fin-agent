@@ -21,6 +21,7 @@ set "ACTION=install"
 if "%~1"=="" goto :args_done
 if /i "%~1"=="--help" goto :show_help
 if /i "%~1"=="--uninstall" set "ACTION=uninstall" & shift & goto :parse_args
+if /i "%~1"=="--update" set "ACTION=update" & shift & goto :parse_args
 if /i "%~1"=="--astrbot-data" (
     set "ASTRBOT_ROOT=%~2"
     shift & shift & goto :parse_args
@@ -34,6 +35,7 @@ exit /b 1
 :: 主入口
 ::=============================================================================
 if /i "%ACTION%"=="uninstall" call :uninstall & goto :end
+if /i "%ACTION%"=="update" call :update & goto :end
 call :install
 goto :end
 
@@ -45,6 +47,7 @@ echo Usage: install.bat [OPTIONS]
 echo.
 echo OPTIONS:
 echo   --astrbot-data PATH   AstrBot 数据目录 (默认: 自动检测)
+echo   --update              更新 fin-agent ^(重建 + 更新配置, 保留 .env^)
 echo   --uninstall           卸载 fin-agent ^(停止接入^)
 echo   --help                显示帮助
 echo.
@@ -222,6 +225,75 @@ powershell -NoProfile -Command ^
 set "FIN_AGENT_PATH="
 
 :configure_done
+exit /b 0
+
+::=============================================================================
+:: 更新流程（保留 .env，只重建 + 更新 mcp_server.json + skills）
+::=============================================================================
+:update
+echo ============================================
+echo   fin-agent 更新模式
+echo ============================================
+echo.
+
+call :detect_data
+if errorlevel 1 exit /b 1
+echo AstrBot 数据目录: %ASTRBOT_DATA%
+echo.
+
+set "MCP_SERVERS_FILE=%ASTRBOT_DATA%\mcp_server.json"
+set "MCP_SERVER_SOURCE=%FIN_AGENT_ROOT%\mcp-server"
+
+:: [1] 重建 fin-agent-mcp-server
+echo [1/3] 重建 fin-agent-mcp-server ...
+if exist "%MCP_SERVER_SOURCE%\package.json" (
+    pushd "%MCP_SERVER_SOURCE%"
+    call npm install --silent --include=dev 2>nul || call npm install --include=dev
+    call npm run build
+    popd
+    echo       MCP Server 重建完成
+)
+echo.
+
+:: [2] 配置 MCP Server（保留 .env 中已有的密钥）
+echo [2/3] 更新 MCP Server 配置 ...
+call :update_mcp_config
+echo.
+
+:: [3] 复制 Skills
+echo [3/3] 更新 Skills ...
+for %%S in (market-briefing stock-deep fin-review position-watch) do (
+    set "src=%FIN_AGENT_ROOT%\skill\%%S\SKILL.md"
+    set "dst=%ASTRBOT_DATA%\skills\%%S\SKILL.md"
+    if not exist "!src!" (
+        echo       警告: !src! 不存在，跳过
+    ) else (
+        if not exist "%ASTRBOT_DATA%\skills\%%S" mkdir "%ASTRBOT_DATA%\skills\%%S"
+        copy /Y "!src!" "!dst!" >nul
+        echo       %%S - 已更新
+    )
+)
+echo.
+
+echo ============================================
+echo   更新完成，重启 AstrBot 后生效
+echo ============================================
+echo.
+goto :end
+
+:: 更新 mcp_server.json（保留已有 env）
+:update_mcp_config
+set "MCP_SERVER_DIST=%MCP_SERVER_SOURCE%\dist\index.js"
+set "NODE_PATH=%MCP_SERVER_DIST:\=/%"
+
+powershell -NoProfile -Command ^
+    "$json = if (Test-Path '%MCP_SERVERS_FILE%') { Get-Content '%MCP_SERVERS_FILE%' -Raw | ConvertFrom-Json } else { @{mcpServers=@{}} }; " ^
+    "if (-not $json.mcpServers) { $json = $json | Add-Member -Name mcpServers -Value @{} -MemberType NoteProperty -PassThru }; " ^
+    "$existingEnv = if ($json.mcpServers.'%MCP_SERVER_NAME%' -and $json.mcpServers.'%MCP_SERVER_NAME%'.env) { $json.mcpServers.'%MCP_SERVER_NAME%'.env } else { @{} }; " ^
+    "$svr = @{command='node'; args=@('%MCP_SERVER_DIST:\=/%'); env=@{FINNHUB_API_KEY=($existingEnv.FINNHUB_API_KEY); FRED_API_KEY=($existingEnv.FRED_API_KEY); OILPRICE_API_KEY=($existingEnv.OILPRICE_API_KEY); OILPRICEAPI_KEY=($existingEnv.OILPRICEAPI_KEY); HTTP_PROXY=($existingEnv.HTTP_PROXY); HTTPS_PROXY=($existingEnv.HTTPS_PROXY)}}; " ^
+    "$json.mcpServers | Add-Member -Name '%MCP_SERVER_NAME%' -Value $svr -MemberType NoteProperty -Force; " ^
+    "$json | ConvertTo-Json -Depth 10 | Set-Content '%MCP_SERVERS_FILE%'"
+echo       mcp_server.json 已更新（保留已有密钥）
 exit /b 0
 
 ::=============================================================================

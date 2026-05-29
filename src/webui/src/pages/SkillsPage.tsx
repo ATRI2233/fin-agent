@@ -6,6 +6,9 @@ import {
   Modal,
   Spin,
   Alert,
+  Segmented,
+  Switch,
+  Popconfirm,
   message,
   Row,
   Col,
@@ -14,18 +17,25 @@ import {
 import {
   EyeOutlined,
   EditOutlined,
+  DeleteOutlined,
+  SwapOutlined,
   ReloadOutlined,
   SaveOutlined,
   ThunderboltOutlined,
+  GlobalOutlined,
+  FolderOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 
 const { Title, Text, Paragraph } = Typography;
 
+type Scope = 'global' | 'project';
+
 interface SkillMeta {
   name: string;
   description: string;
   filePath: string;
+  enabled: boolean;
 }
 
 interface SkillContent {
@@ -38,6 +48,7 @@ export default function SkillsPage() {
   const [skills, setSkills] = useState<SkillMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>('global');
 
   // View modal state
   const [viewVisible, setViewVisible] = useState(false);
@@ -50,11 +61,21 @@ export default function SkillsPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Load scope preference
+  useEffect(() => {
+    fetch('/api/config/scope')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.skills) setScope(data.skills);
+      })
+      .catch(() => {});
+  }, []);
+
   const fetchSkills = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/skills');
+      const res = await fetch(`/api/skills?scope=${scope}`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -67,18 +88,30 @@ export default function SkillsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     fetchSkills();
   }, [fetchSkills]);
+
+  const handleScopeChange = async (newScope: Scope) => {
+    setScope(newScope);
+    // Save scope preference
+    try {
+      await fetch('/api/config/scope', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skills: newScope }),
+      });
+    } catch {}
+  };
 
   const handleView = async (name: string) => {
     setViewVisible(true);
     setViewLoading(true);
     setViewContent(null);
     try {
-      const res = await fetch(`/api/skills/${name}/content`);
+      const res = await fetch(`/api/skills/${name}/content?scope=${scope}`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -98,7 +131,7 @@ export default function SkillsPage() {
     setEditLoading(true);
     setEditContent(null);
     try {
-      const res = await fetch(`/api/skills/${name}/content`);
+      const res = await fetch(`/api/skills/${name}/content?scope=${scope}`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -117,7 +150,7 @@ export default function SkillsPage() {
     if (!editContent) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/skills/${editContent.name}/content`, {
+      const res = await fetch(`/api/skills/${editContent.name}/content?scope=${scope}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editContent.content }),
@@ -132,6 +165,56 @@ export default function SkillsPage() {
       message.error(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (name: string) => {
+    try {
+      const res = await fetch(`/api/skills/${name}?scope=${scope}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      message.success(`Skill ${name} deleted`);
+      fetchSkills();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete skill';
+      message.error(msg);
+    }
+  };
+
+  const handleMove = async (name: string) => {
+    try {
+      const res = await fetch(`/api/skills/${name}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: scope }),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      message.success(`Skill ${name} moved to ${data.to}`);
+      fetchSkills();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to move skill';
+      message.error(msg);
+    }
+  };
+
+  const handleToggle = async (name: string) => {
+    try {
+      const res = await fetch(`/api/skills/${name}/toggle?scope=${scope}`, { method: 'POST' });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setSkills((prev) =>
+        prev.map((s) => (s.name === name ? { ...s, enabled: data.enabled } : s)),
+      );
+      message.success(`Skill ${name} ${data.enabled ? 'enabled' : 'disabled'}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to toggle skill';
+      message.error(msg);
     }
   };
 
@@ -178,9 +261,35 @@ export default function SkillsPage() {
           </Title>
           <Text type="secondary">Manage skill configurations and prompts</Text>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={fetchSkills} loading={loading}>
-          Reload
-        </Button>
+        <Space>
+          <Segmented
+            value={scope}
+            onChange={(value) => handleScopeChange(value as Scope)}
+            options={[
+              {
+                label: (
+                  <Space>
+                    <GlobalOutlined />
+                    Global
+                  </Space>
+                ),
+                value: 'global',
+              },
+              {
+                label: (
+                  <Space>
+                    <FolderOutlined />
+                    Project
+                  </Space>
+                ),
+                value: 'project',
+              },
+            ]}
+          />
+          <Button icon={<ReloadOutlined />} onClick={fetchSkills} loading={loading}>
+            Reload
+          </Button>
+        </Space>
       </div>
 
       {skills.length === 0 ? (
@@ -207,14 +316,22 @@ export default function SkillsPage() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
+                      justifyContent: 'space-between',
                       gap: 8,
                       marginBottom: 8,
                     }}
                   >
-                    <ThunderboltOutlined style={{ color: '#52c41a' }} />
-                    <Text strong style={{ fontSize: 16 }}>
-                      {skill.name}
-                    </Text>
+                    <Space>
+                      <ThunderboltOutlined style={{ color: '#52c41a' }} />
+                      <Text strong style={{ fontSize: 16 }}>
+                        {skill.name}
+                      </Text>
+                    </Space>
+                    <Switch
+                      checked={skill.enabled}
+                      onChange={() => handleToggle(skill.name)}
+                      size="small"
+                    />
                   </div>
                   <Paragraph
                     type="secondary"
@@ -224,7 +341,7 @@ export default function SkillsPage() {
                     {skill.description || 'No description'}
                   </Paragraph>
                 </div>
-                <Space>
+                <Space wrap>
                   <Button
                     type="link"
                     icon={<EyeOutlined />}
@@ -241,6 +358,26 @@ export default function SkillsPage() {
                   >
                     Edit
                   </Button>
+                  <Popconfirm
+                    title={`Move to ${scope === 'global' ? 'Project' : 'Global'}?`}
+                    onConfirm={() => handleMove(skill.name)}
+                    okText="Move"
+                    cancelText="Cancel"
+                  >
+                    <Button type="link" icon={<SwapOutlined />} style={{ padding: 0 }}>
+                      {scope === 'global' ? 'To Project' : 'To Global'}
+                    </Button>
+                  </Popconfirm>
+                  <Popconfirm
+                    title={`Delete ${skill.name}?`}
+                    onConfirm={() => handleDelete(skill.name)}
+                    okText="Delete"
+                    cancelText="Cancel"
+                  >
+                    <Button type="link" danger icon={<DeleteOutlined />} style={{ padding: 0 }}>
+                      Delete
+                    </Button>
+                  </Popconfirm>
                 </Space>
               </Card>
             </Col>

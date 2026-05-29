@@ -11,13 +11,23 @@ import {
   Input,
   Select,
   Alert,
-  Spin,
+  Segmented,
+  Popconfirm,
   message,
 } from 'antd';
-import { ReloadOutlined, EditOutlined } from '@ant-design/icons';
+import {
+  ReloadOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SwapOutlined,
+  GlobalOutlined,
+  FolderOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Text } = Typography;
+
+type Scope = 'global' | 'project';
 
 interface McpServerConfig {
   type: string;
@@ -36,6 +46,7 @@ export default function MCPServersPage() {
   const [servers, setServers] = useState<McpServerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>('global');
 
   // Edit modal state
   const [editVisible, setEditVisible] = useState(false);
@@ -43,11 +54,21 @@ export default function MCPServersPage() {
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
+  // Load scope preference
+  useEffect(() => {
+    fetch('/api/config/scope')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.mcp) setScope(data.mcp);
+      })
+      .catch(() => {});
+  }, []);
+
   const fetchServers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/mcp');
+      const res = await fetch(`/api/mcp?scope=${scope}`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -64,15 +85,27 @@ export default function MCPServersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     fetchServers();
   }, [fetchServers]);
 
+  const handleScopeChange = async (newScope: Scope) => {
+    setScope(newScope);
+    // Save scope preference
+    try {
+      await fetch('/api/config/scope', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mcp: newScope }),
+      });
+    } catch {}
+  };
+
   const handleToggle = async (name: string) => {
     try {
-      const res = await fetch(`/api/mcp/${name}/toggle`, { method: 'POST' });
+      const res = await fetch(`/api/mcp/${name}/toggle?scope=${scope}`, { method: 'POST' });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -83,6 +116,39 @@ export default function MCPServersPage() {
       message.success(`MCP server ${name} ${data.enabled ? 'enabled' : 'disabled'}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to toggle MCP server';
+      message.error(msg);
+    }
+  };
+
+  const handleDelete = async (name: string) => {
+    try {
+      const res = await fetch(`/api/mcp/${name}?scope=${scope}`, { method: 'DELETE' });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      message.success(`MCP server ${name} deleted`);
+      fetchServers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete MCP server';
+      message.error(msg);
+    }
+  };
+
+  const handleMove = async (name: string) => {
+    try {
+      const res = await fetch(`/api/mcp/${name}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: scope }),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      message.success(`MCP server ${name} moved to ${data.to}`);
+      fetchServers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to move MCP server';
       message.error(msg);
     }
   };
@@ -114,7 +180,7 @@ export default function MCPServersPage() {
         description: values.description || undefined,
       };
 
-      const res = await fetch(`/api/mcp/${editTarget.name}`, {
+      const res = await fetch(`/api/mcp/${editTarget.name}?scope=${scope}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -200,15 +266,37 @@ export default function MCPServersPage() {
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 200,
       render: (_, record) => (
-        <Button
-          type="link"
-          icon={<EditOutlined />}
-          onClick={() => handleEdit(record)}
-        >
-          Edit
-        </Button>
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          >
+            Edit
+          </Button>
+          <Popconfirm
+            title={`Move to ${scope === 'global' ? 'Project' : 'Global'}?`}
+            onConfirm={() => handleMove(record.name)}
+            okText="Move"
+            cancelText="Cancel"
+          >
+            <Button type="link" icon={<SwapOutlined />}>
+              {scope === 'global' ? 'To Project' : 'To Global'}
+            </Button>
+          </Popconfirm>
+          <Popconfirm
+            title={`Delete ${record.name}?`}
+            onConfirm={() => handleDelete(record.name)}
+            okText="Delete"
+            cancelText="Cancel"
+          >
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -229,9 +317,35 @@ export default function MCPServersPage() {
           </Title>
           <Text type="secondary">Manage MCP server connections and configurations</Text>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={fetchServers} loading={loading}>
-          Reload
-        </Button>
+        <Space>
+          <Segmented
+            value={scope}
+            onChange={(value) => handleScopeChange(value as Scope)}
+            options={[
+              {
+                label: (
+                  <Space>
+                    <GlobalOutlined />
+                    Global
+                  </Space>
+                ),
+                value: 'global',
+              },
+              {
+                label: (
+                  <Space>
+                    <FolderOutlined />
+                    Project
+                  </Space>
+                ),
+                value: 'project',
+              },
+            ]}
+          />
+          <Button icon={<ReloadOutlined />} onClick={fetchServers} loading={loading}>
+            Reload
+          </Button>
+        </Space>
       </div>
 
       {error && (

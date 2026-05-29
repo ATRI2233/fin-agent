@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Typography, Table, Button, Tag, Space, Modal, Spin, Alert, message, Popconfirm, Form, Input, Select } from 'antd';
-import { EyeOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, SaveOutlined, PlusOutlined } from '@ant-design/icons';
+import { EyeOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, SaveOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -43,6 +43,12 @@ export default function AgentsPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createForm] = Form.useForm();
 
+  // Batch model modal state
+  const [batchModelVisible, setBatchModelVisible] = useState(false);
+  const [batchModelLoading, setBatchModelLoading] = useState(false);
+  const [batchModelForm] = Form.useForm();
+  const [agentModels, setAgentModels] = useState<Record<string, string>>({});
+
   const fetchAgents = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -64,7 +70,42 @@ export default function AgentsPage() {
 
   useEffect(() => {
     fetchAgents();
+    fetchAgentModels();
   }, [fetchAgents]);
+
+  const fetchAgentModels = async () => {
+    try {
+      const res = await fetch('/api/agents/models');
+      if (res.ok) {
+        const data = await res.json();
+        setAgentModels(data.models || {});
+      }
+    } catch {}
+  };
+
+  const handleBatchModel = async () => {
+    try {
+      const values = await batchModelForm.validateFields();
+      setBatchModelLoading(true);
+      const res = await fetch('/api/agents/batch-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: values.model }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      message.success(`Model set for ${data.agentCount} agents`);
+      setBatchModelVisible(false);
+      batchModelForm.resetFields();
+      fetchAgentModels();
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'errorFields' in err) return;
+      const msg = err instanceof Error ? err.message : 'Failed to set model';
+      message.error(msg);
+    } finally {
+      setBatchModelLoading(false);
+    }
+  };
 
   const handleView = async (name: string) => {
     setViewVisible(true);
@@ -112,12 +153,23 @@ export default function AgentsPage() {
     if (!editContent) return;
     setSaving(true);
     try {
-      const body = editContent.content.replace(/^---[\s\S]*?---\n?/, '');
-      const newContent = `---\ndescription: ${editDescription}\nmode: ${editMode}\n---\n${body}`;
+      let content = editContent.content;
+      // In-place update: replace only description/mode lines within frontmatter
+      // Preserves ALL other frontmatter (including nested YAML like permission blocks)
+      const fmMatch = content.match(/^---[\r]?\n[\s\S]*?[\r]?\n---/);
+      if (fmMatch) {
+        let fm = fmMatch[0];
+        fm = fm.replace(/^(description:).*/m, `$1 ${editDescription}`);
+        fm = fm.replace(/^(mode:).*/m, `$1 ${editMode}`);
+        content = content.replace(/^---[\r]?\n[\s\S]*?[\r]?\n---/, fm);
+      } else {
+        // No frontmatter found — create one
+        content = `---\ndescription: ${editDescription}\nmode: ${editMode}\n---\n${content}`;
+      }
       const res = await fetch(`/api/agents/${editContent.name}/content`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent }),
+        body: JSON.stringify({ content }),
       });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -201,6 +253,14 @@ export default function AgentsPage() {
       onFilter: (value, record) => record.mode === value,
     },
     {
+      title: 'Model',
+      key: 'model',
+      width: 150,
+      render: (_, record) => (
+        <Text type="secondary">{agentModels[record.name] || 'not set'}</Text>
+      ),
+    },
+    {
       title: 'Source',
       dataIndex: 'filePath',
       key: 'source',
@@ -273,6 +333,9 @@ export default function AgentsPage() {
           <Text type="secondary">Manage agent configurations and system prompts</Text>
         </div>
         <Space>
+          <Button icon={<SettingOutlined />} onClick={() => setBatchModelVisible(true)}>
+            Batch Set Model
+          </Button>
           <Button icon={<PlusOutlined />} type="primary" onClick={() => setCreateVisible(true)}>
             Add Agent
           </Button>
@@ -484,6 +547,67 @@ export default function AgentsPage() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Batch Model Modal */}
+      <Modal
+        title="Batch Set Model for All Agents"
+        open={batchModelVisible}
+        onCancel={() => { setBatchModelVisible(false); batchModelForm.resetFields(); }}
+        footer={
+          <Space>
+            <Button onClick={() => { setBatchModelVisible(false); batchModelForm.resetFields(); }}>Cancel</Button>
+            <Button
+              type="primary"
+              icon={<SettingOutlined />}
+              onClick={handleBatchModel}
+              loading={batchModelLoading}
+            >
+              Apply to All
+            </Button>
+          </Space>
+        }
+        width={520}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary">
+            Set the same model for all agents. This will override individual agent model settings.
+          </Text>
+        </div>
+        <Form
+          form={batchModelForm}
+          layout="vertical"
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            name="model"
+            label="Model"
+            rules={[{ required: true, message: 'Please enter model name' }]}
+          >
+            <Select
+              showSearch
+              placeholder="Select a model"
+              options={[
+                { label: 'mimo/mimo-v2.5-pro', value: 'mimo/mimo-v2.5-pro' },
+                { label: 'minimax/MiniMax-M2.7', value: 'minimax/MiniMax-M2.7' },
+                { label: 'opencode/mimo-v2.5-free', value: 'opencode/mimo-v2.5-free' },
+                { label: 'opencode/deepseek-v4-flash-free', value: 'opencode/deepseek-v4-flash-free' },
+                { label: 'opencode/nemotron-3-super-free', value: 'opencode/nemotron-3-super-free' },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+        <div style={{ marginTop: 16 }}>
+          <Text strong>Current agent models:</Text>
+          <div style={{ marginTop: 8 }}>
+            {Object.entries(agentModels).map(([name, model]) => (
+              <div key={name} style={{ marginBottom: 4 }}>
+                <Text code>{name}</Text>: <Text type="secondary">{model}</Text>
+              </div>
+            ))}
+          </div>
+        </div>
       </Modal>
     </div>
   );

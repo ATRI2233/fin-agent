@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import * as fs from 'fs';
 import * as path from 'path';
 import { readConfigFile, writeConfigFile, readJsonFile, writeJsonFile, resolveProjectRoot } from './utils.js';
 
@@ -76,6 +77,37 @@ router.put('/oh-my-openagent', (req: Request, res: Response) => {
   } catch (err: unknown) {
     console.error('Failed to write oh-my-openagent config:', err);
     res.status(500).json({ error: 'Failed to write oh-my-openagent config file' });
+  }
+});
+
+// GET /api/config/scope - Read scope preferences
+router.get('/scope', (_req: Request, res: Response) => {
+  try {
+    const scopePrefPath = path.join(PROJECT_ROOT, '.opencode', '.scope_prefs.json');
+    const prefs = readJsonFile(scopePrefPath);
+    res.json(prefs);
+  } catch {
+    res.json({});
+  }
+});
+
+// PUT /api/config/scope - Save scope preferences
+router.put('/scope', (req: Request, res: Response) => {
+  try {
+    const data = req.body as Record<string, unknown>;
+    const scopePrefPath = path.join(PROJECT_ROOT, '.opencode', '.scope_prefs.json');
+    const dir = path.dirname(scopePrefPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    // Merge with existing prefs
+    const existing = fs.existsSync(scopePrefPath) ? readJsonFile(scopePrefPath) : {};
+    const merged = { ...existing, ...data };
+    fs.writeFileSync(scopePrefPath, JSON.stringify(merged, null, 2), 'utf-8');
+    res.json({ success: true });
+  } catch (err: unknown) {
+    console.error('Failed to save scope preference:', err);
+    res.status(500).json({ error: 'Failed to save scope preference' });
   }
 });
 

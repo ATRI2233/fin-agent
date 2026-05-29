@@ -9,8 +9,10 @@ export const makeRequest = async <T>(
   endpoint: string,
   queryParams: Record<string, string | number | boolean> = {}
 ): Promise<T> => {
-  // For development, use a demo API key if none is provided in environment
-  const apiKey = process.env.FRED_API_KEY || "abcdefghijklmnopqrstuvwxyz123456";
+  if (!process.env.FRED_API_KEY) {
+    throw new Error("FRED_API_KEY not set. Set it in .env or opencode config (fred-mcp-server env).");
+  }
+  const apiKey = process.env.FRED_API_KEY;
 
   const url = new URL(`${BASE_URL}/${endpoint}`);
 

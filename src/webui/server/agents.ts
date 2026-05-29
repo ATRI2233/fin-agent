@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveProjectRoot } from './utils.js';
+import { resolveProjectRoot, readConfigFile, updateConfigFile } from './utils.js';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ interface AgentMeta {
 
 // Helper: Parse YAML frontmatter from markdown
 function parseFrontmatter(content: string): Record<string, string> {
-  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---/;
+  const frontmatterRegex = /^---[\r]?\n([\s\S]*?)[\r]?\n---/;
   const match = content.match(frontmatterRegex);
   if (!match) {
     return {};
@@ -146,6 +146,68 @@ router.put('/:name/content', (req: Request, res: Response) => {
   } catch (err: unknown) {
     console.error(`Failed to update agent '${req.params.name}':`, err);
     res.status(500).json({ error: 'Failed to update agent content' });
+  }
+});
+
+// GET /api/agents/models - Get model assignment for each agent
+router.get('/models', (_req: Request, res: Response) => {
+  try {
+    const config = readConfigFile('opencode.json', PROJECT_ROOT);
+    const agentSection = config.data.agent as Record<string, unknown> | undefined;
+    const models: Record<string, string> = {};
+
+    if (agentSection && typeof agentSection === 'object') {
+      for (const [name, cfg] of Object.entries(agentSection)) {
+        if (cfg && typeof cfg === 'object') {
+          const entry = cfg as Record<string, unknown>;
+          if (typeof entry.model === 'string') {
+            models[name] = entry.model;
+          }
+        }
+      }
+    }
+
+    res.json({ models });
+  } catch (err: unknown) {
+    console.error('Failed to get agent models:', err);
+    res.status(500).json({ error: 'Failed to get agent models' });
+  }
+});
+
+// POST /api/agents/batch-model - Set the same model for all agents
+router.post('/batch-model', (req: Request, res: Response) => {
+  try {
+    const { model } = req.body as { model: string };
+    if (!model) {
+      res.status(400).json({ error: 'Model name is required' });
+      return;
+    }
+
+    const agentFiles = getAgentFiles();
+    let agentCount = 0;
+
+    updateConfigFile('opencode.json', (data) => {
+      if (!data.agent || typeof data.agent !== 'object') {
+        data.agent = {};
+      }
+      const agentSection = data.agent as Record<string, unknown>;
+
+      for (const filePath of agentFiles) {
+        const name = path.basename(filePath, '.md');
+        if (!agentSection[name] || typeof agentSection[name] !== 'object') {
+          agentSection[name] = {};
+        }
+        (agentSection[name] as Record<string, unknown>).model = model;
+        agentCount++;
+      }
+
+      return data;
+    }, PROJECT_ROOT);
+
+    res.json({ success: true, agentCount });
+  } catch (err: unknown) {
+    console.error('Failed to batch-set model:', err);
+    res.status(500).json({ error: 'Failed to batch-set model' });
   }
 });
 
