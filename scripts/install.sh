@@ -14,8 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # 路径配置
-FIN_AGENT_DIR="$PROJECT_ROOT/mcp-server"
-MCP_SERVERS_BASE="$PROJECT_ROOT/mcp-servers"
+FIN_AGENT_DIR="$PROJECT_ROOT/src/mcp-server"
+MCP_SERVERS_BASE="$PROJECT_ROOT/src/mcp-servers"
 
 FIN_AGENT_NAME="fin-agent"
 FRED_MCP_NAME="fred-mcp"
@@ -23,7 +23,7 @@ RISK_MCP_NAME="risk-mcp"
 ASHARE_MCP_NAME="ashare-mcp"
 
 SKILL_NAMES=("market-briefing" "stock-deep" "fin-review" "position-watch")
-SKILL_SOURCE_BASE="$PROJECT_ROOT/skill"
+SKILL_SOURCE_BASE="$PROJECT_ROOT/src/skill"
 
 IS_WINDOWS=false
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$(uname -s)" == *"MINGW"* ]]; then

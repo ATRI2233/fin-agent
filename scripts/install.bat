@@ -99,10 +99,10 @@ echo AstrBot 数据目录: %ASTRBOT_DATA%
 echo.
 
 set "MCP_SERVERS_FILE=%ASTRBOT_DATA%\mcp_server.json"
-set "MCP_SERVER_SOURCE=%FIN_AGENT_ROOT%\mcp-server"
-set "FRED_MCP_SOURCE=%FIN_AGENT_ROOT%\mcp-servers\fred"
-set "RISK_MCP_SOURCE=%FIN_AGENT_ROOT%\mcp-servers\risk\risk_mcp_server.py"
-set "ASHARE_MCP_SOURCE=%FIN_AGENT_ROOT%\mcp-servers\ashare\ashare_mcp_server.py"
+set "MCP_SERVER_SOURCE=%FIN_AGENT_ROOT%\src\mcp-server"
+set "FRED_MCP_SOURCE=%FIN_AGENT_ROOT%\src\mcp-servers\fred"
+set "RISK_MCP_SOURCE=%FIN_AGENT_ROOT%\src\mcp-servers\risk\risk_mcp_server.py"
+set "ASHARE_MCP_SOURCE=%FIN_AGENT_ROOT%\src\mcp-servers\ashare\ashare_mcp_server.py"
 
 :: [1/6] 检查并安装 Python 依赖
 echo [1/6] 检查 Python 依赖 ...
@@ -143,7 +143,7 @@ echo.
 :: [4/6] 安装 Skills
 echo [4/6] 安装 fin-agent Skills ...
 for %%S in (market-briefing stock-deep fin-review position-watch) do (
-    set "src=%FIN_AGENT_ROOT%\%%S\SKILL.md"
+    set "src=%FIN_AGENT_ROOT%\skill\%%S\SKILL.md"
     set "dst=%ASTRBOT_DATA%\skills\%%S\SKILL.md"
     if not exist "!src!" (
         echo       警告: !src! 不存在，跳过
@@ -242,7 +242,7 @@ echo AstrBot 数据目录: %ASTRBOT_DATA%
 echo.
 
 set "MCP_SERVERS_FILE=%ASTRBOT_DATA%\mcp_server.json"
-set "MCP_SERVER_SOURCE=%FIN_AGENT_ROOT%\mcp-server"
+set "MCP_SERVER_SOURCE=%FIN_AGENT_ROOT%\src\mcp-server"
 
 :: [1] 重建 fin-agent-mcp-server
 echo [1/3] 重建 fin-agent-mcp-server ...
