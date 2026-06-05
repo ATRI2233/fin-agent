@@ -1,399 +1,93 @@
 {
-  "schema_version": 2,
-  "active_work_id": "backend-port-9876-56d98955",
-  "works": {
-    "project-refactor-f0c16176": {
-      "work_id": "project-refactor-f0c16176",
-      "active_plan": "D:\\github_place\\financial_stock\\.omo\\plans\\project-refactor.md",
-      "plan_name": "project-refactor",
-      "status": "active",
-      "started_at": "2026-05-26T06:08:10.274Z",
-      "updated_at": "2026-05-26T06:21:26.248Z",
-      "session_ids": [
-        "ses_19d34bc8effevMNjtHlDWNgRAa"
-      ],
-      "session_origins": {
-        "ses_19d34bc8effevMNjtHlDWNgRAa": "direct"
-      },
-      "agent": "atlas",
-      "task_sessions": {
-        "todo:1": {
-          "task_key": "todo:1",
-          "task_label": "1",
-          "task_title": "备份所有 Git 仓库",
-          "session_id": "ses_19d108156ffeTzD4wp8hLuIB3V",
-          "agent": "Sisyphus-Junior",
-          "started_at": "2026-05-26T06:15:15.445Z",
-          "status": "running",
-          "updated_at": "2026-05-26T06:21:26.249Z"
-        }
-      }
-    },
-    "fin-agent-opencode-integration-2382c1ff": {
-      "work_id": "fin-agent-opencode-integration-2382c1ff",
-      "active_plan": "D:\\github_place\\financial_stock\\.omo\\plans\\fin-agent-opencode-integration.md",
-      "plan_name": "fin-agent-opencode-integration",
-      "status": "completed",
-      "started_at": "2026-05-28T05:29:29.675Z",
-      "updated_at": "2026-05-28T07:03:11.837Z",
-      "session_ids": [
-        "ses_196831d21ffeG74MAPUAp3OGUf"
-      ],
-      "session_origins": {
-        "ses_196831d21ffeG74MAPUAp3OGUf": "direct"
-      },
-      "agent": "atlas",
-      "task_sessions": {
-        "todo:1": {
-          "task_key": "todo:1",
-          "task_label": "1",
-          "task_title": "创建8个opencode代理定义文件 + 编排器定义",
-          "session_id": "ses_192eefe51ffeSKuQlaFONrWG4y",
-          "agent": "Sisyphus-Junior",
-          "category": "writing",
-          "updated_at": "2026-05-28T05:35:05.224Z",
-          "started_at": "2026-05-28T05:34:32.605Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:35:05.224Z",
-          "elapsed_ms": 32619
-        },
-        "todo:2": {
-          "task_key": "todo:2",
-          "task_label": "2",
-          "task_title": "创建编排技能 SKILL.md",
-          "session_id": "ses_192eb7000ffeCZHYP0yKnHal1Y",
-          "agent": "Sisyphus-Junior",
-          "category": "writing",
-          "updated_at": "2026-05-28T05:38:17.980Z",
-          "started_at": "2026-05-28T05:37:45.134Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:38:17.980Z",
-          "elapsed_ms": 32846
-        },
-        "todo:3": {
-          "task_key": "todo:3",
-          "task_label": "3",
-          "task_title": "创建插件项目骨架",
-          "session_id": "ses_192e879efffeFE6MCS0JjGKKQ0",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-05-28T05:40:01.598Z",
-          "started_at": "2026-05-28T05:39:26.202Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:40:01.598Z",
-          "elapsed_ms": 35396
-        },
-        "todo:4": {
-          "task_key": "todo:4",
-          "task_label": "4",
-          "task_title": "创建WebUI项目骨架",
-          "session_id": "ses_192e6e286ffeDJgml6uixwzLQG",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T05:42:50.601Z",
-          "started_at": "2026-05-28T05:41:58.991Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:42:50.601Z",
-          "elapsed_ms": 51610
-        },
-        "todo:5": {
-          "task_key": "todo:5",
-          "task_label": "5",
-          "task_title": "编写插件安装器核心逻辑",
-          "session_id": "ses_192e4585bffe2ylaYnm0cIvQcw",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T05:51:54.077Z",
-          "started_at": "2026-05-28T05:51:07.571Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:51:54.077Z",
-          "elapsed_ms": 46506
-        },
-        "todo:6": {
-          "task_key": "todo:6",
-          "task_label": "6",
-          "task_title": "编写后端核心 — Config API（opencode.json + oh-my-openagent.jsonc）",
-          "session_id": "ses_192dbdbcbffe26ukoaEJds7CoB",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T05:53:46.730Z",
-          "started_at": "2026-05-28T05:53:12.089Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:53:46.730Z",
-          "elapsed_ms": 34641
-        },
-        "todo:7": {
-          "task_key": "todo:7",
-          "task_label": "7",
-          "task_title": "编写后端 — 文件管理API（agents/skills/rules）",
-          "session_id": "ses_192da307bffedyLlcNLCX32pZC",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T05:56:29.100Z",
-          "started_at": "2026-05-28T05:56:00.111Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:56:29.100Z",
-          "elapsed_ms": 28989
-        },
-        "todo:8": {
-          "task_key": "todo:8",
-          "task_label": "8",
-          "task_title": "编写后端 — MCP/Provider/Tools/Permissions API",
-          "session_id": "ses_192d7dd0dffeDaVNqwutSHmq1V",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T05:59:04.371Z",
-          "started_at": "2026-05-28T05:58:42.687Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T05:59:04.371Z",
-          "elapsed_ms": 21684
-        },
-        "todo:9": {
-          "task_key": "todo:9",
-          "task_label": "9",
-          "task_title": "创建MCP自动配置脚本",
-          "session_id": "ses_192d53e3affe60WxxaFCoYMVHb",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T06:02:27.974Z",
-          "started_at": "2026-05-28T06:01:41.506Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:02:27.974Z",
-          "elapsed_ms": 46468
-        },
-        "todo:10": {
-          "task_key": "todo:10",
-          "task_label": "10",
-          "task_title": "仪表盘 + Config Raw 编辑器 + Rules 编辑器",
-          "session_id": "ses_192d188abffe2mBK65iv3oFkCF",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T06:08:19.191Z",
-          "started_at": "2026-05-28T06:07:33.747Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:08:19.191Z",
-          "elapsed_ms": 45444
-        },
-        "todo:11": {
-          "task_key": "todo:11",
-          "task_label": "11",
-          "task_title": "Agents 管理页面",
-          "session_id": "ses_192cd12eeffeUhAp7lmTDOneok",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T06:12:25.634Z",
-          "started_at": "2026-05-28T06:11:12.293Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:12:25.634Z",
-          "elapsed_ms": 73341
-        },
-        "todo:12": {
-          "task_key": "todo:12",
-          "task_label": "12",
-          "task_title": "Skills 管理页面",
-          "session_id": "ses_192c93098ffeDZPdhO3T7Xq1T1",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T06:15:41.082Z",
-          "started_at": "2026-05-28T06:15:01.537Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:15:41.082Z",
-          "elapsed_ms": 39545
-        },
-        "todo:13": {
-          "task_key": "todo:13",
-          "task_label": "13",
-          "task_title": "MCP/Providers/Tools/Permissions 管理页面",
-          "session_id": "ses_192c64c01ffeTFMVSpL0hdIftt",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T06:19:56.563Z",
-          "started_at": "2026-05-28T06:19:06.605Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:19:56.563Z",
-          "elapsed_ms": 49958
-        },
-        "todo:14": {
-          "task_key": "todo:14",
-          "task_label": "14",
-          "task_title": "oh-my-openagent 配置页面 + Theme/Keybinds",
-          "session_id": "ses_192c260fbffe6kUvqREdObNZ4o",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T06:24:01.431Z",
-          "started_at": "2026-05-28T06:23:19.401Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:24:01.431Z",
-          "elapsed_ms": 42030
-        },
-        "todo:15": {
-          "task_key": "todo:15",
-          "task_label": "15",
-          "task_title": "配置校验 + Diff Preview + Live Reload",
-          "session_id": "ses_192beb4ffffeBSHBrHkHhH9DaK",
-          "agent": "Sisyphus-Junior",
-          "category": "visual-engineering",
-          "updated_at": "2026-05-28T06:27:43.316Z",
-          "started_at": "2026-05-28T06:27:00.879Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:27:43.316Z",
-          "elapsed_ms": 42437
-        },
-        "todo:16": {
-          "task_key": "todo:16",
-          "task_label": "16",
-          "task_title": "插件安装 + WebUI启动端到端测试",
-          "session_id": "ses_192baea24ffe4cwC20uCKOjoUB",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T06:33:04.544Z",
-          "started_at": "2026-05-28T06:32:07.040Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:33:04.544Z",
-          "elapsed_ms": 57504
-        },
-        "todo:17": {
-          "task_key": "todo:17",
-          "task_label": "17",
-          "task_title": "WebUI配置读写全覆盖测试",
-          "session_id": "ses_192b657b5ffe8yRflCU5Fcyc1m",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T06:35:53.447Z",
-          "started_at": "2026-05-28T06:34:36.964Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:35:53.447Z",
-          "elapsed_ms": 76483
-        },
-        "todo:18": {
-          "task_key": "todo:18",
-          "task_label": "18",
-          "task_title": "opencode重载后代理调用测试",
-          "session_id": "ses_192b33786ffesxHRAcqJuX73tS",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-05-28T06:38:59.676Z",
-          "started_at": "2026-05-28T06:38:33.191Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T06:38:59.676Z",
-          "elapsed_ms": 26485
-        }
-      },
-      "ended_at": "2026-05-28T07:03:11.837Z",
-      "elapsed_ms": 5622162
-    },
-    "backend-port-9876-56d98955": {
-      "work_id": "backend-port-9876-56d98955",
-      "active_plan": "D:\\github_place\\financial_stock\\.omo\\plans\\backend-port-9876.md",
-      "plan_name": "backend-port-9876",
-      "status": "completed",
-      "started_at": "2026-05-28T08:37:50.595Z",
-      "updated_at": "2026-05-28T08:51:41.503Z",
-      "ended_at": "2026-05-28T08:51:41.503Z",
-      "session_ids": [
-        "ses_196831d21ffeG74MAPUAp3OGUf"
-      ],
-      "session_origins": {
-        "ses_196831d21ffeG74MAPUAp3OGUf": "direct"
-      },
-      "agent": "atlas",
-      "task_sessions": {
-        "todo:1": {
-          "task_key": "todo:1",
-          "task_label": "1",
-          "task_title": "修改后端端口",
-          "session_id": "ses_1924330daffeyqG4AGn6ALjw55",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-05-28T08:41:02.752Z",
-          "started_at": "2026-05-28T08:39:50.753Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T08:41:02.752Z",
-          "elapsed_ms": 71999
-        },
-        "todo:3": {
-          "task_key": "todo:3",
-          "task_label": "3",
-          "task_title": "重新编译后端并重启服务",
-          "session_id": "ses_1923fac31ffe7eVO202Z4Wc4eE",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-05-28T08:45:09.064Z",
-          "started_at": "2026-05-28T08:44:05.122Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T08:45:09.064Z",
-          "elapsed_ms": 63942
-        },
-        "todo:4": {
-          "task_key": "todo:4",
-          "task_label": "4",
-          "task_title": "重启前端 Vite",
-          "session_id": "ses_1923d0ec8ffeuKBfFMIY9ca7NV",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-05-28T08:48:07.530Z",
-          "started_at": "2026-05-28T08:47:26.879Z",
-          "status": "completed",
-          "ended_at": "2026-05-28T08:48:07.530Z",
-          "elapsed_ms": 40651
-        }
-      },
-      "elapsed_ms": 830908
-    }
-  },
-  "active_plan": "D:\\github_place\\financial_stock\\.omo\\plans\\backend-port-9876.md",
-  "started_at": "2026-05-28T08:37:50.595Z",
-  "status": "completed",
-  "updated_at": "2026-05-28T08:51:41.503Z",
+  "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\workflow-orchestration.md",
+  "started_at": "2026-06-02T03:31:29.857Z",
   "session_ids": [
-    "ses_196831d21ffeG74MAPUAp3OGUf"
+    "opencode:ses_17effe1afffeRBjLcZ52WVy4i8"
   ],
+  "plan_name": "workflow-orchestration",
+  "worktree_path": null,
   "session_origins": {
-    "ses_196831d21ffeG74MAPUAp3OGUf": "direct"
+    "opencode:ses_17effe1afffeRBjLcZ52WVy4i8": "direct"
   },
-  "plan_name": "backend-port-9876",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
       "task_label": "1",
-      "task_title": "修改后端端口",
-      "session_id": "ses_1924330daffeyqG4AGn6ALjw55",
+      "task_title": "`retry_on_failure(max_attempts=3, delay=1.0, backoff=2.0)` decorator:",
+      "session_id": "opencode:ses_17989e98dffe3HDJx24eOSENeU",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-28T08:41:02.752Z",
-      "started_at": "2026-05-28T08:39:50.753Z",
+      "category": "unspecified-high",
+      "started_at": "2026-06-02T03:34:49.555Z",
+      "ended_at": "2026-06-02T03:54:39.460Z",
+      "elapsed_ms": 1189905,
       "status": "completed",
-      "ended_at": "2026-05-28T08:41:02.752Z",
-      "elapsed_ms": 71999
+      "updated_at": "2026-06-02T03:54:39.460Z"
     },
-    "todo:3": {
-      "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "重新编译后端并重启服务",
-      "session_id": "ses_1923fac31ffe7eVO202Z4Wc4eE",
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "**Plan Compliance Audit** — `oracle`",
+      "session_id": "opencode:ses_179852312ffeFDNRxD7HCcLWib",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-28T08:45:09.064Z",
-      "started_at": "2026-05-28T08:44:05.122Z",
+      "category": "unspecified-high",
+      "started_at": "2026-06-02T03:57:24.054Z",
       "status": "completed",
-      "ended_at": "2026-05-28T08:45:09.064Z",
-      "elapsed_ms": 63942
-    },
-    "todo:4": {
-      "task_key": "todo:4",
-      "task_label": "4",
-      "task_title": "重启前端 Vite",
-      "session_id": "ses_1923d0ec8ffeuKBfFMIY9ca7NV",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-05-28T08:48:07.530Z",
-      "started_at": "2026-05-28T08:47:26.879Z",
-      "status": "completed",
-      "ended_at": "2026-05-28T08:48:07.530Z",
-      "elapsed_ms": 40651
+      "updated_at": "2026-06-02T04:00:13.357Z",
+      "ended_at": "2026-06-02T04:00:13.357Z",
+      "elapsed_ms": 169303
     }
   },
-  "agent": "atlas",
-  "ended_at": "2026-05-28T08:51:41.503Z",
-  "elapsed_ms": 830908
+  "schema_version": 2,
+  "works": {
+    "workflow-orchestration-legacy": {
+      "work_id": "workflow-orchestration-legacy",
+      "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\workflow-orchestration.md",
+      "plan_name": "workflow-orchestration",
+      "started_at": "2026-06-02T03:31:29.857Z",
+      "updated_at": "2026-06-02T04:00:44.106Z",
+      "session_ids": [
+        "opencode:ses_17effe1afffeRBjLcZ52WVy4i8"
+      ],
+      "session_origins": {
+        "opencode:ses_17effe1afffeRBjLcZ52WVy4i8": "direct"
+      },
+      "worktree_path": null,
+      "task_sessions": {
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "`retry_on_failure(max_attempts=3, delay=1.0, backoff=2.0)` decorator:",
+          "session_id": "opencode:ses_17989e98dffe3HDJx24eOSENeU",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "started_at": "2026-06-02T03:34:49.555Z",
+          "ended_at": "2026-06-02T03:54:39.460Z",
+          "elapsed_ms": 1189905,
+          "status": "completed",
+          "updated_at": "2026-06-02T03:54:39.460Z"
+        },
+        "final-wave:f1": {
+          "task_key": "final-wave:f1",
+          "task_label": "F1",
+          "task_title": "**Plan Compliance Audit** — `oracle`",
+          "session_id": "opencode:ses_179852312ffeFDNRxD7HCcLWib",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "started_at": "2026-06-02T03:57:24.054Z",
+          "status": "completed",
+          "updated_at": "2026-06-02T04:00:13.357Z",
+          "ended_at": "2026-06-02T04:00:13.357Z",
+          "elapsed_ms": 169303
+        }
+      },
+      "ended_at": "2026-06-02T04:00:44.106Z",
+      "elapsed_ms": 1754249,
+      "status": "completed"
+    }
+  },
+  "active_work_id": "workflow-orchestration-legacy",
+  "updated_at": "2026-06-02T04:00:44.106Z",
+  "status": "completed",
+  "ended_at": "2026-06-02T04:00:44.106Z",
+  "elapsed_ms": 1754249
 }

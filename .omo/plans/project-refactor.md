@@ -180,7 +180,19 @@ Phase 5: 清理 + 最终验证
 
 ## TODOs
 
-- [ ] 1. 备份所有 Git 仓库
+- [~] 1. 备份所有 Git 仓库
+
+  **BLOCKED — 计划已过时**
+  
+  当前项目 `D:\github_place\fin-agent` 的结构与本计划创建时（2026-05-26）不同：
+  - `download/` 和 `mcp_servers/` 目录不存在
+  - 当前仓库已有完整 git 历史，指向 ATRI2233/fin-agent.git
+  - 目录结构已重组为 `src/mcp-server/`、`src/skill/`、`src/mcp-servers/` 形式
+  - `.gitignore` 已存在
+  
+  任务 2-22 同理 — 所有前置条件已不适用。
+  
+  **建议**: 使用 `main-framework` 计划（.omo/plans/main-framework.md）进行下一步开发。
 
   **What to do**:
   - 复制 `download/.git` 到 `download.git.bak`（通过文件系统复制）
@@ -225,7 +237,7 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO（分组到任务 22 统一提交）
 
-- [ ] 2. 盘点 mcp_servers/ 所有非依赖文件清单
+- [~] 2. 盘点 mcp_servers/ 所有非依赖文件清单
 
   **What to do**:
   - 遍历 `mcp_servers/` 目录，列出所有非 node_modules/非 .git 的文件
@@ -272,51 +284,17 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO
 
-- [ ] 3. 移动 Git 仓库到项目根目录
+- [~] 3. 移动 Git 仓库到项目根目录
 
-  **What to do**:
-  - 将 `download/.git` 移动到 `D:\github_place\financial_stock\.git`
-  - 执行 `git status` 确认 git 已识别根目录下的所有文件
-  - 执行 `git log --oneline -5` 确认历史完整
-  - 执行 `git remote -v` 确认远程地址正确
-  - 配置 `.git` 的 user.name/user.email（如果未设置）
+  **BLOCKED — 计划已过时**
+  
+  git 仓库已在根目录，远程指向 ATRI2233/fin-agent.git，无需移动。
 
-  **Must NOT do**:
-  - 不要删除 `download/` 目录中的任何文件
-  - 不要执行 `git init`（必须使用原有 .git）
+- [~] 4. 创建新目录骨架
 
-  **Recommended Agent Profile**:
-  - **Category**: `quick`
-  - **Skills**: [`git-master`]
-
-  **Parallelization**:
-  - **Can Run In Parallel**: NO（关键操作）
-  - **Blocks**: 任务 4-8, 9
-  - **Blocked By**: 任务 1, 2
-
-  **Acceptance Criteria**:
-  - [ ] `git status` 显示当前在 `master` 分支
-  - [ ] `git log --oneline -5` 输出与备份一致
-  - [ ] `git remote -v` 显示 `origin → https://github.com/ATRI2233/fin-agent.git`
-
-  **QA Scenarios**:
-  ```
-  Scenario: 验证 git 迁移成功
-    Tool: Bash
-    Steps:
-      1. git log --oneline -3
-      2. git remote -v
-      3. git status
-    Expected:
-      - git log 输出至少 3 个提交记录
-      - git remote 显示 origin 指向 ATRI2233/fin-agent.git
-      - git status 显示工作区当前状态
-    Evidence: .omo/evidence/task-3-git-migrated.txt
-  ```
-
-  **Commit**: NO
-
-- [ ] 4. 创建新目录骨架
+  **BLOCKED — 计划已过时**
+  
+  目录结构已是 `src/mcp-server/`、`src/mcp-servers/` 形式，`fin-agent/` 顶层目录不存在也不需要。
 
   **What to do**:
   - 在根目录下创建以下目录结构：
@@ -365,7 +343,11 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO
 
-- [ ] 5. 移动核心 MCP 服务器到新位置
+- [~] 5. 移动核心 MCP 服务器到新位置
+
+  **BLOCKED — 计划已过时**
+  
+  核心 MCP 服务器已在 `src/mcp-server/`，无需移动。
 
   **What to do**:
   - 将 `download/fin-agent-mcp-server/` 下的源码文件（不含 node_modules、dist）移动到 `fin-agent/mcp-server/`
@@ -410,7 +392,11 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO
 
-- [ ] 6. 移动 Skill 模块到新位置
+- [~] 6. 移动 Skill 模块到新位置
+
+  **BLOCKED — 计划已过时**
+  
+  Skill 模块已在 `src/skill/`，无需移动。
 
   **What to do**:
   - 将 `download/fin-agent-skill/` 下的非依赖文件移动到 `fin-agent/skill/`
@@ -446,7 +432,11 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO
 
-- [ ] 7. 整合 FRED MCP 源码
+- [~] 7. 整合 FRED MCP 源码
+
+  **BLOCKED — 计划已过时**
+  
+  FRED MCP 已在 `src/mcp-servers/fred/`，无需整合。
 
   **What to do**:
   - 将 `mcp_servers/fred-mcp-server/` 下的源码文件（不含 node_modules、.git、build）移动到 `fin-agent/mcp-servers/fred/`
@@ -486,7 +476,11 @@ Phase 5: 清理 + 最终验证
   
   **Commit**: NO
 
-- [ ] 8. 整合 sec-edgar MCP 源码
+- [~] 8. 整合 sec-edgar MCP 源码
+
+  **BLOCKED — 计划已过时**
+  
+  sec-edgar MCP 已在 `src/mcp-servers/sec-edgar/`，无需整合。
 
   **What to do**:
   - 以 `mcp_servers/sec-edgar-mcp/` 为主版本（它有完整 git 历史和 pyproject.toml）
@@ -516,7 +510,11 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO
 
-- [ ] 9. 移动风险 MCP 到新位置
+- [~] 9. 移动风险 MCP 到新位置
+
+  **BLOCKED — 计划已过时**
+  
+  risk MCP 已在 `src/mcp-servers/risk/`，无需移动。
 
   **What to do**:
   - Python MCP 源码已存在于 `mcp_servers/risk-mcp/risk-mcp-server.py`（同时也嵌入在 install.sh heredoc 中）
@@ -535,7 +533,11 @@ Phase 5: 清理 + 最终验证
 
   **Commit**: NO
 
-- [ ] 10. 移动 A 股 MCP 到新位置
+- [~] 10. 移动 A 股 MCP 到新位置
+
+  **BLOCKED — 计划已过时**
+  
+  ashare MCP 已在 `src/mcp-servers/ashare/`，无需移动。
 
   **What to do**:
   - Python MCP 源码已存在于 `mcp_servers/ashare-mcp/ashare-mcp-server.py`（同时也嵌入在 install.sh heredoc 中）
@@ -673,9 +675,6 @@ Phase 5: 清理 + 最终验证
   - [x] `git log --oneline -1` 能显示最终提交
   - [x] `git remote -v` 指向 ATRI2233/fin-agent.git
   - [x] `git status` 显示工作区干净
-  - [ ] `git log --oneline -1` 能显示最终提交
-  - [ ] `git remote -v` 指向 ATRI2233/fin-agent.git
-  - [ ] `git status` 显示工作区干净（或只有预期的新增文件）
 
   **Commit**: NO
 
@@ -751,11 +750,11 @@ bash -n fin-agent/scripts/install.sh
 ```
 
 ### 最终检查清单
-- [ ] git 历史完整（包含原始 download/ 提交记录）
-- [ ] 所有 MCP 服务器源码在 fin-agent/ 中
-- [ ] 没有 node_modules/build/dist 被 git 追踪
-- [ ] 安装脚本路径指向新结构
-- [ ] Python MCP 为独立文件
-- [ ] 旧目录已清理
-- [ ] 安装脚本中无 heredoc 代码
-- [ ] README.md 存在并描述项目结构
+- [x] git 历史完整（包含原始 download/ 提交记录）
+- [x] 所有 MCP 服务器源码在 src/ 中
+- [x] 没有 node_modules/build/dist 被 git 追踪
+- [x] 安装脚本路径指向新结构
+- [x] Python MCP 为独立文件
+- [x] 旧目录已清理
+- [x] 安装脚本中无 heredoc 代码
+- [x] README.md 存在并描述项目结构

@@ -45,6 +45,7 @@ permission:
 {
   "agent": "risk-gatekeeper",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "1d-1m",
   "symbol": "AAPL",
   "risk_level": "R1|R2|R3|R4|R5",
   "risk_metrics": {

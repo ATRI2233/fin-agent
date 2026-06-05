@@ -1,0 +1,311 @@
+"""Workflow scheduling with cron-based APScheduler integration."""
+
+import asyncio
+import re
+from datetime import datetime, timezone
+from typing import Optional
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from main.framework.models.database import SessionLocal
+from main.framework.models.workflow import Workflow
+from main.framework.models.workflow_execution import WorkflowExecution
+from main.framework.core.workflow_engine import WorkflowEngine
+
+logger = __import__("logging").getLogger(__name__)
+
+
+class WorkflowScheduler:
+    """Manages workflow scheduling with cron expressions."""
+
+    def __init__(self):
+        self._scheduler = AsyncIOScheduler()
+        self._workflow_jobs: dict[str, dict] = {}  # workflow_id -> job_info
+
+    def start(self) -> None:
+        """Start APScheduler background runner."""
+        if not self._scheduler.running:
+            self._scheduler.start()
+            logger.info("WorkflowScheduler started")
+
+    def stop(self) -> None:
+        """Stop the scheduler."""
+        if self._scheduler.running:
+            self._scheduler.shutdown(wait=False)
+            logger.info("WorkflowScheduler stopped")
+
+    def add_workflow_job(self, workflow_id: str, cron_expression: str) -> bool:
+        """Schedule a workflow with cron expression.
+
+        Args:
+            workflow_id: ID of workflow to schedule
+            cron_expression: Cron expression (min hour day month weekday)
+
+        Returns:
+            True if scheduled successfully
+
+        Raises:
+            ValueError: If cron expression is invalid
+        """
+        # Validate cron expression
+        if not validate_cron_expression(cron_expression):
+            raise ValueError(f"Invalid cron expression: {cron_expression}")
+
+        job_id = f"workflow_{workflow_id}"
+
+        # Remove existing job if present
+        if job_id in self._scheduler.get_jobs():
+            self._scheduler.remove_job(job_id)
+
+        # Parse cron expression
+        parts = cron_expression.split()
+        trigger = CronTrigger(
+            minute=parts[0],
+            hour=parts[1],
+            day=parts[2],
+            month=parts[3],
+            day_of_week=parts[4],
+        )
+
+        # Add job to scheduler
+        self._scheduler.add_job(
+            run_scheduled_workflow,
+            trigger=trigger,
+            args=[workflow_id],
+            id=job_id,
+            replace_existing=True,
+        )
+
+        self._workflow_jobs[workflow_id] = {
+            "cron_expression": cron_expression,
+            "job_id": job_id,
+            "next_run_times": get_next_run_times(cron_expression, 5),
+        }
+
+        logger.info(f"Scheduled workflow {workflow_id} with cron: {cron_expression}")
+
+        # Update workflow in DB
+        db = SessionLocal()
+        try:
+            workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            if workflow:
+                workflow.trigger_type = "schedule"
+                workflow.cron_expression = cron_expression
+                db.commit()
+        finally:
+            db.close()
+
+        return True
+
+    def remove_workflow_job(self, workflow_id: str) -> bool:
+        """Remove a scheduled workflow job.
+
+        Args:
+            workflow_id: ID of workflow to unschedule
+
+        Returns:
+            True if removed successfully, False if not found
+        """
+        job_id = f"workflow_{workflow_id}"
+
+        try:
+            self._scheduler.remove_job(job_id)
+            self._workflow_jobs.pop(workflow_id, None)
+            logger.info(f"Removed scheduled workflow {workflow_id}")
+
+            # Update workflow in DB
+            db = SessionLocal()
+            try:
+                workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+                if workflow:
+                    workflow.trigger_type = "manual"
+                    workflow.cron_expression = None
+                    db.commit()
+            finally:
+                db.close()
+
+            return True
+        except Exception:
+            logger.warning(f"Workflow {workflow_id} not found in scheduler")
+            return False
+
+    async def restore_jobs_from_db(self) -> None:
+        """Restore scheduled jobs from database on startup."""
+        db = SessionLocal()
+        try:
+            workflows = (
+                db.query(Workflow)
+                .filter(
+                    Workflow.trigger_type == "schedule",
+                    Workflow.cron_expression.isnot(None),
+                )
+                .all()
+            )
+            for wf in workflows:
+                try:
+                    self.add_workflow_job(wf.id, wf.cron_expression)
+                    logger.info(f"Restored scheduled job for workflow {wf.id}")
+                except Exception as e:
+                    logger.warning(f"Failed to restore job for workflow {wf.id}: {e}")
+        finally:
+            db.close()
+
+    def list_scheduled_workflows(self) -> list[dict]:
+        """List all scheduled workflow jobs.
+
+        Returns:
+            List of dicts with workflow_id, cron_expression, and next_run_times
+        """
+        result = []
+        for workflow_id, info in self._workflow_jobs.items():
+            result.append(
+                {
+                    "workflow_id": workflow_id,
+                    "cron_expression": info["cron_expression"],
+                    "job_id": info["job_id"],
+                    "next_run_times": info.get("next_run_times", []),
+                }
+            )
+        return result
+
+
+def validate_cron_expression(cron_expression: str) -> bool:
+    """Validate a cron expression (min hour day month weekday).
+
+    Args:
+        cron_expression: Space-separated 5-field cron expression
+
+    Returns:
+        True if valid, False otherwise
+    """
+    if not cron_expression:
+        return False
+
+    parts = cron_expression.split()
+    if len(parts) != 5:
+        return False
+
+    # Field patterns: minute(0-59), hour(0-23), day(1-31), month(1-12), weekday(0-6 or sun-sat)
+    patterns = [
+        r"^(\*|([0-5]?\d)(-([0-5]?\d))?(,([0-5]?\d)(-([0-5]?\d))?)*(\/(\d+))?|[0-5]?\d(,\d+)*)$",  # minute
+        r"^(\*|([01]?\d|2[0-3])(-([01]?\d|2[0-3]))?(,([01]?\d|2[0-3])(-([01]?\d|2[0-3]))?)*(\/(\d+))?|[01]?\d(,\d+)*)$",  # hour
+        r"^(\*|([1-9]|[12]\d|3[01])(-([1-9]|[12]\d|3[01]))?(,([1-9]|[12]\d|3[01])(-([1-9]|[12]\d|3[01]))?)*(\/(\d+))?)$",  # day
+        r"^(\*|([1-9]|1[0-2])(-([1-9]|1[0-2]))?(,([1-9]|1[0-2])(-([1-9]|1[0-2]))?)*(\/(\d+))?)$",  # month
+        r"^(\*|[0-6](-([0-6]))?(,([0-6])(-([0-6]))?)*)$",  # weekday (0-6)
+    ]
+
+    for part, pattern in zip(parts, patterns):
+        if not re.match(pattern, part):
+            return False
+
+    return True
+
+
+def get_next_run_times(cron_expression: str, count: int = 5) -> list[str]:
+    """Get next N run times for a cron expression.
+
+    Args:
+        cron_expression: Space-separated 5-field cron expression
+        count: Number of future run times to return
+
+    Returns:
+        List of ISO format datetime strings
+    """
+    parts = cron_expression.split()
+    if len(parts) != 5:
+        return []
+
+    try:
+        trigger = CronTrigger(
+            minute=parts[0],
+            hour=parts[1],
+            day=parts[2],
+            month=parts[3],
+            day_of_week=parts[4],
+        )
+
+        run_times = []
+        current_time = datetime.now(timezone.utc)
+
+        for _ in range(count):
+            next_time = trigger.get_next_fire_time(None, current_time)
+            if next_time:
+                run_times.append(next_time.isoformat())
+                current_time = next_time
+
+        return run_times
+
+    except Exception:
+        return []
+
+
+async def run_scheduled_workflow(workflow_id: str) -> dict:
+    """Execute a scheduled workflow.
+
+    Loads workflow from DB, creates execution, runs via WorkflowEngine,
+    and stores results.
+
+    Args:
+        workflow_id: ID of workflow to run
+
+    Returns:
+        Dict with execution results
+    """
+    logger.info(f"Running scheduled workflow: {workflow_id}")
+
+    db = SessionLocal()
+    try:
+        # Load workflow from database
+        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+
+        if not workflow:
+            logger.error(f"Workflow {workflow_id} not found")
+            return {"status": "error", "error": f"Workflow {workflow_id} not found"}
+
+        # Create execution record
+        execution = WorkflowExecution(
+            workflow_id=workflow_id,
+            status="scheduled",
+        )
+        db.add(execution)
+        db.commit()
+
+        logger.info(
+            f"Created execution {execution.id} for scheduled workflow {workflow_id}"
+        )
+
+        # Run via WorkflowEngine
+        engine = WorkflowEngine(workflow_id=workflow_id, params={})
+
+        try:
+            result = await engine.execute()
+
+            # Update execution with final status
+            execution.status = result.get("status", "completed")
+            db.commit()
+
+            logger.info(
+                f"Scheduled workflow {workflow_id} execution completed: {execution.status}"
+            )
+            return result
+
+        except Exception as e:
+            execution.status = "failed"
+            logger.error(f"Scheduled workflow {workflow_id} execution failed: {e}")
+            raise
+
+    finally:
+        db.close()
+
+
+# Global scheduler instance
+_scheduler_instance: Optional[WorkflowScheduler] = None
+
+
+def get_scheduler() -> WorkflowScheduler:
+    """Get or create the global scheduler instance."""
+    global _scheduler_instance
+    if _scheduler_instance is None:
+        _scheduler_instance = WorkflowScheduler()
+    return _scheduler_instance

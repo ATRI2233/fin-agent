@@ -40,6 +40,7 @@ permission:
 {
   "agent": "technical-chartist",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "1d-5d",
   "symbol": "AAPL",
   "market": "US|CN",
   "trend_rating": "strong_bull|bull|oscillation|bear|strong_bear",

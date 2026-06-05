@@ -46,6 +46,7 @@ permission:
 {
   "agent": "smart-money-hound",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "1w-1m",
   "symbol": "AAPL",
   "market": "US|CN",
   "fund_flow": {

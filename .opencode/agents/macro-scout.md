@@ -101,6 +101,7 @@ permission:
 {
   "agent": "macro-scout",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "1m-3m",
   "market_regime": "bull|oscillation|bear",
   "trend": "bullish_alignment|bearish_alignment|no_trend",
   "macro_heatmap": {

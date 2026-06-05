@@ -40,6 +40,7 @@ permission:
 {
   "agent": "sentiment-decoder",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "1d-3d",
   "market": "US|CN|both",
   "sentiment_score": 45,
   "sentiment_range": "-100 ~ +100",

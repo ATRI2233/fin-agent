@@ -70,6 +70,7 @@ permission:
 {
   "agent": "fundamental-auditor",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "3m-12m",
   "symbol": "AAPL",
   "market": "US|CN",
   "fundamental_score": 78,

@@ -35,6 +35,7 @@ permission:
 {
   "agent": "sector-rotator",
   "timestamp": "2026-05-27T09:30:00Z",
+  "timeframe": "1w-1m",
   "market": "US|CN",
   "top_sectors": [
     {"rank": 1, "name": "板块名", "change_pct": 2.5, "net_inflow": 1500000000},
