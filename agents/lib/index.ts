@@ -16,17 +16,24 @@ import { Server } from "@modelcontextprotocol/sdk/server";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-import { registerMemoryRecall, registerMemoryVerify, registerExperienceSummary, registerRuleManage } from "./memoryTools.js";
+import { registerMemoryRecall, registerMemoryVerify, registerExperienceSummary, registerRuleManage, registerMemorySave } from "./memoryTools.js";
 import { registerConsistencyCheck } from "./consistencyCheck.js";
+import { registerDevilAdvocate } from "./devilAdvocate.js";
+import { registerConflictResolver } from "./conflictResolver.js";
+import { registerMemoryLearner } from "./memoryLearner.js";
 import { ToolRegistration } from "./types.js";
 
 // ── 收集所有工具注册 ──────────────────────────────────────
 const tools: ToolRegistration[] = [
   registerMemoryRecall(),
   registerMemoryVerify(),
+  registerMemorySave(),
   registerExperienceSummary(),
   registerRuleManage(),
   registerConsistencyCheck(),
+  registerDevilAdvocate(),
+  registerConflictResolver(),
+  registerMemoryLearner(),
 ];
 
 // ── 创建 MCP Server ──────────────────────────────────────

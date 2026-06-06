@@ -28,8 +28,8 @@ class WorkflowEngine:
         self._results: dict[str, Any] = {}
         self._failed_nodes: set[str] = set()
         self._skipped_nodes: set[str] = set()
-        self._chain_sessions: dict[str, str] = {}  # node_id â†’ session_id
-        self._chain_hapi: dict[str, HAPIBridge] = {}  # session_id â†’ HAPIBridge instance
+        self._chain_sessions: dict[str, str] = {}  # node_id â†?session_id
+        self._chain_hapi: dict[str, HAPIBridge] = {}  # session_id â†?HAPIBridge instance
 
     async def execute(self) -> dict[str, Any]:
         """Main execution method using asyncio with parallel execution of independent nodes."""
@@ -275,7 +275,7 @@ class WorkflowEngine:
                 await hapi.send_message(session_id, prompt)
             else:
                 # Create new session
-                hapi = HAPIBridge(hub_url=settings.HAPI_HUB_URL)
+                hapi = HAPIBridge(hub_url=settings.HAPI_HUB_URL, api_token=settings.HAPI_API_TOKEN)
                 session_id = await hapi.create_session_for_node(node_id, agent, prompt)
                 self._chain_hapi[session_id] = hapi
 
@@ -285,6 +285,10 @@ class WorkflowEngine:
             exec_node.hapi_session_id = session_id
             exec_node.status = "running"
             db.commit()
+
+            # Report status callback
+            if self._status_callback:
+                await self._status_callback("running", f"{agent} is working...", agent)
 
             # Send message to start execution
             await hapi.send_message(session_id, prompt)
@@ -297,6 +301,10 @@ class WorkflowEngine:
             exec_node.output = {"result": result}
             exec_node.completed_at = datetime.utcnow()
             db.commit()
+
+            # Report status callback
+            if self._status_callback:
+                await self._status_callback("completed", f"{agent} completed", agent)
 
             self._results[node_id] = {"result": result}
             return {"result": result}

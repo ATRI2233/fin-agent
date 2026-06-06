@@ -6,6 +6,7 @@ import {
   addRule,
   listRules,
   updateRuleAccuracy,
+  logAnalysis,
 } from "./dataHub.js";
 
 export function registerMemoryRecall(): ToolRegistration {
@@ -168,6 +169,67 @@ export function registerRuleManage(): ToolRegistration {
           default:
             throw new Error(`unknown action: ${args.action}`);
         }
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
+          isError: true,
+        };
+      }
+    },
+  };
+}
+
+export function registerMemorySave(): ToolRegistration {
+  return {
+    name: "memory_save",
+    description: "保存当前分析结果到记忆系统。参数: symbol, direction, confidence, key_prices, reasons, source_signals",
+    inputSchema: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "股票代码",
+        },
+        direction: {
+          type: "string",
+          enum: ["bullish", "bearish", "neutral"],
+          description: "判断方向",
+        },
+        confidence: {
+          type: "number",
+          description: "置信度0-100",
+        },
+        key_prices: {
+          type: "object",
+          description: "关键价格 (支撑位/阻力位等)",
+        },
+        reasons: {
+          type: "string",
+          description: "判断理由",
+        },
+        source_signals: {
+          type: "object",
+          description: "来源信号 (各agent的分析结果)",
+        },
+      },
+      required: ["symbol", "direction", "confidence"],
+    },
+    handler: async (request: any) => {
+      const args = request.params.arguments || {};
+
+      try {
+        logAnalysis({
+          symbol: args.symbol,
+          direction: args.direction,
+          confidence: args.confidence,
+          key_prices: args.key_prices,
+          reasons: args.reasons,
+          source_signals: args.source_signals,
+        });
+
+        return {
+          content: [{ type: "text", text: JSON.stringify({ status: "saved", symbol: args.symbol }) }],
+        };
       } catch (err: any) {
         return {
           content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],

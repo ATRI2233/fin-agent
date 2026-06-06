@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     """Framework settings."""
 
     HAPI_HUB_URL: str = "http://localhost:3006"
+    HAPI_API_TOKEN: str = ""
     DATABASE_URL: str = "sqlite:///./data/finagent.db"
     API_PORT: int = 8000
     JOB_TIMEOUT: int = 300

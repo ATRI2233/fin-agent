@@ -2,6 +2,9 @@
 """ashare-mcp-server — A 股数据 MCP Server，使用 akshare 提供行情/技术面/基本面/新闻数据"""
 
 import json, sys, os, re, subprocess
+import logging
+
+logger = logging.getLogger(__name__)
 
 os.environ.pop("HTTP_PROXY", None)
 os.environ.pop("HTTPS_PROXY", None)
@@ -514,7 +517,8 @@ def get_fundamental_scan(symbol):
         def safe_float(v):
             try:
                 return float(v) if v and v.strip() and v != "-" else None
-            except:
+            except Exception as e:
+                logger.debug("safe_float parsing error: %s", e, exc_info=True)
                 return None
 
         return {
@@ -729,7 +733,8 @@ def get_fund_flow(symbol):
         def safe_float(v, default=0):
             try:
                 return float(v) if v and v.strip() and v != "-" else default
-            except:
+            except Exception as e:
+                logger.debug("safe_float parsing error in get_fund_flow: %s", e, exc_info=True)
                 return default
 
         return {

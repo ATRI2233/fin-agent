@@ -23,36 +23,47 @@ else { Write-Host " Not found" -ForegroundColor Red; exit 1 }
 
 Write-Host ""
 
-# Start all services as background jobs
-$jobs = @()
+# Start HAPI Hub
+Write-Host "[1/5] HAPI Hub (port 3006)..." -ForegroundColor Yellow
+$hapiHubDir = Join-Path $PROJECT_ROOT "agents\hapi-hub"
+Start-Process -FilePath "node" -ArgumentList "node_modules/@twsxtd/hapi/bin/hapi.cjs hub" -WorkingDirectory $hapiHubDir -WindowStyle Hidden
+Start-Sleep -Seconds 3
 
-Write-Host "[1/4] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
-$jobs += Start-Job -Name "framework" -ScriptBlock {
-    Set-Location $using:PROJECT_ROOT
-    python -m uvicorn main.framework.main:app --port 8000 2>&1
+# Start HAPI Runner
+Write-Host "[2/5] HAPI Runner..." -ForegroundColor Yellow
+$hapiExe = Join-Path $PROJECT_ROOT "agents\hapi-hub\node_modules\@twsxtd\hapi-win32-x64\bin\hapi.exe"
+Start-Process -FilePath $hapiExe -ArgumentList "runner start" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden
+Start-Sleep -Seconds 3
+
+# Read HAPI token
+$HAPI_SETTINGS = "$env:USERPROFILE\.hapi\settings.json"
+$HAPI_TOKEN = ""
+if (Test-Path $HAPI_SETTINGS) {
+    $settings = Get-Content $HAPI_SETTINGS | ConvertFrom-Json
+    $HAPI_TOKEN = $settings.cliApiToken
+    Write-Host "  HAPI Token: $HAPI_TOKEN" -ForegroundColor Gray
 }
 
-Write-Host "[2/4] HAPI Hub (port 3006)..." -ForegroundColor Yellow
-$jobs += Start-Job -Name "hapi" -ScriptBlock {
-    Set-Location (Join-Path $using:PROJECT_ROOT "agents\hapi-hub")
-    node node_modules/@twsxtd/hapi/bin/hapi.cjs hub 2>&1
-}
+# Start FastAPI
+Write-Host "[3/5] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
+$env:FIN_AGENT_HAPI_API_TOKEN = $HAPI_TOKEN
+Start-Process -FilePath "python" -ArgumentList "-m uvicorn main.framework.main:app --port 8000" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden
+Start-Sleep -Seconds 2
 
-Write-Host "[3/4] WebUI Server (port 9876)..." -ForegroundColor Yellow
-$jobs += Start-Job -Name "webui-server" -ScriptBlock {
-    Set-Location (Join-Path $using:PROJECT_ROOT "webui\server")
-    node node_modules/tsx/dist/cli.mjs watch index.ts 2>&1
-}
+# Start WebUI Server
+Write-Host "[4/5] WebUI Server (port 9876)..." -ForegroundColor Yellow
+$webuiServerDir = Join-Path $PROJECT_ROOT "webui\server"
+Start-Process -FilePath "node" -ArgumentList "node_modules/tsx/dist/cli.mjs watch index.ts" -WorkingDirectory $webuiServerDir -WindowStyle Hidden
+Start-Sleep -Seconds 2
 
-Write-Host "[4/4] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
-$jobs += Start-Job -Name "webui" -ScriptBlock {
-    Set-Location (Join-Path $using:PROJECT_ROOT "webui")
-    npm run dev 2>&1
-}
+# Start WebUI Frontend
+Write-Host "[5/5] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
+$webuiDir = Join-Path $PROJECT_ROOT "webui"
+Start-Process -FilePath "cmd" -ArgumentList "/c npm run dev" -WorkingDirectory $webuiDir -WindowStyle Hidden
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  All services started in background" -ForegroundColor Cyan
+Write-Host "  All services started" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  FastAPI Framework:  http://localhost:8000/api/v1/health" -ForegroundColor White
@@ -63,7 +74,7 @@ Write-Host ""
 
 # Wait for startup
 Write-Host "Waiting for services..." -ForegroundColor Yellow
-Start-Sleep -Seconds 6
+Start-Sleep -Seconds 8
 
 # Health check
 Write-Host ""
@@ -88,32 +99,9 @@ foreach ($check in $checks) {
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  Press Ctrl+C to stop all services" -ForegroundColor Cyan
+Write-Host "  Or close this window" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Keep running and stream logs
-try {
-    while ($true) {
-        foreach ($job in $jobs) {
-            $output = Receive-Job -Job $job -ErrorAction SilentlyContinue
-            if ($output) {
-                $color = switch ($job.Name) {
-                    "framework"    { "White" }
-                    "hapi"         { "Cyan" }
-                    "webui-server" { "Yellow" }
-                    "webui"        { "Green" }
-                    default        { "Gray" }
-                }
-                foreach ($line in $output) {
-                    Write-Host "[$($job.Name)] $line" -ForegroundColor $color
-                }
-            }
-        }
-        Start-Sleep -Milliseconds 500
-    }
-} finally {
-    Write-Host ""
-    Write-Host "Stopping all services..." -ForegroundColor Red
-    $jobs | Stop-Job -PassThru | Remove-Job -Force
-    Write-Host "All services stopped." -ForegroundColor Red
-}
+# Keep window open
+Read-Host "Press Enter to exit"

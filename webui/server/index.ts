@@ -15,6 +15,16 @@ import rulesRouter from './rules.js';
 const app = express();
 const PORT = process.env.PORT || 9876;
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[server] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[server] Uncaught Exception:', err);
+  // Exit to avoid unknown state — process manager should restart
+  process.exit(1);
+});
+
 // ── Paths ───────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,6 +70,15 @@ if (fs.existsSync(FRONTEND_DIST)) {
 } else {
   console.log(`[server] Frontend dist not found at ${FRONTEND_DIST} — API only`);
 }
+
+// Global Express error handler (must be after routes and static handlers)
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('[server] Unhandled error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

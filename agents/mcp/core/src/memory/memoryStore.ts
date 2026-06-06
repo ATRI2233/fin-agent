@@ -1,17 +1,18 @@
 import Database from "better-sqlite3";
 import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, "..", "..", "data", "fin-agent.db");
+// 统一数据库路径 (与 lib/dataHub.ts 一致)
+const DB_DIR = "D:\\github_place\\fin-agent\\data";
+const DB_PATH = path.join(DB_DIR, "fin-agent.db");
 let db: Database.Database;
 
 function getDb(): Database.Database {
   if (!db) {
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    fs.mkdirSync(DB_DIR, { recursive: true });
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
     initTables(db);
   }
   return db;

@@ -16,6 +16,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UnorderedListOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
 import FrameworkPage from './pages/FrameworkPage';
 import HapiPage from './pages/HapiPage';
@@ -33,6 +34,7 @@ import WorkflowEditor from './pages/WorkflowEditor';
 import WorkflowSettings from './pages/WorkflowSettings';
 import WorkflowMonitor from './pages/WorkflowMonitor';
 import JobsPage from './pages/JobsPage';
+import ChatPage from './pages/ChatPage';
 import './styles/theme.css';
 
 const { Header, Sider, Content } = Layout;
@@ -54,6 +56,11 @@ const menuItems: MenuItem[] = [
     key: '/hapi',
     icon: <CloudServerOutlined />,
     label: <Link to="/hapi">HAPI Hub</Link>,
+  },
+  {
+    key: '/chat',
+    icon: <SendOutlined />,
+    label: <Link to="/chat">Chat</Link>,
   },
   {
     key: '/jobs',
@@ -80,7 +87,7 @@ const menuItems: MenuItem[] = [
 
 const AppLayout: React.FC = () => {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(location.pathname === '/chat');
 
   const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows'];
   const openKeys = agentsPaths.includes(location.pathname) ? ['agents-group'] : [];
@@ -90,6 +97,7 @@ const AppLayout: React.FC = () => {
     if (path === '/') return 'Dashboard';
     if (path === '/framework') return 'Framework';
     if (path === '/hapi') return 'HAPI Hub';
+    if (path === '/chat') return 'Chat';
     if (path === '/jobs') return 'Jobs';
     if (path === '/agents') return 'Agents';
     if (path === '/skills') return 'Skills';
@@ -319,7 +327,7 @@ const AppLayout: React.FC = () => {
         <Content
           style={{
             margin: 0,
-            padding: '32px 40px',
+            padding: 0,
             minHeight: 'calc(100vh - 52px)',
             background: '#121212',
           }}
@@ -328,6 +336,7 @@ const AppLayout: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/framework" element={<FrameworkPage />} />
             <Route path="/hapi" element={<HapiPage />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="/jobs" element={<JobsPage />} />
             <Route path="/agents" element={<AgentsPage />} />
             <Route path="/skills" element={<SkillsPage />} />

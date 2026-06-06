@@ -1,6 +1,7 @@
-from uuid import uuid4
+﻿from uuid import uuid4
 
-from sqlalchemy import Column, String, DateTime, JSON, Integer
+from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey
+from sqlalchemy.orm import relationship
 
 from main.framework.models.database import Base
 from datetime import datetime
@@ -11,11 +12,15 @@ class WorkflowExecution(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     workflow_id = Column(String, nullable=False)
+    conversation_id = Column(String, ForeignKey("conversations.id"), nullable=True)
     status = Column(String, default="pending")
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     results = Column(JSON, default={})
     errors = Column(JSON, default=[])
+
+    # Relationships
+    conversation = relationship("Conversation", back_populates="executions")
 
 
 class ExecutionNode(Base):
