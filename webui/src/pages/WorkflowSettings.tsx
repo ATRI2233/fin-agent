@@ -1,7 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Typography, Form, Input, Select, Button, Space, message, Tabs, Card, Row, Col, Descriptions, Tag } from 'antd';
-import { SaveOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+  Typography,
+  Form,
+  Input,
+  Select,
+  Button,
+  Space,
+  message,
+  Card,
+  Row,
+  Col,
+  Descriptions,
+  Tag,
+  Radio,
+} from 'antd';
+import { SaveOutlined, ReloadOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { CronEditor } from '../components/CronEditor';
 
 const { Title, Text } = Typography;
 
@@ -10,8 +25,8 @@ type WorkflowTriggerType = 'manual' | 'schedule' | 'command';
 interface ScheduledJob {
   workflow_id: string;
   cron_expression: string;
-  next_run?: string;
-  enabled: boolean;
+  job_id: string;
+  next_run_times: string[];
 }
 
 interface WorkflowSettings {
@@ -39,13 +54,13 @@ export default function WorkflowSettings() {
         fetch('/api/v1/workflows/scheduled'),
       ]);
       if (!wfRes.ok) throw new Error(`HTTP ${wfRes.status}`);
+      // FIX: list_workflows returns an array, not {workflows: [...]}
       const wfData = await wfRes.json();
-      const workflows: WorkflowSettings[] = wfData.workflows ?? [];
+      const workflows: WorkflowSettings[] = Array.isArray(wfData) ? wfData : [];
 
-      // Merge scheduled job info (next_run, cron) into workflows
       if (scheduledRes.ok) {
         const scheduledData = await scheduledRes.json();
-        const scheduledJobs: ScheduledJob[] = scheduledData.jobs ?? scheduledData ?? [];
+        const scheduledJobs: ScheduledJob[] = Array.isArray(scheduledData) ? scheduledData : [];
         const scheduleMap = new Map<string, ScheduledJob>();
         for (const job of scheduledJobs) {
           scheduleMap.set(job.workflow_id, job);
@@ -55,14 +70,15 @@ export default function WorkflowSettings() {
           if (job) {
             wf.triggerType = 'schedule';
             wf.cronExpression = job.cron_expression;
-            wf.nextRun = job.next_run;
+            // FIX: backend returns next_run_times (array), not next_run
+            wf.nextRun = job.next_run_times?.[0];
           }
         }
       }
 
       setSettings(workflows);
-    } catch {
-      message.error('Failed to load workflow settings');
+    } catch (err) {
+      message.error('Failed to load: ' + (err instanceof Error ? err.message : 'Unknown'));
     } finally {
       setLoading(false);
     }
@@ -84,9 +100,10 @@ export default function WorkflowSettings() {
       >
         <div>
           <Title level={4} style={{ margin: 0 }}>
+            <ClockCircleOutlined style={{ marginRight: 8 }} />
             Workflow Settings
           </Title>
-          <Text type="secondary">Configure triggers and metadata for workflows</Text>
+          <Text type="secondary">Configure triggers and schedules for workflows</Text>
         </div>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchSettings} loading={loading}>
@@ -119,42 +136,87 @@ export default function WorkflowSettings() {
 
 function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings; onSaved: () => void }) {
   const [form] = Form.useForm();
+  const [saving, setSaving] = useState(false);
+  const [triggerType, setTriggerType] = useState<WorkflowTriggerType>(w.triggerType || 'manual');
+  const [cronExpression, setCronExpression] = useState<string>(w.cronExpression || '');
+
+  useEffect(() => {
+    form.setFieldsValue({
+      name: w.name,
+      triggerType: w.triggerType,
+      commandString: w.commandString,
+    });
+    setTriggerType(w.triggerType || 'manual');
+    setCronExpression(w.cronExpression || '');
+  }, [w.id]);
 
   const handleSave = async () => {
+    setSaving(true);
     try {
-      const values = await form.validateFields();
-      const { triggerType, cronExpression, commandString, ...rest } = values;
-
       if (triggerType === 'schedule') {
-        // Create/update scheduled job via scheduler API
+        const cronParts = cronExpression.trim().split(/\s+/);
+        if (cronParts.length !== 5) {
+          message.error('Cron 表达式无效');
+          setSaving(false);
+          return;
+        }
         const res = await fetch(`/api/v1/workflows/${w.id}/schedule`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cron_expression: cronExpression }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        message.success('已设置定时任务');
       } else {
-        // Remove any existing schedule
         await fetch(`/api/v1/workflows/${w.id}/schedule`, { method: 'DELETE' });
-        // Update workflow trigger_type
-        const res = await fetch(`/api/v1/workflows/${w.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ trigger_type: triggerType, ...rest }),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (triggerType === 'command') {
+          await fetch(`/api/v1/workflows/${w.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trigger_type: 'command' }),
+          });
+        }
+        message.success(triggerType === 'manual' ? '已切换为手动触发' : '已切换为命令触发');
       }
-
-      message.success('Settings saved');
       onSaved();
-    } catch {
-      message.error('Failed to save settings');
+    } catch (err) {
+      message.error('保存失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveSchedule = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/v1/workflows/${w.id}/schedule`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+      message.success('已移除定时任务');
+      setTriggerType('manual');
+      setCronExpression('');
+      onSaved();
+    } catch (err) {
+      message.error('移除失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <Card
-      title={w.name}
+      title={
+        <Space>
+          <span>{w.name}</span>
+          {w.triggerType === 'schedule' && (
+            <Tag color="processing" icon={<ThunderboltOutlined />}>
+              已定时
+            </Tag>
+          )}
+        </Space>
+      }
       extra={
         <Space>
           <Button
@@ -162,79 +224,65 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
             size="small"
             icon={<SaveOutlined />}
             onClick={handleSave}
+            loading={saving}
           >
             Save
           </Button>
         </Space>
       }
     >
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{
-          name: w.name,
-          triggerType: w.triggerType,
-          cronExpression: w.cronExpression,
-          commandString: w.commandString,
-        }}
-      >
-        <Form.Item
-          name="name"
-          label="Workflow Name"
-        >
-          <Input placeholder="Workflow name" />
+      <Form layout="vertical" form={form}>
+        <Form.Item label="触发方式">
+          <Radio.Group
+            value={triggerType}
+            onChange={(e) => setTriggerType(e.target.value)}
+            optionType="button"
+            buttonStyle="solid"
+          >
+            <Radio.Button value="manual">手动</Radio.Button>
+            <Radio.Button value="schedule">定时</Radio.Button>
+            <Radio.Button value="command">命令</Radio.Button>
+          </Radio.Group>
         </Form.Item>
 
-        <Form.Item
-          name="triggerType"
-          label="Trigger Type"
-        >
-          <Select
-            options={[
-              { label: 'Manual', value: 'manual' },
-              { label: 'Schedule (Cron)', value: 'schedule' },
-              { label: 'Command', value: 'command' },
-            ]}
-          />
-        </Form.Item>
+        {triggerType === 'schedule' && (
+          <div style={{ marginBottom: 16 }}>
+            <CronEditor
+              initialCron={cronExpression}
+              onChange={setCronExpression}
+              nextRunTime={w.nextRun}
+            />
+            {w.triggerType === 'schedule' && (
+              <Button
+                danger
+                size="small"
+                style={{ marginTop: 12 }}
+                onClick={handleRemoveSchedule}
+                loading={saving}
+              >
+                移除定时
+              </Button>
+            )}
+          </div>
+        )}
 
-        <Form.Item noStyle shouldUpdate>
-          {({ getFieldValue }) => {
-            const triggerType = getFieldValue('triggerType');
-            if (triggerType === 'schedule') {
-              return (
-                <Form.Item
-                  name="cronExpression"
-                  label="Cron Expression"
-                  rules={[{ required: true, message: 'Please enter a cron expression' }]}
-                >
-                  <Input placeholder="0 * * * * *" />
-                </Form.Item>
-              );
-            }
-            if (triggerType === 'command') {
-              return (
-                <Form.Item
-                  name="commandString"
-                  label="Command String"
-                  rules={[{ required: true, message: 'Please enter a command' }]}
-                >
-                  <Input placeholder="e.g. /workflow/my-workflow" />
-                </Form.Item>
-              );
-            }
-            return null;
-          }}
-        </Form.Item>
+        {triggerType === 'command' && (
+          <Form.Item
+            name="commandString"
+            label="命令字符串"
+            initialValue={w.commandString}
+          >
+            <Input placeholder="e.g. /workflow/my-workflow" />
+          </Form.Item>
+        )}
 
         <Descriptions column={1} size="small" style={{ marginTop: 8 }}>
-          {w.triggerType === 'schedule' && w.nextRun && (
-            <Descriptions.Item label="Next Run">
-              <Tag color="blue">{w.nextRun}</Tag>
-            </Descriptions.Item>
+          {w.createdAt && (
+            <Descriptions.Item label="创建时间">{w.createdAt}</Descriptions.Item>
           )}
-          <Descriptions.Item label="Created">{w.createdAt}</Descriptions.Item>
-          <Descriptions.Item label="Updated">{w.updatedAt}</Descriptions.Item>
+          {w.updatedAt && (
+            <Descriptions.Item label="更新时间">{w.updatedAt}</Descriptions.Item>
+          )}
         </Descriptions>
       </Form>
     </Card>

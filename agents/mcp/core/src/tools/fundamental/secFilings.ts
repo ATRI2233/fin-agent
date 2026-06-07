@@ -60,8 +60,7 @@ export function registerSECFilings(
 ): ToolRegistration {
   return {
     name: "sec_filings",
-    description:
-      "SEC 文件查询：通过 mcp-edgar 获取 10-K/10-Q/8-K �?SEC 文件，提�?XBRL 财务数据和公司信息。用于基本面深度分析�?,
+    description: "SEC 文件查询：通过 mcp-edgar 获取 10-K/10-Q/8-K 等 SEC 文件，并提取 XBRL 财务数据与公司信息，便于深度基本面分析。",
     inputSchema: {
       type: "object",
       properties: {
@@ -77,7 +76,7 @@ export function registerSECFilings(
         },
         limit: {
           type: "number",
-          description: "返回文件数量，默�?10",
+          description: "返回文件数量，默�?10",
           default: 10,
         },
       },

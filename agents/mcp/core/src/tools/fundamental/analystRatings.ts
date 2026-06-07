@@ -39,8 +39,7 @@ export function registerAnalystRatings(
 ): ToolRegistration {
   return {
     name: "analyst_ratings",
-    description:
-      "分析师评级与目标价：通过 stock-scanner-mcp 获取分析师评级分布、目标价（均�?�?低）、上行空间、评级变化趋势。用于基本面信号强化�?,
+    description: "分析师评级与目标价：获取分析师评级分布、目标价（均值/高位/低位）与上行空间，提供评级变化趋势供基本面参考。",
     inputSchema: {
       type: "object",
       properties: {
@@ -72,7 +71,7 @@ export function registerAnalystRatings(
           const returnedSymbol = (ratingsData?.symbol || ratingsData?.ticker || "").toUpperCase();
           const requestedSymbol = symbol.toUpperCase();
           if (returnedSymbol && !returnedSymbol.includes(requestedSymbol) && !requestedSymbol.includes(returnedSymbol)) {
-            console.error(`[analyst_ratings] 数据不匹�? 请求 ${requestedSymbol}, 返回 ${returnedSymbol}，使用模拟数据`);
+            console.error(`[analyst_ratings] 数据不匹�? 请求 ${requestedSymbol}, 返回 ${returnedSymbol}，使用模拟数据`);
             ratingsData = null;
           }
         } catch (e) {
@@ -115,7 +114,7 @@ function processRatingsData(symbol: string, rawData: any): AnalystRatingsResult 
   let consensus: string;
   if (bullishPct >= 60) consensus = "强烈买入";
   else if (bullishPct >= 40) consensus = "买入";
-  else if (hold >= 50) consensus = "中�?;
+  else if (hold >= 50) consensus = "中�?;
   else if (bearishPct >= 40) consensus = "卖出";
   else consensus = "持有";
 

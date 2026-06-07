@@ -49,11 +49,7 @@ permission:
     "role": "经验学习者",
     "expertise": "准确率追踪、权重进化、模式提取、规则淘汰",
     "timeframe": "历史数据",
-    "data_sources": [
-      {"tool": "memory_learner", "data_quality": 0.9, "data_freshness": "历史数据"},
-      {"tool": "memory_recall", "data_quality": 0.85, "data_freshness": "历史数据"},
-      {"tool": "experience_summary", "data_quality": 0.8, "data_freshness": "统计周期"}
-    ],
+    "data_sources": ["memory_learner", "memory_recall", "experience_summary"],
     "reasoning_chain": [
       "从 memory_recall 获取历史判断记录",
       "计算各agent准确率",

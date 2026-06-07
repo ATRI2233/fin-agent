@@ -51,8 +51,7 @@ export function registerOptionsGreeks(
 ): ToolRegistration {
   return {
     name: "options_greeks",
-    description:
-      "期权 Greeks 数据：通过 stock-scanner-mcp 获取期权链、Greeks（Delta/Gamma/Theta/Vega/Rho）、隐含波动率、Put/Call比率。用于期权市场情绪分析和择时�?,
+    description: "期权 Greeks 数据：通过 stock-scanner-mcp 获取期权链与希腊字母（Delta/Gamma/Theta/Vega/Rho）、隐含波动率和 Put/Call 比率。",
     inputSchema: {
       type: "object",
       properties: {
@@ -62,7 +61,7 @@ export function registerOptionsGreeks(
         },
         expiration_days: {
           type: "number",
-          description: "期权到期天数，默�?30",
+          description: "期权到期天数，默�?30",
           default: 30,
         },
       },
@@ -163,7 +162,7 @@ function processOptionsData(
   const callWall = callWalls.length > 0 ? callWalls[0].strike : 0;
 
   const ivRank = avgIV > 50 ? "高IV（可能反转）" : avgIV < 20 ? "低IV（趋势可能持续）" : "中等IV";
-  const pcSignal = putCallRatio > 1.2 ? "偏多（put堆积�? : putCallRatio < 0.7 ? "偏空（call堆积�? : "中�?;
+  const pcSignal = putCallRatio > 1.2 ? "偏多（put堆积�? : putCallRatio < 0.7 ? "偏空（call堆积�? : "中�?;
 
   const nextExpiration = optionsChain.length > 0 ? optionsChain[0].expiration : "";
 

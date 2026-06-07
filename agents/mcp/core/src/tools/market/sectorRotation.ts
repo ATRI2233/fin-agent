@@ -19,8 +19,8 @@ function extractData(raw: any): any[] {
 
 const SECTOR_MAP: Record<string, string> = {
   XLK: "科技", XLF: "金融", XLE: "能源", XLV: "医疗",
-  XLY: "可选消�?, XLP: "必需消费", XLI: "工业", XLU: "公用事业",
-  XLB: "材料", XLRE: "房地�?, XLC: "通信",
+  XLY: "可选消�?, XLP: "必需消费", XLI: "工业", XLU: "公用事业",
+  XLB: "材料", XLRE: "房地�?, XLC: "通信",
 };
 
 interface SectorScore {
@@ -40,19 +40,18 @@ export function registerSectorRotation(
 ): ToolRegistration {
   return {
     name: "sector_rotation",
-    description:
-      "板块轮动分析：通过 TradingView 获取行业板块实时表现，计算相对强度和资金流向信号，输出强�?弱势板块排名和轮动阶段判断�?,
+    description: "板块轮动分析：通过 TradingView 获取行业板块实时表现，计算相对强度和资金流向信号，输出强弱势板块排名并判断轮动阶段。",
     inputSchema: {
       type: "object",
       properties: {
         benchmark: {
           type: "string",
-          description: "基准指数，默�?SPX（标�?00�?,
+          description: "基准指数，默�?SPX（标�?00�?,
           default: "SPX",
         },
         lookback_days: {
           type: "number",
-          description: "回看天数，默�?20",
+          description: "回看天数，默�?20",
           default: 20,
         },
       },
@@ -86,7 +85,7 @@ export function registerSectorRotation(
           const perf1M = data.Perf_1M ?? data["Perf.1M"] ?? 0;
           const volume = data.volume || 0;
 
-          // TradingView sector perf 不含 Volume Ratio，用保守默认�?
+          // TradingView sector perf 不含 Volume Ratio，用保守默认�?
           const volumeRatio = 1.0;
 
           sectorScores.push({

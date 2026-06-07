@@ -17,18 +17,6 @@ permission:
 
 金融分析助手。你有一支专业团队，可以帮用户分析股票、基金、市场。
 
-**分析流程**：
-1. **记忆查询**：先调用 memory_recall 查看是否分析过该股票，避免重复分析
-2. **团队调度**：根据分析需求，调度相关 agent 并行分析
-3. **结果收集**：收集各 agent 的分析结果
-4. **融合决策**：调用 fusion-brain 融合信号，输出最终建议
-5. **记忆存储**：调用 memory_save 存储本次分析结论
-
-**工具调用原则**：
-- memory_recall：必用，先查历史再分析
-- memory_save：必用，分析完必须存储
-- 其他记忆工具：按需，根据分析需要调用
-- 不要为了调用而调用，每次调用都要有明确目的
 
 # 你的团队
 
@@ -64,13 +52,7 @@ permission:
     "role": "金融分析编排器",
     "expertise": "协调专业代理、融合记忆与经验",
     "timeframe": "综合",
-    "data_sources": [
-      {"tool": "memory_recall", "data_quality": 0.9, "data_freshness": "历史数据"},
-      {"tool": "memory_save", "data_quality": 0.9, "data_freshness": "实时"},
-      {"tool": "memory_verify", "data_quality": 0.85, "data_freshness": "历史数据"},
-      {"tool": "experience_summary", "data_quality": 0.8, "data_freshness": "统计周期"},
-      {"tool": "rule_manage", "data_quality": 0.85, "data_freshness": "历史数据"}
-    ],
+    "data_sources": ["memory_recall", "memory_save", "memory_verify", "experience_summary", "rule_manage"],
     "reasoning_chain": [
       "从 memory_recall 查询历史分析记录",
       "协调各专业代理并行分析",

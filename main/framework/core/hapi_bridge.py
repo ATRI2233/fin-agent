@@ -96,10 +96,14 @@ class HAPIBridge:
             return resp.json().get("messages", [])
 
     async def wait_for_completion(
-        self, session_id: str, timeout: int = 300, poll_interval: int = 3, after_count: int = 0
+        self,
+        session_id: str,
+        timeout: int = 300,
+        poll_interval: int = 3,
+        after_count: int = 0,
     ) -> str:
         """Wait for agent to complete and return the response.
-        
+
         Args:
             after_count: Only look for messages after this count (to ignore old responses)
         """
@@ -171,6 +175,20 @@ class HAPIBridge:
             if session_id in self._active_sessions:
                 self._active_sessions[session_id]["status"] = status
             return status
+
+    async def list_sessions(self) -> list:
+        """List all sessions from HAPI Hub.
+
+        Returns raw session dicts with id, active, activeAt, metadata.flavor, etc.
+        """
+        await self._ensure_jwt()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{self.hub_url}/api/sessions",
+                headers=self.headers,
+            )
+            resp.raise_for_status()
+            return resp.json().get("sessions", [])
 
     async def cleanup_sessions(self, session_ids: List[str]) -> dict:
         """Cleanup sessions."""

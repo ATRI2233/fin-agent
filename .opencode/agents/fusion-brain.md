@@ -46,11 +46,7 @@ permission:
     "role": "信号融合与冲突仲裁者",
     "expertise": "多信号加权、冲突检测、辩论协议、条件化结论",
     "timeframe": "综合各agent时间框架",
-    "data_sources": [
-      {"tool": "signal_fusion", "data_quality": 0.9, "data_freshness": "依赖输入"},
-      {"tool": "consistency_check", "data_quality": 0.85, "data_freshness": "历史数据"},
-      {"tool": "conflict_resolver", "data_quality": 0.8, "data_freshness": "依赖输入"}
-    ],
+    "data_sources": ["signal_fusion", "consistency_check", "conflict_resolver"],
     "reasoning_chain": [
       "从各agent获取信号和置信度",
       "检测信号间冲突",
@@ -79,8 +75,7 @@ permission:
       "key_drivers": [
         {"factor": "CPI超预期", "weight": 0.4, "direction": "bearish"},
         {"factor": "就业数据强劲", "weight": 0.3, "direction": "bullish"}
-      ],
-      "data_quality": 0.8
+      ]
     },
     "technical": {
       "distribution": { "p_bullish": 0.7, "p_bearish": 0.15, "p_neutral": 0.15 },
@@ -88,8 +83,7 @@ permission:
       "key_drivers": [
         {"factor": "RSI超卖反弹", "weight": 0.3, "direction": "bullish"},
         {"factor": "MACD金叉", "weight": 0.25, "direction": "bullish"}
-      ],
-      "data_quality": 0.9
+      ]
     },
     "...": "其他agent类似格式"
   }
@@ -187,12 +181,6 @@ technical-chartist: p_bullish=0.7, 假设="趋势延续"
         {"timeframe": "3m-12m", "direction": "bullish", "agents": ["fundamental"], "position_pct": 10, "reason": "fundamental在3m-12m维度看多"}
       ]
     }
-  },
-
-  "timeframe_analysis": {
-    "has_mismatch": true,
-    "grouped_by_timeframe": {...},
-    "layered_recommendations": [...]
   },
 
   "conditional_conclusions": [

@@ -34,15 +34,14 @@ export function registerMarketSnapshot(
 ): ToolRegistration {
   return {
     name: "market_snapshot",
-    description:
-      "市场快照：通过 TradingView 获取主要指数报价、板块涨跌排名和市场概况。用于每日开盘前/收盘后的全局扫描�?,
+    description: "市场快照：通过 TradingView 获取主要指数与板块表现、涨跌排名与市场概况，作为每日宏观与行情概览。",
     inputSchema: {
       type: "object",
       properties: {
         indices: {
           type: "array",
           items: { type: "string" },
-          description: "指数代码列表，默�?['^GSPC','^IXIC','^DJI','VIX']",
+          description: "指数代码列表，默�?['^GSPC','^IXIC','^DJI','VIX']",
           default: DEFAULT_INDICES,
         },
         include_sectors: {
@@ -81,7 +80,7 @@ export function registerMarketSnapshot(
           }
         } catch { errors.push("指数数据获取失败"); }
 
-        // ── 请求额外自定义指�?─────────────────────────────────
+        // ── 请求额外自定义指�?─────────────────────────────────
         const tvTickers = indices
           .map((s: string) => TV_INDEX_MAP[s] || s)
           .filter((t: string) => !indicesData.some((d: any) => d.symbol === t));
@@ -105,7 +104,7 @@ export function registerMarketSnapshot(
                 open: data?.open,
               });
             }
-          } catch { /* 额外报价可�?*/ }
+          } catch { /* 额外报价可�?*/ }
         }
 
         // ── 板块数据 ──────────────────────────────────────────

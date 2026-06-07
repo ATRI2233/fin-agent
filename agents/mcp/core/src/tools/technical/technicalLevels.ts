@@ -51,14 +51,13 @@ export function registerTechnicalLevels(
 ): ToolRegistration {
   return {
     name: "technical_levels",
-    description:
-      "技术位计算：通过 TradingView 获取 RSI/MACD/布林�?均线系统/枢轴点，自动标注支撑阻力位和操作建议。支持股票和指数�?,
+    description: "技术位计算：通过 TradingView 获取 RSI、MACD、布林带、均线系统和枢轴点，自动标注支撑阻力位并给出操作建议。支持股票和指数。",
     inputSchema: {
       type: "object",
       properties: {
         symbol: {
           type: "string",
-          description: "股票代码或指数代码，�?AAPL, SPX",
+          description: "股票代码或指数代码，�?AAPL, SPX",
         },
       },
       required: ["symbol"],
@@ -91,13 +90,13 @@ export function registerTechnicalLevels(
         const quote = quoteItems[0]?.data || quoteItems[0] || null;
 
         if (!tech) {
-          throw new Error("无法获取技术指标数�?);
+          throw new Error("无法获取技术指标数�?);
         }
 
         const currentPrice = quote?.close ?? quote?.last ?? tech.SMA20 ?? 0;
         if (!currentPrice) throw new Error("无法获取当前价格");
 
-        // ── 枢轴�?──────────────────────────────────────────
+        // ── 枢轴�?──────────────────────────────────────────
         const pp = tech["Pivot.M.Classic.Middle"] || currentPrice;
         const r1 = tech["Pivot.M.Classic.R1"] || pp;
         const s1 = tech["Pivot.M.Classic.S1"] || pp;
@@ -125,7 +124,7 @@ export function registerTechnicalLevels(
         const macdSignal = tech["MACD.signal"] ?? 0;
         const macdHist = macdValue - macdSignal;
 
-        // ── 布林�?──────────────────────────────────────────
+        // ── 布林�?──────────────────────────────────────────
         const bbUpper = tech["BB.upper"] ?? currentPrice * 1.05;
         const bbLower = tech["BB.lower"] ?? currentPrice * 0.95;
         const bbMiddle = tech.SMA20 ?? currentPrice;
@@ -141,7 +140,7 @@ export function registerTechnicalLevels(
           movingAverages
         );
 
-        // ── 成交量异�?(无法获取时不判断) ──────────────────────
+        // ── 成交量异�?(无法获取时不判断) ──────────────────────
         const volumeAnomaly = false;
 
         // ── 操作建议 ────────────────────────────────────────
@@ -273,7 +272,7 @@ function identifyKeyLevels(
     }
   }
 
-  // 去重 + 按距离排�?
+  // 去重 + 按距离排�?
   const unique = new Map<number, typeof levels[0]>();
   for (const l of levels) {
     const key = Math.round(l.price * 100);
@@ -303,7 +302,7 @@ function generateActionPoints(
       price: Math.round(pivots.s1 * 100) / 100,
       action: "buy",
       confidence: 70,
-      reason: `RSI=${rsi.toFixed(1)} 超卖，关注S1支撑�?{pivots.s1.toFixed(2)}`,
+      reason: `RSI=${rsi.toFixed(1)} 超卖，关注S1支撑�?{pivots.s1.toFixed(2)}`,
     });
   }
 
@@ -312,7 +311,7 @@ function generateActionPoints(
       price: Math.round(pivots.r1 * 100) / 100,
       action: "sell",
       confidence: 70,
-      reason: `RSI=${rsi.toFixed(1)} 超买，关注R1阻力�?{pivots.r1.toFixed(2)}`,
+      reason: `RSI=${rsi.toFixed(1)} 超买，关注R1阻力�?{pivots.r1.toFixed(2)}`,
     });
   }
 
@@ -339,7 +338,7 @@ function generateActionPoints(
       price: Math.round(boll.lower * 100) / 100,
       action: "buy",
       confidence: 60,
-      reason: `价格触及布林带下�?{boll.lower.toFixed(2)}`,
+      reason: `价格触及布林带下�?{boll.lower.toFixed(2)}`,
     });
   }
 
@@ -348,7 +347,7 @@ function generateActionPoints(
       price: Math.round(boll.upper * 100) / 100,
       action: "sell",
       confidence: 60,
-      reason: `价格触及布林带上�?{boll.upper.toFixed(2)}`,
+      reason: `价格触及布林带上�?{boll.upper.toFixed(2)}`,
     });
   }
 
@@ -367,14 +366,14 @@ function generateActionPoints(
         price: level.price,
         action: "buy",
         confidence: level.strength === "strong" ? 70 : 55,
-        reason: `关键支撑�? ${level.reason}`,
+        reason: `关键支撑�? ${level.reason}`,
       });
     } else if (level.type === "resistance" && level.strength !== "weak") {
       points.push({
         price: level.price,
         action: "take_profit",
         confidence: level.strength === "strong" ? 70 : 55,
-        reason: `关键阻力�? ${level.reason}`,
+        reason: `关键阻力�? ${level.reason}`,
       });
     }
   }

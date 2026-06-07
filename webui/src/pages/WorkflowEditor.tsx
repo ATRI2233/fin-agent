@@ -23,6 +23,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import DebateNodeComponent from '../components/workflow/nodes/DebateNode';
+import { CronEditor } from '../components/CronEditor';
 
 // --- Edge Data Types ---
 type PromptType = 'context' | 'instruction' | 'constraint' | 'data';
@@ -374,6 +375,7 @@ interface WorkflowSettingsModalProps {
 function WorkflowSettingsModal({ visible, onClose, workflowId, workflowName, onNameChange }: WorkflowSettingsModalProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [cronExpression, setCronExpression] = useState('');
 
   useEffect(() => {
     if (visible && workflowId !== 'new') {
@@ -384,12 +386,13 @@ function WorkflowSettingsModal({ visible, onClose, workflowId, workflowName, onN
           form.setFieldsValue({
             name: data.name ?? workflowName,
             triggerType: data.triggerType ?? 'manual',
-            cronExpression: data.cronExpression ?? '',
             commandString: data.commandString ?? '',
           });
+          setCronExpression(data.cronExpression ?? '');
         });
     } else if (visible) {
       form.setFieldsValue({ name: workflowName, triggerType: 'manual' });
+      setCronExpression('');
     }
   }, [visible, workflowId]);
 
@@ -397,6 +400,10 @@ function WorkflowSettingsModal({ visible, onClose, workflowId, workflowName, onN
     try {
       const values = await form.validateFields();
       setLoading(true);
+      // Inject cronExpression from local state for schedule trigger
+      if (values.triggerType === 'schedule') {
+        values.cronExpression = cronExpression;
+      }
       const res = await fetch(`/api/v1/workflows/${workflowId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -446,13 +453,16 @@ function WorkflowSettingsModal({ visible, onClose, workflowId, workflowName, onN
           {({ getFieldValue }) => {
             if (getFieldValue('triggerType') === 'schedule') {
               return (
-                <Form.Item
-                  name="cronExpression"
-                  label="Cron 表达式"
-                  rules={[{ required: true, message: '请输入 Cron 表达式' }]}
-                >
-                  <Input placeholder="0 * * * * *" />
-                </Form.Item>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <span style={{ color: '#F0F0F0' }}>执行计划</span>
+                    <span style={{ color: '#D47070', marginLeft: 4 }}>*</span>
+                  </div>
+                  <CronEditor
+                    initialCron={cronExpression}
+                    onChange={setCronExpression}
+                  />
+                </div>
               );
             }
             if (getFieldValue('triggerType') === 'command') {
@@ -786,11 +796,11 @@ export default function WorkflowEditor() {
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
       height: 'calc(100vh - 52px)',
-      margin: '-32px -40px',
+      width: '100%',
     }}>
       {/* Top Bar */}
       <div

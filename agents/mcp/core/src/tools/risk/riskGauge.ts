@@ -15,8 +15,7 @@ interface RiskMetrics {
 export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistration {
   return {
     name: "risk_gauge",
-    description:
-      "风控指标计算：基于历史价格数据计�?20�?60日年化波动率、距52周高点回撤百分比�?5% VaR。需先调�?market_snapshot �?tradingview_quote 获取价格数据�?,
+    description: "风控指标计算：基于历史价格数据计算 20/60 日年化波动率、相对于 52 周高点的回撤百分比与 5% VaR，并输出风险等级与告警。",
     inputSchema: {
       type: "object",
       properties: {
@@ -26,7 +25,7 @@ export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistratio
         },
         volatility_20d: {
           type: "number",
-          description: "20日波动率（小数，�?0.15 表示 15%�?,
+          description: "20日波动率（小数，�?0.15 表示 15%�?,
         },
         volatility_60d: {
           type: "number",
@@ -38,12 +37,12 @@ export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistratio
         },
         high_52w: {
           type: "number",
-          description: "52周高�?,
+          description: "52周高�?,
         },
         daily_returns_60d: {
           type: "array",
           items: { type: "number" },
-          description: "�?0日每日收益率数组（用于计�?VaR�?,
+          description: "�?0日每日收益率数组（用于计�?VaR�?,
         },
       },
       required: ["symbol"],
@@ -77,7 +76,7 @@ export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistratio
         if (vol20d !== null) {
           vol20dPct = Math.round(vol20d * 10000) / 100;
           if (vol20dPct > 40) {
-            warnings.push(`高波动率警告: ${vol20dPct}%�?40%）`);
+            warnings.push(`高波动率警告: ${vol20dPct}%�?40%）`);
             riskLevel = "high";
           } else if (vol20dPct > 25) {
             riskLevel = "medium";
@@ -91,7 +90,7 @@ export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistratio
         if (currentPrice !== null && high52w !== null && high52w > 0) {
           drawdownPct = Math.round(((currentPrice - high52w) / high52w) * 10000) / 100;
           if (drawdownPct < -20) {
-            warnings.push(`深度回撤警告: ${drawdownPct}%�?-20%）`);
+            warnings.push(`深度回撤警告: ${drawdownPct}%�?-20%）`);
             riskLevel = "high";
           } else if (drawdownPct < -15) {
             riskLevel = "medium";
@@ -103,16 +102,16 @@ export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistratio
           const varIndex = Math.floor(sortedReturns.length * 0.05);
           var95 = Math.round(Math.abs(sortedReturns[varIndex] || 0) * 10000) / 100;
           if (var95 > 3) {
-            warnings.push(`�?VaR 警告: ${var95}% 单日最大预期亏损`);
+            warnings.push(`�?VaR 警告: ${var95}% 单日最大预期亏损`);
           }
         }
 
         if (riskLevel === "high") {
-          warnings.push("风险等级: HIGH �?建议降低仓位或等待回�?);
+          warnings.push("风险等级: HIGH �?建议降低仓位或等待回�?);
         } else if (riskLevel === "medium") {
-          warnings.push("风险等级: MEDIUM �?建议轻仓试探");
+          warnings.push("风险等级: MEDIUM �?建议轻仓试探");
         } else {
-          warnings.push("风险等级: LOW �?正常操作范围");
+          warnings.push("风险等级: LOW �?正常操作范围");
         }
 
         const result: RiskMetrics = {

@@ -71,8 +71,7 @@ async function fetchFromTradingView(mcpManager: MCPClientManager, symbol: string
 export function registerEarningsCalendar(mcpManager: MCPClientManager): ToolRegistration {
   return {
     name: "earnings_calendar",
-    description:
-      "财报日历：检查标的是否在未来 7 日内有财报发布。若有，返回发布日期、时间（盘前/盘中/盘后）、EPS 预期与实际对比、是否超预期�?,
+    description: "财报日历：检查标的在未来若干天内的财报发布日期与时间（盘前/盘中/盘后），并返回 EPS 与营收预期/实际对比与惊喜率。",
     inputSchema: {
       type: "object",
       properties: {
@@ -116,7 +115,7 @@ export function registerEarningsCalendar(mcpManager: MCPClientManager): ToolRegi
           source: "none",
         };
 
-        // ── 优先�?TradingView ────────────────────────────────
+        // ── 优先�?TradingView ────────────────────────────────
         const tvData = await fetchFromTradingView(mcpManager, symbol);
         if (tvData && tvData.length > 0) {
           const now = new Date();
@@ -143,7 +142,7 @@ export function registerEarningsCalendar(mcpManager: MCPClientManager): ToolRegi
           }
         }
 
-        // ── 备�?FMP API ──────────────────────────────────────
+        // ── 备�?FMP API ──────────────────────────────────────
         if (!result.earnings_in_7d) {
           const fmpEntry = await fetchFromFMP(symbol, daysAhead);
           if (fmpEntry) {

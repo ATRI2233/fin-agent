@@ -68,12 +68,7 @@ permission:
     "role": "危机看破者",
     "expertise": "叙事审计、盲点识别、危险模式检测、反证搜集",
     "timeframe": "综合各agent时间框架",
-    "data_sources": [
-      {"tool": "devil_advocate", "data_quality": 0.85, "data_freshness": "依赖输入"},
-      {"tool": "memory_recall", "data_quality": 0.8, "data_freshness": "历史数据"},
-      {"tool": "news_sentiment", "data_quality": 0.75, "data_freshness": "按需"},
-      {"tool": "fundamental_scan", "data_quality": 0.8, "data_freshness": "按需"}
-    ],
+    "data_sources": ["devil_advocate", "memory_recall", "news_sentiment", "fundamental_scan"],
     "reasoning_chain": [
       "从各agent获取信号和假设",
       "识别主导叙事和盲点",

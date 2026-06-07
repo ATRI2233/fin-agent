@@ -37,8 +37,7 @@ export function registerCommodityPrices(
 ): ToolRegistration {
   return {
     name: "commodity_prices",
-    description:
-      "大宗商品价格：获�?WTI/Brent 原油、天然气等能源商品价格，分析商品市场情绪和对宏观的影响。用于宏观环境辅助分析�?,
+    description: "大宗商品价格：获取 WTI/Brent 原油、天然气、贵金属等商品价格，分析市场情绪及宏观影响，作为宏观环境参考。",
     inputSchema: {
       type: "object",
       properties: {
@@ -61,7 +60,7 @@ export function registerCommodityPrices(
             || await mcpManager.callTool("stock-scanner", "commodity_prices", { commodities })
             || await mcpManager.callTool("stock-scanner", "energy_prices", {});
         } catch (e) {
-          console.error("[commodity_prices] 数据源不可用，使用模拟数�?);
+          console.error("[commodity_prices] 数据源不可用，使用模拟数�?);
         }
 
         const result = commodityData || generateSimulatedCommodityData(commodities);
@@ -119,17 +118,17 @@ function processCommodityData(rawData: any): CommodityPricesResult {
   let commoditySentiment: string;
   if (avgChange > 3) commoditySentiment = "偏多（商品普涨）";
   else if (avgChange < -3) commoditySentiment = "偏空（商品普跌）";
-  else commoditySentiment = "中�?;
+  else commoditySentiment = "中�?;
 
   let inflationaryPressure: string, inflationDesc: string;
   if (oilSpread > 8 && avgChange > 2) {
-    inflationaryPressure = "�?;
+    inflationaryPressure = "�?;
     inflationDesc = "原油价格快速上涨，警惕通胀压力";
   } else if (oilSpread < 3 && avgChange < -2) {
-    inflationaryPressure = "�?;
+    inflationaryPressure = "�?;
     inflationDesc = "商品价格下跌，通胀压力减轻";
   } else {
-    inflationaryPressure = "�?;
+    inflationaryPressure = "�?;
     inflationDesc = "商品价格平稳，通胀压力可控";
   }
 

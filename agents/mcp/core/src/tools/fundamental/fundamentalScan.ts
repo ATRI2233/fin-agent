@@ -68,8 +68,7 @@ export function registerFundamentalScan(
 ): ToolRegistration {
   return {
     name: "fundamental_scan",
-    description:
-      "基本面扫描：通过 TradingView 获取估值指标、盈利质量、成长性、分析师评级等数据。无需 API Key�?,
+    description: "基本面扫描：通过 TradingView 获取估值、盈利质量、成长性与分析师评级等关键指标，支持无需 API Key 的基础查询。",
     inputSchema: {
       type: "object",
       properties: {
@@ -129,7 +128,7 @@ export function registerFundamentalScan(
         const totalDebt = data.total_debt_fq || null;
         const dividendYield = data.dividend_yield_recent != null ? data.dividend_yield_recent / 100 : null;
 
-        // ── 估值指�?─────────────────────────────────────────
+        // ── 估值指�?─────────────────────────────────────────
         const valuation = {
           pe_trailing: pe,
           pe_forward: null,
@@ -149,7 +148,7 @@ export function registerFundamentalScan(
           roa: netIncomeFq && totalAssets ? netIncomeFq / totalAssets : null,
         };
 
-        // ── 成长�?───────────────────────────────────────────
+        // ── 成长�?───────────────────────────────────────────
         const growth = {
           revenue_yoy: null,
           earnings_yoy: null,
@@ -172,7 +171,7 @@ export function registerFundamentalScan(
           earnings_quality: earningsQuality,
         };
 
-        // ── 分析师评�?───────────────────────────────────────
+        // ── 分析师评�?───────────────────────────────────────
         const recScore = data.Recommend_All ?? data["Recommend.All"] ?? null;
         let recommendation = "N/A";
         if (recScore != null) {

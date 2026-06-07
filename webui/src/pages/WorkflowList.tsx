@@ -51,7 +51,18 @@ export default function WorkflowList() {
       const res = await fetch('/api/v1/workflows');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setWorkflows(data.workflows ?? []);
+      // FIX: list_workflows returns an array, not {workflows: [...]}
+      // FIX: backend uses snake_case (node_count, created_at) but frontend expects camelCase
+      const rawWorkflows = Array.isArray(data) ? data : (data.workflows ?? []);
+      const workflows: WorkflowMeta[] = rawWorkflows.map((w: any) => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+        nodeCount: w.node_count ?? 0,
+        createdAt: w.created_at ?? '',
+        lastRunAt: w.last_run_at,
+      }));
+      setWorkflows(workflows);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load');
       setWorkflows([]);

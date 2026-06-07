@@ -39,8 +39,7 @@ export function registerNewsSentiment(
 ): ToolRegistration {
   return {
     name: "news_sentiment",
-    description:
-      "新闻情绪分析：获取指定标的的相关新闻及市场情绪评分。需要设�?FINNHUB_API_KEY 环境变量以获取实时新闻数据。未设置时将返回基础市场情绪参考�?,
+    description: "新闻情绪分析：获取指定标的相关新闻并计算市场情绪评分。设置 `FINNHUB_API_KEY` 可启用实时新闻数据源，未设置时返回基础情绪参考。",
     inputSchema: {
       type: "object",
       properties: {
@@ -164,7 +163,7 @@ export function registerNewsSentiment(
           max_weight_in_fusion: 0.15,
         };
 
-        // 市场情绪上下�?
+        // 市场情绪上下�?
         if (fg) {
           result.market_fear_greed = {
             score: fg.score,
@@ -177,7 +176,7 @@ export function registerNewsSentiment(
         }
 
         if (newsItems.length === 0) {
-          result._note = "未获取到实时新闻。设�?FINNHUB_API_KEY 环境变量可启用新闻情绪分析。当前仅提供基础市场情绪参考�?;
+          result._note = "未获取到实时新闻。设�?FINNHUB_API_KEY 环境变量可启用新闻情绪分析。当前仅提供基础市场情绪参考�?;
           result.recommendation_signal = priceDirection;
         }
 

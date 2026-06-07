@@ -1,4 +1,4 @@
-"""System status API endpoint — aggregates health info for WebUI dashboard."""
+"""System status API endpoint - aggregates health info for WebUI dashboard."""
 
 from datetime import datetime, timezone
 
@@ -12,8 +12,6 @@ def _get_executor_status() -> dict:
     try:
         from main.framework.core.executor import JobExecutor
 
-        # JobExecutor doesn't expose a global singleton — check thread state
-        # by probing the module for any live instance
         import threading
 
         alive = any(
@@ -32,7 +30,6 @@ def _get_concurrency_status() -> dict:
         from main.framework.core.performance import get_concurrency_limiter
 
         limiter = get_concurrency_limiter()
-        # _semaphore._value = remaining slots; _active_count tracks acquisitions
         current = limiter._active_count
         max_val = limiter._semaphore._value + current
         return {"current": current, "max": max_val}
@@ -52,7 +49,6 @@ def _get_scheduler_status() -> dict:
 
         next_run = None
         if jobs:
-            # Collect all next_run_times[0] and pick the earliest
             times = []
             for job in jobs:
                 nr = job.get("next_run_times", [])
@@ -70,49 +66,107 @@ def _get_scheduler_status() -> dict:
         return {"running": False, "scheduledJobs": 0, "nextRun": None}
 
 
-def _get_session_status() -> dict:
-    """Get active and total session counts from in-memory registry and DB."""
-    active_count = 0
-    total_count = 0
+async def _get_session_status() -> dict:
+    """Get sessions from HAPI Hub, plus total count from in-memory + DB.
 
-    # In-memory active sessions
+    Returns:
+        {
+            "active": [SessionInfo, ...],   # all sessions for HapiPage table
+            "count": int,                    # number of sessions
+            "total": int,                    # total sessions ever (DB)
+        }
+    """
+    from datetime import datetime, timezone
+
+    active_sessions: list = []
+    in_memory_count = 0
+    db_total = 0
+
+    # Sessions from HAPI Hub (real source of truth)
+    try:
+        from main.framework.core.hapi_bridge import HAPIBridge
+        from main.framework.config import settings
+
+        bridge = HAPIBridge(settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN)
+        sessions = await bridge.list_sessions()
+        for s in sessions:
+            active_at_ms = s.get("activeAt")
+            updated_at_ms = s.get("updatedAt")
+            started_at = None
+            updated_at = None
+            if active_at_ms:
+                started_at = datetime.fromtimestamp(
+                    active_at_ms / 1000, tz=timezone.utc
+                ).isoformat()
+            if updated_at_ms:
+                updated_at = datetime.fromtimestamp(
+                    updated_at_ms / 1000, tz=timezone.utc
+                ).isoformat()
+            active_sessions.append(
+                {
+                    "sessionId": s.get("id", ""),
+                    "status": "active" if s.get("active") else "inactive",
+                    "agent": (s.get("metadata") or {}).get("flavor", "opencode"),
+                    "startedAt": started_at,
+                    "updatedAt": updated_at,
+                }
+            )
+    except Exception as e:
+        import traceback
+
+        print(f"[system.py] _get_session_status HAPI fetch failed: {e}")
+        traceback.print_exc()
+
+    # In-memory active count (fallback / cross-check)
     try:
         from main.framework.core.session_cleanup import get_active_executions
 
         exec_map = get_active_executions()
-        active_count = sum(len(sids) for sids in exec_map.values())
+        in_memory_count = sum(len(sids) for sids in exec_map.values())
     except ImportError:
         pass
 
-    # DB total sessions (ExecutionNode rows)
+    # DB total (historical)
     try:
         from main.framework.models.database import SessionLocal
         from main.framework.models.workflow_execution import ExecutionNode
 
         db = SessionLocal()
         try:
-            total_count = db.query(ExecutionNode).count()
+            db_total = db.query(ExecutionNode).count()
         finally:
             db.close()
     except Exception:
         pass
 
-    return {"active": active_count, "total": total_count}
+    return {
+        "active": active_sessions,
+        "count": len(active_sessions) or in_memory_count,
+        "total": db_total,
+    }
+
+
+def _get_hub_status() -> dict:
+    """Check if HAPI Hub is reachable."""
+    import httpx
+    from main.framework.config import settings
+
+    try:
+        resp = httpx.get(f"{settings.HAPI_HUB_URL}", timeout=3.0)
+        return {"online": resp.status_code == 200}
+    except Exception:
+        return {"online": False}
 
 
 @router.get("/status")
 async def system_status():
-    """Aggregate system status for WebUI dashboard.
-
-    Returns non-sensitive operational metrics from executor, concurrency
-    limiter, scheduler, and session registry. Each subsystem is wrapped
-    in a try/except so partial failures degrade gracefully.
-    """
+    """Aggregate system status for WebUI dashboard."""
     return {
+        "hub": _get_hub_status(),
         "jobExecutor": _get_executor_status(),
         "concurrency": _get_concurrency_status(),
         "scheduler": _get_scheduler_status(),
-        "sessions": _get_session_status(),
+        "sessions": await _get_session_status(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -144,7 +198,10 @@ async def log_stats():
 async def cache_stats():
     """Cache and concurrency statistics."""
     try:
-        from main.framework.core.performance import _workflow_cache, get_concurrency_limiter
+        from main.framework.core.performance import (
+            _workflow_cache,
+            get_concurrency_limiter,
+        )
 
         limiter = get_concurrency_limiter()
         max_conc = limiter._semaphore._value + limiter._active_count
