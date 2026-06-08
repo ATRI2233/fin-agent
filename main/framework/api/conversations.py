@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 from fastapi import APIRouter, HTTPException, Depends, Request, status, BackgroundTasks
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 
 from main.framework.models.database import get_db, SessionLocal
 from main.framework.models.conversation import Conversation, Message
@@ -33,7 +33,7 @@ class ConversationUpdate(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    content: str
+    content: str = Field(..., max_length=10000)
     mode: str = "agent"  # "agent" or "workflow"
     agent: Optional[str] = None  # For agent mode
     workflow_id: Optional[str] = None  # For workflow mode
@@ -213,7 +213,7 @@ async def _process_agent_message(
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
         if conversation:
-            conversation.updated_at = datetime.utcnow()
+            conversation.updated_at = datetime.now(timezone.utc)
 
         db.commit()
 
@@ -301,7 +301,7 @@ async def _execute_workflow_async(
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
         if conversation:
-            conversation.updated_at = datetime.utcnow()
+            conversation.updated_at = datetime.now(timezone.utc)
 
         db.commit()
 
@@ -438,7 +438,7 @@ async def update_conversation(
     if payload.current_agent is not None:
         conversation.current_agent = payload.current_agent
 
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
 
     return {"success": True}
@@ -529,7 +529,7 @@ async def send_message(
     db.refresh(user_msg)
 
     # Update conversation
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     if payload.agent:
         conversation.current_agent = payload.agent
     db.commit()

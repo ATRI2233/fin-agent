@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from main.framework.models.database import SessionLocal
@@ -115,7 +115,7 @@ class ExecutionRepository:
             execution_id,
             status="completed",
             output=output,
-            completed_at=datetime.utcnow(),
+            completed_at=datetime.now(timezone.utc),
             hapi_session_id=session_id,
         )
 

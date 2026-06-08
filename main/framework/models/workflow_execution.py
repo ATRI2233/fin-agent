@@ -4,7 +4,7 @@ from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
 from main.framework.models.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class WorkflowExecution(Base):
@@ -14,7 +14,7 @@ class WorkflowExecution(Base):
     workflow_id = Column(String, nullable=False)
     conversation_id = Column(String, ForeignKey("conversations.id"), nullable=True)
     status = Column(String, default="pending")
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
     results = Column(JSON, default=dict)
     errors = Column(JSON, default=list)
@@ -36,5 +36,5 @@ class ExecutionNode(Base):
     output = Column(JSON, default=dict)
     error = Column(String, nullable=True)
     retry_count = Column(Integer, default=0)
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)

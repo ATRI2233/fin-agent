@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlalchemy import Column, String, DateTime, JSON
 
 from main.framework.models.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Workflow(Base):
@@ -20,5 +20,5 @@ class Workflow(Base):
     cron_expression = Column(String, nullable=True)
     config = Column(JSON, default=dict)
     status = Column(String, default="draft")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

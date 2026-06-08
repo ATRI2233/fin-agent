@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from main.framework.core.job_manager import JobManager
 from main.framework.core.log_collector import get_log_collector
@@ -13,7 +13,7 @@ jm = JobManager()
 
 class JobCreate(BaseModel):
     agent: str
-    prompt: str
+    prompt: str = Field(..., max_length=10000)
     params: Optional[dict] = None
 
 

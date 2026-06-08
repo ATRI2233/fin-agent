@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from datetime import datetime, timezone
+
 from main.framework.models.database import SessionLocal
 from main.framework.models.job import Job
 
