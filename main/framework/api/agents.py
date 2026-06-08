@@ -23,23 +23,23 @@ async def list_agents():
 
 @router.get("/stats")
 async def agent_stats():
-    """Agent usage and success rates."""
+    """Agent usage stats from workflow execution nodes."""
     try:
         from sqlalchemy import func
         from main.framework.models.database import SessionLocal
-        from main.framework.models.job import Job
+        from main.framework.models.workflow_execution import ExecutionNode
         from main.framework.core.agent_registry import registry
 
         db = SessionLocal()
         try:
             rows = db.query(
-                Job.agent, Job.status, func.count(Job.id)
-            ).group_by(Job.agent, Job.status).all()
+                ExecutionNode.agent, ExecutionNode.status, func.count(ExecutionNode.id)
+            ).group_by(ExecutionNode.agent, ExecutionNode.status).all()
             stats: dict = {}
             for agent, s, count in rows:
                 if agent not in stats:
                     stats[agent] = {"total": 0, "completed": 0, "failed": 0}
-                stats[agent][s] = count
+                stats[agent][s] = stats[agent].get(s, 0) + count
                 stats[agent]["total"] += count
         finally:
             db.close()
@@ -50,8 +50,8 @@ async def agent_stats():
             total_terminal = s["completed"] + s["failed"]
             result.append({
                 "name": a.name, "description": a.description, "mode": a.mode,
-                "jobs_total": s["total"], "jobs_completed": s["completed"],
-                "jobs_failed": s["failed"],
+                "executions_total": s["total"], "executions_completed": s["completed"],
+                "executions_failed": s["failed"],
                 "success_rate": round(s["completed"] / max(total_terminal, 1) * 100, 1),
             })
         return result

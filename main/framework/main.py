@@ -10,8 +10,6 @@ from fastapi.responses import JSONResponse
 from main.framework.config import Settings
 from main.framework.core.auth import APIKeyMiddleware
 from main.framework.core.container import Container
-from main.framework.core.log_collector import setup_job_log_handler
-from main.framework.api.jobs import router as jobs_router
 from main.framework.api.agents import router as agents_router
 from main.framework.api.tools import router as tools_router
 from main.framework.api.skills import router as skills_router
@@ -56,7 +54,6 @@ app.add_middleware(
 app.add_middleware(APIKeyMiddleware)
 
 # Include routers
-app.include_router(jobs_router)
 app.include_router(agents_router)
 app.include_router(tools_router)
 app.include_router(skills_router)
@@ -97,21 +94,17 @@ async def health_check():
 # Lifecycle
 # ------------------------------------------------------------------
 
-job_executor = container.create_job_executor()
 scheduler = container.create_scheduler()
 
 
 @app.on_event("startup")
 async def startup():
-    setup_job_log_handler()
-
     # Wire up engine factory for scheduler
     from main.framework.core import scheduler as scheduler_mod
     scheduler_mod.configure(container.create_workflow_engine)
 
     scheduler.start()
     await scheduler.restore_jobs_from_db()
-    job_executor.start()
 
     # Wire up backend to modules that need it
     from main.framework.core import session_cleanup
@@ -130,7 +123,6 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    job_executor.stop()
     scheduler.stop()
     from main.framework.core import session_cleanup
     session_cleanup.cleanup_on_shutdown()

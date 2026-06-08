@@ -12,7 +12,6 @@ from main.framework.core.agent_dispatcher import AgentDispatcher
 from main.framework.core.hapi_bridge import HAPIBridge
 from main.framework.core.protocols import AgentBackend
 from main.framework.repositories.execution_repo import ExecutionRepository
-from main.framework.repositories.job_repo import JobRepository
 
 
 class Container:
@@ -55,12 +54,6 @@ class Container:
             self._instances["execution_repo"] = ExecutionRepository()
         return self._instances["execution_repo"]  # type: ignore[return-value]
 
-    @property
-    def job_repo(self) -> JobRepository:
-        if "job_repo" not in self._instances:
-            self._instances["job_repo"] = JobRepository()
-        return self._instances["job_repo"]  # type: ignore[return-value]
-
     # ------------------------------------------------------------------
     # Factory methods — create per-request / per-execution instances
     # ------------------------------------------------------------------
@@ -76,15 +69,6 @@ class Container:
             params=params,
             dispatcher=self.dispatcher,
             status_callback=status_callback,
-        )
-
-    def create_job_executor(self):
-        """Create a JobExecutor with injected dependencies."""
-        from main.framework.core.executor import JobExecutor
-
-        return JobExecutor(
-            dispatcher=self.dispatcher,
-            job_store=self.job_repo,
         )
 
     def create_scheduler(self):

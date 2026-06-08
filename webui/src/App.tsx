@@ -15,7 +15,6 @@ import {
   BranchesOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  UnorderedListOutlined,
   SendOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons';
@@ -34,7 +33,6 @@ import WorkflowList from './pages/WorkflowList';
 import WorkflowEditor from './pages/WorkflowEditor';
 import WorkflowSettings from './pages/WorkflowSettings';
 import WorkflowMonitor from './pages/WorkflowMonitor';
-import JobsPage from './pages/JobsPage';
 import ChatPage from './pages/ChatPage';
 import InfoPage from './pages/InfoPage';
 import InfoSettingsPage from './pages/InfoSettingsPage';
@@ -64,11 +62,6 @@ const menuItems: MenuItem[] = [
     key: '/chat',
     icon: <SendOutlined />,
     label: <Link to="/chat">Chat</Link>,
-  },
-  {
-    key: '/jobs',
-    icon: <UnorderedListOutlined />,
-    label: <Link to="/jobs">Jobs</Link>,
   },
   {
     key: '/info',
@@ -107,7 +100,6 @@ const AppLayout: React.FC = () => {
     if (path === '/framework') return 'Framework';
     if (path === '/hapi') return 'HAPI Hub';
     if (path === '/chat') return 'Chat';
-    if (path === '/jobs') return 'Jobs';
     if (path === '/agents') return 'Agents';
     if (path === '/skills') return 'Skills';
     if (path === '/mcp') return 'MCP Servers';
@@ -348,7 +340,6 @@ const AppLayout: React.FC = () => {
             <Route path="/framework" element={<FrameworkPage />} />
             <Route path="/hapi" element={<HapiPage />} />
             <Route path="/chat" element={<ChatPage />} />
-            <Route path="/jobs" element={<JobsPage />} />
             <Route path="/agents" element={<AgentsPage />} />
             <Route path="/skills" element={<SkillsPage />} />
             <Route path="/mcp" element={<MCPServersPage />} />
