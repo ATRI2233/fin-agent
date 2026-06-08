@@ -20,6 +20,9 @@ from main.framework.api.triggers import router as triggers_router
 from main.framework.api.scheduler_routes import router as scheduler_router
 from main.framework.api.system import router as system_router
 from main.framework.api.conversations import router as conversations_router
+from main.framework.api.sessions import router as sessions_router
+from main.framework.api.executions import router as executions_router
+from main.framework.api.dispatch import router as dispatch_router
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,9 @@ app.include_router(triggers_router)
 app.include_router(scheduler_router)
 app.include_router(system_router)
 app.include_router(conversations_router)
+app.include_router(sessions_router)
+app.include_router(executions_router)
+app.include_router(dispatch_router)
 
 
 @app.exception_handler(HTTPException)
@@ -81,7 +87,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 async def health_check():
     return {
         "status": "ok",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.timezone.utc).isoformat(),
     }
 
 

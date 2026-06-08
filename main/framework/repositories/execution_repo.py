@@ -19,6 +19,78 @@ class ExecutionRepository:
     # WorkflowExecution
     # ------------------------------------------------------------------
 
+    def list_executions(
+        self,
+        workflow_id: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """List executions with optional filters. Returns (items, total)."""
+        with self._sf() as db:
+            q = db.query(WorkflowExecution)
+            if workflow_id:
+                q = q.filter(WorkflowExecution.workflow_id == workflow_id)
+            if status:
+                q = q.filter(WorkflowExecution.status == status)
+            total = q.count()
+            rows = (
+                q.order_by(WorkflowExecution.started_at.desc())
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+            items = []
+            for ex in rows:
+                nodes = (
+                    db.query(ExecutionNode)
+                    .filter(ExecutionNode.execution_id == ex.id)
+                    .all()
+                )
+                completed = sum(1 for n in nodes if n.status == "completed")
+                failed = sum(1 for n in nodes if n.status == "failed")
+                duration = None
+                if ex.started_at and ex.completed_at:
+                    duration = (ex.completed_at - ex.started_at).total_seconds()
+                items.append({
+                    "id": ex.id,
+                    "workflow_id": ex.workflow_id,
+                    "status": ex.status,
+                    "started_at": ex.started_at.isoformat() if ex.started_at else None,
+                    "completed_at": ex.completed_at.isoformat() if ex.completed_at else None,
+                    "duration_seconds": duration,
+                    "node_count": len(nodes),
+                    "completed_nodes": completed,
+                    "failed_nodes": failed,
+                })
+            return items, total
+
+    def get_execution_timeline(self, execution_id: str) -> list[dict]:
+        """Get node-level timeline for an execution."""
+        with self._sf() as db:
+            nodes = (
+                db.query(ExecutionNode)
+                .filter(ExecutionNode.execution_id == execution_id)
+                .order_by(ExecutionNode.started_at.asc())
+                .all()
+            )
+            timeline = []
+            for n in nodes:
+                duration = None
+                if n.started_at and n.completed_at:
+                    duration = (n.completed_at - n.started_at).total_seconds()
+                timeline.append({
+                    "node_id": n.node_id,
+                    "agent": n.agent,
+                    "status": n.status,
+                    "started_at": n.started_at.isoformat() if n.started_at else None,
+                    "completed_at": n.completed_at.isoformat() if n.completed_at else None,
+                    "duration_seconds": duration,
+                    "hapi_session_id": n.hapi_session_id,
+                    "retry_count": n.retry_count or 0,
+                })
+            return timeline
+
     def create_execution(self, workflow_id: str, **kwargs: Any) -> WorkflowExecution:
         with self._sf() as db:
             exec_ = WorkflowExecution(workflow_id=workflow_id, **kwargs)
