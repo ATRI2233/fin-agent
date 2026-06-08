@@ -1,27 +1,35 @@
 # Fin-Agent - 金融分析 Agent 系统
 
-基于 OpenCode 的多 Agent 金融分析系统，集成 8 个专业分析 Agent 和 6 个 MCP Server，支持 A 股和美股的全维度分析。
+基于 OpenCode 的多 Agent 金融分析系统，集成 10 个专业分析 Agent 和 7 个 MCP Server，支持 A 股和美股的全维度分析。
 
 ## 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Web UI (React)                         │
+│                    WebUI (React + Ant Design)                │
+│  Dashboard │ 信息中心 │ Chat │ Workflows │ Configuration    │
 ├─────────────────────────────────────────────────────────────┤
-│                    OpenCode Framework                       │
-├──────────┬──────────┬──────────┬──────────┬──────────┬──────┤
-│ 宏观侦察 │ 技术形态 │ 基本面审计│ 情绪解码 │ 板块轮动 │ ...  │
-├──────────┴──────────┴──────────┴──────────┴──────────┴──────┤
+│                    Python Framework (FastAPI)                │
+│  ┌───────────┐ ┌──────────────┐ ┌────────────────────────┐  │
+│  │ API Layer │ │  DI Container │ │  AgentDispatcher       │  │
+│  │ 12 routers│ │  (Protocol)   │ │  (统一调度)             │  │
+│  └───────────┘ └──────────────┘ └────────────────────────┘  │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐ │
+│  │WorkflowEngine│ │  Scheduler   │ │ DataMaintenance      │ │
+│  │ (DAG 编排)    │ │  (Cron 定时)  │ │ (后台数据维护)        │ │
+│  └──────────────┘ └──────────────┘ └──────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
 │                      MCP Servers                            │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐          │
-│  │ ASHARE  │ │ FIN-AGENT│ │  FRED   │ │ SEC-EDGAR│          │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘          │
+│  ASHARE │ FIN-AGENT │ FRED │ SEC-EDGAR │ RISK │ CN-MACRO │ LIB │
+├─────────────────────────────────────────────────────────────┤
+│              Agent 矩阵 (tools 白名单隔离)                    │
+│  Macro-Scout │ Technical │ Fundamental │ Sentiment │ ...    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Agent 矩阵
 
-| Agent | 职责 | 天时/地利/人和/主力/时机/安全/质地 |
+| Agent | 职责 | 维度 |
 |-------|------|------|
 | **Macro-Scout** | 宏观环境侦察 | 天时 - 判断大环境是否适合交易 |
 | **Sector-Rotator** | 板块轮动分析 | 地利 - 资金流向和景气赛道 |
@@ -34,51 +42,39 @@
 | **Memory-Learner** | 经验学习 | 进化 - 历史准确率和规则优化 |
 | **Devil-Advocate** | 魔鬼代言人 | 对抗 - 反方论点和风险提示 |
 
+每个 Agent 通过 WebUI 配置独立的 **tools 白名单**，运行时只能看到自己被授权的工具，减少提示词占用。
+
 ## MCP Server 工具集
 
-### ASHARE MCP Server (A 股)
-- `ashare_quote` - 实时行情：最新价/涨跌幅/成交量
-- `ashare_technical_levels` - 技术指标：RSI/EMA/布林带/MACD
-- `ashare_fundamental_scan` - 基本面：ROE/净利润/PE/PB
-- `ashare_news_sentiment` - 新闻情绪分析
-- `ashare_market_snapshot` - 大盘指数快照
-- `ashare_fund_flow` - 个股资金流向
-- `ashare_lhb` - 龙虎榜数据
+| Server | 语言 | 工具数 | 数据源 |
+|--------|------|--------|--------|
+| **ashare-mcp-server** | Python | 10 | AKShare (A 股行情/技术/基本面/资金) |
+| **fin-agent-mcp-server** | Node.js | 13 | FinVul (美股全维度) |
+| **fred-mcp-server** | Node.js | 3 | FRED (美联储宏观数据) |
+| **sec-edgar-mcp** | Python | 5 | SEC-EDGAR (美股财报) |
+| **risk-mcp-server** | Python | 3 | 本地风控计算 |
+| **cn-macro-mcp-server** | Python | 7 | 中国宏观数据 (信用/利率/PMI/通胀) |
+| **lib-mcp-server** | Node.js | 10 | 记忆/一致性/信号融合/魔鬼代言人 |
 
-### FIN-AGENT MCP Server (美股)
-- `market_snapshot` - 美股大盘快照
-- `technical_levels` - 技术分析
-- `news_sentiment` - 新闻情绪分析
-- `fundamental_scan` - 基本面扫描
-- `earnings_calendar` - 财报日历
-- `sector_rotation` - 板块轮动
-- `insider_trading` - 内部人交易
-- `fear_greed_index` - 恐慌贪婪指数
-- `analyst_ratings` - 分析师评级
-- `options_greeks` - 期权希腊字母
-- `commodity_prices` - 大宗商品价格
-- `sec_filings` - SEC 财报查询
-- `risk_gauge` - 风险评估
+## 核心功能
 
-### LIB MCP Server (逻辑工具)
-- `memory_recall` / `memory_save` / `memory_verify` - 记忆系统
-- `experience_summary` - 经验总结
-- `rule_manage` - 规则管理
-- `signal_fusion` - 信号融合
-- `consistency_check` - 一致性检查
-- `devil_advocate` - 魔鬼代言人
+### 工作流编排
+- **可视化 DAG 编辑器** — 拖拽式工作流设计
+- **串行/并行执行** — 拓扑排序 + 并行分支自动识别
+- **Session 链式复用** — 串行节点共享会话，减少资源开销
+- **Debate 节点** — 多 Agent 辩论 + Judge 裁决
+- **Cron 定时调度** — APScheduler 集成
 
-### FRED MCP Server (宏观数据)
-- `fred_search` / `fred_series` / `fred_category` - 美联储经济数据
+### 后台数据维护
+- **独立数据库** — `maintenance.db` 与业务数据分离
+- **定时采集** — 配置 Agent + Prompt + Cron 自动获取数据
+- **信息中心** — 前端实时查看维护数据
+- **维护设置** — 开关、触发方式、Agent 配置
 
-### Risk MCP Server (风控)
-- `risk_position_size` - 仓位计算
-- `risk_stop_loss` - 止损计算
-- `risk_portfolio_analysis` - 组合分析
-- `risk_hedge` - 对冲建议
-
-### SEC-EDGAR MCP Server
-- `sec_company_search` / `sec_filings_search` / `sec_filing_content` / `sec_financial_data`
+### 系统可观测性
+- **Session 管理 API** — 查看/清理 HAPI 会话
+- **Execution 查询 API** — 执行记录列表、时间线、重试
+- **Agent 调度 API** — 同步/并行直接调用 Agent
 
 ## 快速开始
 
@@ -112,49 +108,68 @@ start.bat
 cd main && python -m framework.main
 ```
 
-### 4. 访问 Web UI
+### 4. 访问 WebUI
 
-启动后访问 http://localhost:3000
+启动后访问 http://localhost:3120
 
 ## 目录结构
 
 ```
 fin-agent/
-├── agents/
-│   ├── mcp/              # MCP Server 实现
-│   │   ├── core/         # 核心金融分析
-│   │   ├── ashare/       # A 股数据
-│   │   ├── fred/         # 宏观数据
-│   │   └── risk/         # 风控计算
-│   ├── lib/              # 共享工具库
-│   ├── hapi-hub/         # HAPI 集成
-│   └── opencode/         # OpenCode 集成
 ├── main/
-│   └── framework/        # 主框架 (FastAPI)
-│       ├── api/          # API 路由
-│       ├── core/         # 核心逻辑
-│       ├── models/       # 数据模型
-│       └── tests/        # 测试
-├── webui/                # 前端界面 (React)
-│   ├── src/
-│   │   ├── pages/        # 页面组件
-│   │   └── components/   # 通用组件
-│   └── server/           # BFF 服务
-├── .opencode/            # OpenCode 配置
-│   ├── agents/           # Agent 定义
-│   └── skills/           # Skills 定义
-├── opencode.json         # 主配置文件
-├── start.bat             # Windows 启动脚本
-└── requirements.txt      # Python 依赖
+│   ├── framework/              # 核心框架
+│   │   ├── api/                # API 路由 (12 个模块)
+│   │   │   ├── agents.py       # Agent 管理
+│   │   │   ├── conversations.py# 对话系统
+│   │   │   ├── dispatch.py     # Agent 直接调度
+│   │   │   ├── executions.py   # 执行查询/重试
+│   │   │   ├── sessions.py     # Session 管理
+│   │   │   ├── triggers.py     # 工作流触发
+│   │   │   └── ...
+│   │   ├── core/               # 核心逻辑
+│   │   │   ├── protocols.py    # Protocol 抽象接口
+│   │   │   ├── container.py    # DI 容器
+│   │   │   ├── agent_dispatcher.py # 统一调度器
+│   │   │   ├── workflow_engine.py  # DAG 执行引擎
+│   │   │   ├── scheduler.py    # Cron 调度器
+│   │   │   └── hapi_bridge.py  # HAPI Hub 客户端
+│   │   ├── models/             # SQLAlchemy ORM
+│   │   └── repositories/       # 数据访问层
+│   └── data_maintenance/       # 数据维护模块 (独立)
+│       ├── api/                # 维护 API
+│       ├── core/               # 维护服务
+│       └── models/             # 维护数据库 (独立 SQLite)
+├── webui/                      # 前端 (React + Vite)
+│   └── src/pages/
+│       ├── Dashboard.tsx       # 系统仪表盘
+│       ├── InfoPage.tsx        # 信息中心 (数据展示)
+│       ├── ChatPage.tsx        # 对话界面
+│       ├── WorkflowEditor.tsx  # 工作流 DAG 编辑器
+│       └── ...
+├── agents/
+│   ├── mcp/                    # MCP Server 实现
+│   │   ├── core/               # 核心金融分析 (Node.js)
+│   │   ├── ashare/             # A 股数据 (Python)
+│   │   ├── fred/               # 宏观数据 (Node.js)
+│   │   ├── risk/               # 风控计算 (Python)
+│   │   └── cn-macro/           # 中国宏观 (Python)
+│   └── lib/                    # 共享工具库 (Node.js)
+├── .opencode/
+│   ├── opencode.json           # 主配置 (Agent/MCP/Tools)
+│   └── agents/                 # Agent 系统提示词
+├── data/
+│   ├── finagent.db             # 业务数据库
+│   └── maintenance.db          # 维护数据库
+└── start.bat                   # 启动脚本
 ```
 
 ## 技术栈
 
-- **后端**: Python 3.11+, FastAPI, SQLAlchemy
-- **前端**: React 18, TypeScript, Vite
-- **Agent 框架**: OpenCode
+- **后端**: Python 3.11+, FastAPI, SQLAlchemy, APScheduler
+- **前端**: React 18, TypeScript, Vite, Ant Design, ReactFlow
+- **Agent 框架**: OpenCode + HAPI Hub
 - **MCP Servers**: Node.js (TypeScript), Python
-- **数据源**: AKShare (A 股), FinVul (美股), FRED (宏观), SEC-EDGAR
+- **数据源**: AKShare, FinVul, FRED, SEC-EDGAR, 中国宏观数据
 
 ## License
 
