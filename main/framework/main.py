@@ -23,6 +23,7 @@ from main.framework.api.conversations import router as conversations_router
 from main.framework.api.sessions import router as sessions_router
 from main.framework.api.executions import router as executions_router
 from main.framework.api.dispatch import router as dispatch_router
+from main.data_maintenance.api.data_maintenance import router as data_maintenance_router
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ app.include_router(conversations_router)
 app.include_router(sessions_router)
 app.include_router(executions_router)
 app.include_router(dispatch_router)
+app.include_router(data_maintenance_router)
 
 
 @app.exception_handler(HTTPException)
@@ -117,6 +119,13 @@ async def startup():
 
     from main.framework.api.conversations import configure_session_manager
     configure_session_manager(container.backend)
+
+    # Initialize data maintenance
+    from main.data_maintenance.models.maintenance_db import init_maintenance_db
+    from main.data_maintenance.core.data_maintenance import DataMaintenanceService, configure as configure_maintenance
+    init_maintenance_db()
+    configure_maintenance(container.dispatcher, scheduler._scheduler)
+    DataMaintenanceService.sync_scheduled_tasks()
 
 
 @app.on_event("shutdown")

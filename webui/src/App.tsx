@@ -17,6 +17,7 @@ import {
   MenuUnfoldOutlined,
   UnorderedListOutlined,
   SendOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import FrameworkPage from './pages/FrameworkPage';
 import HapiPage from './pages/HapiPage';
@@ -35,6 +36,8 @@ import WorkflowSettings from './pages/WorkflowSettings';
 import WorkflowMonitor from './pages/WorkflowMonitor';
 import JobsPage from './pages/JobsPage';
 import ChatPage from './pages/ChatPage';
+import InfoPage from './pages/InfoPage';
+import InfoSettingsPage from './pages/InfoSettingsPage';
 import './styles/theme.css';
 
 const { Header, Sider, Content } = Layout;
@@ -68,6 +71,11 @@ const menuItems: MenuItem[] = [
     label: <Link to="/jobs">Jobs</Link>,
   },
   {
+    key: '/info',
+    icon: <DatabaseOutlined />,
+    label: <Link to="/info">信息中心</Link>,
+  },
+  {
     key: 'agents-group',
     label: 'Configuration',
     icon: <SettingOutlined />,
@@ -81,6 +89,7 @@ const menuItems: MenuItem[] = [
       { key: '/config', icon: <FileTextOutlined />, label: <Link to="/config">Config</Link> },
       { key: '/rules', icon: <FileTextOutlined />, label: <Link to="/rules">Rules</Link> },
       { key: '/workflows', icon: <BranchesOutlined />, label: <Link to="/workflows">Workflows</Link> },
+      { key: '/info/settings', icon: <DatabaseOutlined />, label: <Link to="/info/settings">维护设置</Link> },
     ],
   },
 ];
@@ -89,7 +98,7 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(location.pathname === '/chat');
 
-  const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows'];
+  const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows', '/info/settings'];
   const openKeys = agentsPaths.includes(location.pathname) ? ['agents-group'] : [];
 
   const pageName = () => {
@@ -108,6 +117,8 @@ const AppLayout: React.FC = () => {
     if (path === '/config') return 'Config';
     if (path === '/rules') return 'Rules';
     if (path.startsWith('/workflows')) return 'Workflows';
+    if (path === '/info') return '信息中心';
+    if (path === '/info/settings') return '维护设置';
     return path.replace('/', '').charAt(0).toUpperCase() + path.slice(2);
   };
 
@@ -351,6 +362,8 @@ const AppLayout: React.FC = () => {
             <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
             <Route path="/workflows/settings" element={<WorkflowSettings />} />
             <Route path="/workflow/:executionId?" element={<WorkflowMonitor />} />
+            <Route path="/info" element={<InfoPage />} />
+            <Route path="/info/settings" element={<InfoSettingsPage />} />
           </Routes>
         </Content>
       </Layout>
