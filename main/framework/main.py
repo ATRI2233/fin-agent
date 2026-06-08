@@ -96,6 +96,11 @@ scheduler = container.create_scheduler()
 @app.on_event("startup")
 async def startup():
     setup_job_log_handler()
+
+    # Wire up engine factory for scheduler
+    from main.framework.core import scheduler as scheduler_mod
+    scheduler_mod.configure(container.create_workflow_engine)
+
     scheduler.start()
     await scheduler.restore_jobs_from_db()
     job_executor.start()

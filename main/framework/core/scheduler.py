@@ -1,9 +1,11 @@
 """Workflow scheduling with cron-based APScheduler integration."""
 
+from __future__ import annotations
+
 import asyncio
 import re
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -11,9 +13,17 @@ from apscheduler.triggers.cron import CronTrigger
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
-from main.framework.core.workflow_engine import WorkflowEngine
 
 logger = __import__("logging").getLogger(__name__)
+
+# Factory function set at startup via configure()
+_engine_factory: Callable[..., Any] | None = None
+
+
+def configure(engine_factory: Callable[..., Any]) -> None:
+    """Set the factory used to create WorkflowEngine instances."""
+    global _engine_factory
+    _engine_factory = engine_factory
 
 
 class WorkflowScheduler:
@@ -275,8 +285,10 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
             f"Created execution {execution.id} for scheduled workflow {workflow_id}"
         )
 
-        # Run via WorkflowEngine
-        engine = WorkflowEngine(workflow_id=workflow_id, params={})
+        # Run via WorkflowEngine (created through factory for DI)
+        if _engine_factory is None:
+            raise RuntimeError("Scheduler not configured: call scheduler.configure() first")
+        engine = _engine_factory(workflow_id=workflow_id, params={})
 
         try:
             result = await engine.execute()

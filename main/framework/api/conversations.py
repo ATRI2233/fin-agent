@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Request, status, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, List
@@ -13,6 +14,8 @@ from main.framework.models.conversation import Conversation, Message
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
 from main.framework.core.protocols import AgentBackend
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
@@ -109,7 +112,7 @@ class HAPISessionManager:
         try:
             await self._backend.cleanup_sessions([session_id])
         except Exception as e:
-            print(f"Warning: Failed to delete HAPI session {session_id}: {e}")
+            logger.warning(f"Failed to delete HAPI session {session_id}: {e}")
 
         return session_id
 
@@ -454,7 +457,7 @@ async def delete_conversation(conversation_id: str, db=Depends(get_db)):
         # Cleanup HAPI session
         await session_manager.cleanup_session(conversation_id, db=db)
     except Exception as e:
-        print(f"Warning: Failed to cleanup HAPI session: {e}")
+        logger.warning(f"Failed to cleanup HAPI session: {e}")
 
     try:
         # Delete related messages first
