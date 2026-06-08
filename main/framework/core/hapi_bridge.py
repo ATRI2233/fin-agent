@@ -1,14 +1,22 @@
-import httpx
-import time
+"""HAPI Bridge — concrete AgentBackend implementation.
+
+Manages sessions via the HAPI Hub HTTP API.
+"""
+
+from __future__ import annotations
+
 import asyncio
-from typing import Optional, List
+import logging
+import time
+from typing import List
+
+import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class HAPIBridge:
-    """Concrete implementation of the AgentBackend protocol.
-
-    Manages sessions via the HAPI Hub HTTP API.
-    """
+    """Concrete implementation of the AgentBackend protocol."""
 
     def __init__(self, hub_url: str, api_token: str = ""):
         self.hub_url = hub_url.rstrip("/")
@@ -17,7 +25,6 @@ class HAPIBridge:
         self._jwt_expires_at = 0
         self._machine_id = None
         self.headers = {}
-        self._active_sessions = {}
 
     async def _ensure_jwt(self):
         """Get or refresh JWT token from /api/auth."""
@@ -53,7 +60,7 @@ class HAPIBridge:
             self._machine_id = machines[0]["id"]
 
     async def create_session(self, cwd: str = ".", agent: str = "opencode") -> str:
-        """Create a new opencode session."""
+        """Create a new opencode session. Returns the session ID."""
         await self._ensure_jwt()
         await self._ensure_machine()
         async with httpx.AsyncClient(timeout=60.0) as client:
@@ -81,7 +88,7 @@ class HAPIBridge:
             return "ok"
 
     async def get_message_count(self, session_id: str) -> int:
-        """Get current message count before sending."""
+        """Get current message count."""
         messages = await self.get_messages(session_id)
         return len(messages)
 
@@ -112,30 +119,27 @@ class HAPIBridge:
         """Wait for agent to complete and return the response.
 
         Args:
-            after_count: Only look for messages after this count (to ignore old responses)
+            after_count: Only look for messages after this count
+                         (to ignore old responses in reused sessions).
         """
         start = time.time()
         while (time.time() - start) < timeout:
             messages = await self.get_messages(session_id)
-            # Only look at NEW messages (after the count when we sent our message)
             new_messages = messages[after_count:] if after_count > 0 else messages
-            # Look for final agent response in new messages
             for msg in reversed(new_messages):
                 content = msg.get("content", {})
                 if content.get("role") == "agent":
                     inner = content.get("content", {})
-                    # opencode uses "codex" type with data.type=message
                     if inner.get("type") == "codex":
                         data = inner.get("data", {})
                         if data.get("type") == "message":
                             return data.get("message", "")
-                    # Also support plain text response
                     elif inner.get("type") == "text":
                         return inner.get("text", "")
             await asyncio.sleep(poll_interval)
         raise TimeoutError(f"Session {session_id} timed out after {timeout}s")
 
-    async def abort_session(self, session_id: str):
+    async def abort_session(self, session_id: str) -> None:
         """Abort a session."""
         await self._ensure_jwt()
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -145,58 +149,8 @@ class HAPIBridge:
             )
             resp.raise_for_status()
 
-    async def create_session_for_node(
-        self, node_id: str, agent: str, prompt: str
-    ) -> str:
-        """Create a session for a specific node.
-
-        Args:
-            node_id: Workflow node identifier.
-            agent: Target agent name (passed to spawn).
-            prompt: Initial prompt (sent after session creation).
-        """
-        await self._ensure_jwt()
-        await self._ensure_machine()
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                f"{self.hub_url}/api/machines/{self._machine_id}/spawn",
-                json={"directory": ".", "agent": agent, "hidden": True},
-                headers=self.headers,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if data.get("type") != "success":
-                raise RuntimeError(f"Failed to spawn session: {data}")
-            session_id = data["sessionId"]
-            self._active_sessions[session_id] = {
-                "status": "pending",
-                "node_id": node_id,
-            }
-            # Send the initial prompt if provided
-            if prompt:
-                await self.send_message(session_id, str(prompt))
-            return session_id
-
-    async def get_session_status(self, session_id: str) -> str:
-        """Get session status."""
-        await self._ensure_jwt()
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(
-                f"{self.hub_url}/api/sessions/{session_id}",
-                headers=self.headers,
-            )
-            resp.raise_for_status()
-            session = resp.json().get("session", {})
-            status = "active" if session.get("active") else "inactive"
-            if session_id in self._active_sessions:
-                self._active_sessions[session_id]["status"] = status
-            return status
-
     async def list_sessions(self) -> list:
-        """List all sessions from HAPI Hub.
-
-        Returns raw session dicts with id, active, activeAt, metadata.flavor, etc.
-        """
+        """List all sessions from HAPI Hub."""
         await self._ensure_jwt()
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
@@ -207,7 +161,7 @@ class HAPIBridge:
             return resp.json().get("sessions", [])
 
     async def cleanup_sessions(self, session_ids: List[str]) -> dict:
-        """Cleanup sessions."""
+        """Delete multiple sessions. Returns {id: 'cleaned' | 'failed: ...'}."""
         await self._ensure_jwt()
         results = {}
         for session_id in session_ids:
@@ -219,8 +173,6 @@ class HAPIBridge:
                     )
                     resp.raise_for_status()
                     results[session_id] = "cleaned"
-                    if session_id in self._active_sessions:
-                        del self._active_sessions[session_id]
             except Exception as e:
                 results[session_id] = f"failed: {str(e)}"
         return results

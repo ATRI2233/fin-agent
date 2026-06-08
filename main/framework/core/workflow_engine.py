@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime
 from typing import Any, Callable, Awaitable
 
@@ -16,6 +17,7 @@ from main.framework.core.workflow_parser import (
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 
+logger = logging.getLogger(__name__)
 
 StatusCallback = Callable[[str, str, str], Awaitable[None]]
 
@@ -102,7 +104,42 @@ class WorkflowEngine:
 
             return self.collect_results()
         finally:
+            await self._cleanup_sessions()
             db.close()
+
+    # ------------------------------------------------------------------
+    # Session cleanup
+    # ------------------------------------------------------------------
+
+    async def _cleanup_sessions(self) -> None:
+        """Abort all sessions created during this execution."""
+        session_ids = list(set(self._chain_sessions.values()))
+        if not session_ids:
+            return
+        try:
+            results = await self._dispatcher.backend.cleanup_sessions(session_ids)
+            failed = [k for k, v in results.items() if v != "cleaned"]
+            if failed:
+                logger.warning(f"Some sessions failed to clean up: {failed}")
+        except Exception as e:
+            logger.warning(f"Session cleanup failed: {e}")
+
+    # ------------------------------------------------------------------
+    # Graph helpers
+    # ------------------------------------------------------------------
+
+    def _is_leaf(self, node_id: str) -> bool:
+        """Check if a node has no successors (is a terminal node)."""
+        return not any(e.get("source") == node_id for e in self.edges)
+
+    def _is_only_successor(self, node_id: str, pred_id: str) -> bool:
+        """Check if node_id is the sole successor of pred_id.
+
+        This prevents parallel branches from sharing a session —
+        if a predecessor has multiple successors, each gets its own session.
+        """
+        successors = [e["target"] for e in self.edges if e.get("source") == pred_id]
+        return len(successors) == 1
 
     # ------------------------------------------------------------------
     # Execution ordering
@@ -248,12 +285,27 @@ class WorkflowEngine:
             prompt_template = node.get("prompt", "")
             prompt = self._build_prompt(prompt_template, node, predecessor_ids, node_id)
 
-            # Serial chain session reuse
+            # Serial chain session reuse:
+            #   Only reuse if:
+            #   1. Node has exactly one predecessor
+            #   2. That predecessor has a tracked session
+            #   3. This node is the predecessor's ONLY successor (not a parallel branch)
             session_id = None
+            after_count = 0
             if len(predecessor_ids) == 1:
                 pred_id = predecessor_ids[0]
-                if pred_id in self._chain_sessions:
+                if (
+                    pred_id in self._chain_sessions
+                    and self._is_only_successor(node_id, pred_id)
+                ):
                     session_id = self._chain_sessions[pred_id]
+                    # Get current message count to ignore old responses
+                    after_count = await self._dispatcher.backend.get_message_count(
+                        session_id
+                    )
+
+            # Leaf nodes don't need to keep sessions alive for downstream
+            is_leaf = self._is_leaf(node_id)
 
             exec_node.hapi_session_id = session_id or ""
             exec_node.status = "running"
@@ -265,7 +317,8 @@ class WorkflowEngine:
                 agent,
                 prompt,
                 session_id=session_id,
-                reuse_session=True,  # keep alive for downstream chain
+                reuse_session=not is_leaf,
+                after_count=after_count,
             )
             result = resp["result"]
             new_session_id = resp["session_id"]

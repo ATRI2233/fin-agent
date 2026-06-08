@@ -25,6 +25,11 @@ class AgentDispatcher:
     def __init__(self, backend: AgentBackend):
         self._backend = backend
 
+    @property
+    def backend(self) -> AgentBackend:
+        """Expose backend for operations like get_message_count."""
+        return self._backend
+
     # ------------------------------------------------------------------
     # Core dispatch
     # ------------------------------------------------------------------
@@ -37,6 +42,7 @@ class AgentDispatcher:
         timeout: int = 300,
         session_id: str | None = None,
         reuse_session: bool = False,
+        after_count: int = 0,
     ) -> dict[str, Any]:
         """Dispatch a prompt to an agent and return the parsed result.
 
@@ -47,6 +53,8 @@ class AgentDispatcher:
             session_id: Existing session to reuse (sends message to it).
             reuse_session: If True, do NOT abort the session after completion
                           (caller is responsible for cleanup).
+            after_count: Only look for messages after this count (for reused
+                        sessions, to avoid returning stale responses).
 
         Returns:
             {"result": <parsed>, "session_id": str, "raw": str}
@@ -63,7 +71,7 @@ class AgentDispatcher:
 
         try:
             raw = await self._backend.wait_for_completion(
-                session_id, timeout=timeout
+                session_id, timeout=timeout, after_count=after_count
             )
             return {
                 "result": self._parse_response(raw),
