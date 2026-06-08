@@ -1,10 +1,12 @@
 """Workflow execution engine with topological sort and parallel execution."""
 
+from __future__ import annotations
+
 import asyncio
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable, Awaitable
 
-from main.framework.core.hapi_bridge import HAPIBridge
+from main.framework.core.agent_dispatcher import AgentDispatcher
 from main.framework.core.debate_executor import DebateExecutor
 from main.framework.core.retry_handler import WorkflowRetryHandler
 from main.framework.core.workflow_parser import (
@@ -13,53 +15,65 @@ from main.framework.core.workflow_parser import (
 )
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
-from main.framework.config import settings
+
+
+StatusCallback = Callable[[str, str, str], Awaitable[None]]
 
 
 class WorkflowEngine:
     """Executes workflow DAG with topological ordering and parallel execution."""
 
-    def __init__(self, workflow_id: str, params: dict[str, Any]):
+    def __init__(
+        self,
+        workflow_id: str,
+        params: dict[str, Any],
+        dispatcher: AgentDispatcher,
+        status_callback: StatusCallback | None = None,
+    ):
         self.workflow_id = workflow_id
         self.params = params
+        self._dispatcher = dispatcher
+        self._status_callback = status_callback or self._noop_callback
         self.execution_id: str | None = None
         self.nodes: list[dict] = []
         self.edges: list[dict] = []
         self._results: dict[str, Any] = {}
         self._failed_nodes: set[str] = set()
         self._skipped_nodes: set[str] = set()
-        self._chain_sessions: dict[str, str] = {}  # node_id â†?session_id
-        self._chain_hapi: dict[str, HAPIBridge] = {}  # session_id â†?HAPIBridge instance
+        # Serial chain session reuse: node_id -> session_id
+        self._chain_sessions: dict[str, str] = {}
+
+    @staticmethod
+    async def _noop_callback(_status: str, _msg: str, _agent: str) -> None:
+        pass
+
+    # ------------------------------------------------------------------
+    # Public entry point
+    # ------------------------------------------------------------------
 
     async def execute(self) -> dict[str, Any]:
-        """Main execution method using asyncio with parallel execution of independent nodes."""
         db = SessionLocal()
         try:
-            # Load workflow from database
             from main.framework.models.workflow import Workflow
 
-            workflow = (
-                db.query(Workflow).filter(Workflow.id == self.workflow_id).first()
-            )
+            workflow = db.query(Workflow).filter(Workflow.id == self.workflow_id).first()
             if not workflow:
                 raise ValueError(f"Workflow {self.workflow_id} not found")
 
             self.nodes = workflow.nodes or []
             self.edges = workflow.edges or []
 
-            # Initialize retry handler
-            self._retry_handler = WorkflowRetryHandler(self.workflow_id)
+            self._retry_handler = WorkflowRetryHandler(
+                self.workflow_id, dispatcher=self._dispatcher
+            )
 
-            # Create execution record
             execution = WorkflowExecution(
-                workflow_id=self.workflow_id,
-                status="running",
+                workflow_id=self.workflow_id, status="running"
             )
             db.add(execution)
             db.commit()
             self.execution_id = execution.id
 
-            # Initialize execution nodes in database
             for node in self.nodes:
                 exec_node = ExecutionNode(
                     execution_id=self.execution_id,
@@ -71,31 +85,28 @@ class WorkflowEngine:
                 db.add(exec_node)
             db.commit()
 
-            # Get topological order
             execution_order = topological_sort(self.nodes, self.edges)
             if not execution_order:
                 raise ValueError("Failed to compute topological order - possible cycle")
 
-            # Identify parallel branches
             parallel_branches = identify_parallel_branches(self.nodes, self.edges)
-
-            # Build dependency map: node_id -> list of predecessor node_ids
             predecessors = self._build_predecessors()
 
-            # Execute in topological order with parallelism
             await self._execute_in_order(
                 execution_order, parallel_branches, predecessors
             )
 
-            # Collect final results
             final_status = "failed" if self._failed_nodes else "completed"
             execution.status = final_status
             db.commit()
 
             return self.collect_results()
-
         finally:
             db.close()
+
+    # ------------------------------------------------------------------
+    # Execution ordering
+    # ------------------------------------------------------------------
 
     async def _execute_in_order(
         self,
@@ -103,51 +114,38 @@ class WorkflowEngine:
         parallel_branches: dict[str, list[str]],
         predecessors: dict[str, list[str]],
     ) -> None:
-        """Execute nodes in topological order, parallelizing where possible."""
-        # Group nodes by "level" - nodes at the same dependency level can run in parallel
         levels: dict[int, list[str]] = {}
-        node_to_level: dict[str, int] = {}
-
         for node_id in execution_order:
             level = self._compute_level(node_id, predecessors)
-            node_to_level[node_id] = level
             if level not in levels:
                 levels[level] = []
             levels[level].append(node_id)
 
-        # Execute level by level
         for level in sorted(levels.keys()):
-            nodes_at_level = levels[level]
-            # Filter out skipped nodes
-            nodes_to_run = [n for n in nodes_at_level if n not in self._skipped_nodes]
-
+            nodes_to_run = [
+                n for n in levels[level] if n not in self._skipped_nodes
+            ]
             if not nodes_to_run:
                 continue
 
-            # Check if these nodes can run in parallel (no dependencies between them)
-            can_run_parallel = all(
+            can_parallel = all(
                 pred not in self._failed_nodes and pred not in self._skipped_nodes
                 for node in nodes_to_run
                 for pred in predecessors.get(node, [])
             )
 
-            if can_run_parallel and len(nodes_to_run) > 1:
-                # Execute parallel nodes together
+            if can_parallel and len(nodes_to_run) > 1:
                 await asyncio.gather(
-                    *[self._execute_single_node(node_id) for node_id in nodes_to_run]
+                    *[self._execute_single_node(nid) for nid in nodes_to_run]
                 )
             else:
-                # Serial execution (some dependencies not met or single node)
                 for node_id in nodes_to_run:
                     preds = predecessors.get(node_id, [])
-                    # Wait for all predecessors to complete
                     if preds:
-                        # Check if all predecessors are done
                         await self._wait_for_predecessors(preds)
                     await self._execute_single_node(node_id)
 
     async def _wait_for_predecessors(self, pred_ids: list[str]) -> None:
-        """Wait for predecessor nodes to complete."""
         for pred_id in pred_ids:
             while (
                 pred_id not in self._results
@@ -156,8 +154,9 @@ class WorkflowEngine:
             ):
                 await asyncio.sleep(0.1)
 
-    def _compute_level(self, node_id: str, predecessors: dict[str, list[str]]) -> int:
-        """Compute the dependency level of a node (for parallel execution grouping)."""
+    def _compute_level(
+        self, node_id: str, predecessors: dict[str, list[str]]
+    ) -> int:
         preds = predecessors.get(node_id, [])
         if not preds:
             level = 0
@@ -171,12 +170,11 @@ class WorkflowEngine:
         self._node_levels[node_id] = level
         return level
 
-    def _get_node_level(self, node_id: str) -> int:
-        """Get cached level for a node."""
-        return getattr(self, "_node_levels", {}).get(node_id, 0)
+    # ------------------------------------------------------------------
+    # Single node execution
+    # ------------------------------------------------------------------
 
     async def _execute_single_node(self, node_id: str) -> None:
-        """Execute a single node via HAPI."""
         if node_id in self._failed_nodes or node_id in self._skipped_nodes:
             return
 
@@ -187,18 +185,12 @@ class WorkflowEngine:
 
         try:
             await self.execute_node(node_id)
-            # Mark as completed - success
             self._results[node_id] = self._results.get(node_id, {})
         except Exception as e:
-            # Check if retry is configured for this node
-            has_retry_config = node.get("retry") is not None and not node.get(
+            has_retry = node.get("retry") is not None and not node.get(
                 "no_retry", False
             )
-            if (
-                has_retry_config
-                and hasattr(self, "_retry_handler")
-                and self.execution_id
-            ):
+            if has_retry and hasattr(self, "_retry_handler") and self.execution_id:
                 retry_result = await self._retry_handler.retry_node(
                     node_id, self.execution_id
                 )
@@ -208,7 +200,6 @@ class WorkflowEngine:
             await self.handle_failure(node_id, e)
 
     async def execute_node(self, node_id: str) -> dict[str, Any]:
-        """Execute single node via HAPI bridge."""
         db = SessionLocal()
         exec_node = None
         try:
@@ -216,7 +207,6 @@ class WorkflowEngine:
             if not node:
                 raise ValueError(f"Node {node_id} not found")
 
-            # Get or create execution node record
             exec_node = (
                 db.query(ExecutionNode)
                 .filter(
@@ -225,7 +215,6 @@ class WorkflowEngine:
                 )
                 .first()
             )
-
             if not exec_node:
                 exec_node = ExecutionNode(
                     execution_id=self.execution_id,
@@ -235,19 +224,18 @@ class WorkflowEngine:
                 )
                 db.add(exec_node)
 
-            # Get predecessor node IDs for this node
             predecessor_ids = [
                 e["source"] for e in self.edges if e.get("target") == node_id
             ]
 
-            # Handle debate nodes via DebateExecutor
+            # Handle debate nodes
             if node.get("type") == "debate":
                 enriched_prompt = self._build_prompt(
                     node.get("prompt", ""), node, predecessor_ids, node_id
                 )
                 node_with_prompt = {**node, "prompt": enriched_prompt}
-                executor = DebateExecutor()
-                result = await executor.execute_debate(node_with_prompt)
+                debate_exec = DebateExecutor(self._dispatcher)
+                result = await debate_exec.execute_debate(node_with_prompt)
                 self._results[node_id] = result
                 exec_node.status = "completed"
                 exec_node.output = result
@@ -255,56 +243,43 @@ class WorkflowEngine:
                 db.commit()
                 return result
 
-            # Build prompt from node config, params, and upstream context
+            # Regular agent node
             agent = node.get("agent", "")
             prompt_template = node.get("prompt", "")
             prompt = self._build_prompt(prompt_template, node, predecessor_ids, node_id)
 
-            # Serial chain session sharing: reuse session if single predecessor has one
-            is_serial = len(predecessor_ids) == 1
-            parent_session = None
-            if is_serial:
+            # Serial chain session reuse
+            session_id = None
+            if len(predecessor_ids) == 1:
                 pred_id = predecessor_ids[0]
                 if pred_id in self._chain_sessions:
-                    parent_session = self._chain_sessions[pred_id]
+                    session_id = self._chain_sessions[pred_id]
 
-            if parent_session and parent_session in self._chain_hapi:
-                # Reuse existing session
-                hapi = self._chain_hapi[parent_session]
-                session_id = parent_session
-                await hapi.send_message(session_id, prompt)
-            else:
-                # Create new session
-                hapi = HAPIBridge(hub_url=settings.HAPI_HUB_URL, api_token=settings.HAPI_API_TOKEN)
-                session_id = await hapi.create_session_for_node(node_id, agent, prompt)
-                self._chain_hapi[session_id] = hapi
-
-            self._chain_sessions[node_id] = session_id
-
-            # Update execution node with session
-            exec_node.hapi_session_id = session_id
+            exec_node.hapi_session_id = session_id or ""
             exec_node.status = "running"
             db.commit()
 
-            # Report status callback
-            if self._status_callback:
-                await self._status_callback("running", f"{agent} is working...", agent)
+            await self._status_callback("running", f"{agent} is working...", agent)
 
-            # Send message to start execution
-            await hapi.send_message(session_id, prompt)
+            resp = await self._dispatcher.dispatch(
+                agent,
+                prompt,
+                session_id=session_id,
+                reuse_session=True,  # keep alive for downstream chain
+            )
+            result = resp["result"]
+            new_session_id = resp["session_id"]
 
-            # Wait for completion
-            result = await hapi.wait_for_completion(session_id)
+            # Track session for chain reuse
+            self._chain_sessions[node_id] = new_session_id
+            exec_node.hapi_session_id = new_session_id
 
-            # Store result
             exec_node.status = "completed"
             exec_node.output = {"result": result}
             exec_node.completed_at = datetime.utcnow()
             db.commit()
 
-            # Report status callback
-            if self._status_callback:
-                await self._status_callback("completed", f"{agent} completed", agent)
+            await self._status_callback("completed", f"{agent} completed", agent)
 
             self._results[node_id] = {"result": result}
             return {"result": result}
@@ -315,15 +290,16 @@ class WorkflowEngine:
                 exec_node.error = str(e)
                 db.commit()
             raise
-
         finally:
             db.close()
 
+    # ------------------------------------------------------------------
+    # Failure handling
+    # ------------------------------------------------------------------
+
     async def handle_failure(self, node_id: str, error: Exception) -> None:
-        """Mark node as failed and skip all downstream nodes."""
         db = SessionLocal()
         try:
-            # Mark this node as failed
             exec_node = (
                 db.query(ExecutionNode)
                 .filter(
@@ -339,14 +315,10 @@ class WorkflowEngine:
 
             self._failed_nodes.add(node_id)
 
-            # Find and mark all downstream nodes as skipped
-            downstream = self._find_downstream(node_id)
-            for downstream_id in downstream:
+            for downstream_id in self._find_downstream(node_id):
                 if downstream_id not in self._failed_nodes:
                     self._skipped_nodes.add(downstream_id)
-
-                    # Update in database
-                    exec_node = (
+                    dn = (
                         db.query(ExecutionNode)
                         .filter(
                             ExecutionNode.execution_id == self.execution_id,
@@ -354,15 +326,17 @@ class WorkflowEngine:
                         )
                         .first()
                     )
-                    if exec_node:
-                        exec_node.status = "skipped"
+                    if dn:
+                        dn.status = "skipped"
                         db.commit()
-
         finally:
             db.close()
 
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
     def collect_results(self) -> dict[str, Any]:
-        """Collect all node outputs from execution."""
         return {
             "execution_id": self.execution_id,
             "workflow_id": self.workflow_id,
@@ -373,27 +347,22 @@ class WorkflowEngine:
         }
 
     def _find_node(self, node_id: str) -> dict | None:
-        """Find node config by ID."""
         for node in self.nodes:
             if node.get("id") == node_id:
                 return node
         return None
 
     def _build_predecessors(self) -> dict[str, list[str]]:
-        """Build a map of node_id -> list of predecessor node_ids."""
         preds: dict[str, list[str]] = {}
         for edge in self.edges:
             source, target = edge.get("source"), edge.get("target")
             if source and target:
-                if target not in preds:
-                    preds[target] = []
-                preds[target].append(source)
+                preds.setdefault(target, []).append(source)
         return preds
 
     def _find_downstream(self, node_id: str) -> list[str]:
-        """Find all nodes downstream of given node (following edges)."""
-        downstream = []
-        visited = set()
+        downstream: list[str] = []
+        visited: set[str] = set()
 
         def dfs(current: str):
             for edge in self.edges:
@@ -414,19 +383,15 @@ class WorkflowEngine:
         predecessor_ids: list[str] | None = None,
         node_id: str | None = None,
     ) -> str:
-        """Build prompt from template, params, upstream node outputs, and edge connections."""
         prompt = template
 
-        # Substitute workflow-level params
         for key, value in self.params.items():
             prompt = prompt.replace(f"{{{key}}}", str(value))
 
-        # Substitute node config values
         for key, value in node.items():
             if isinstance(value, str):
                 prompt = prompt.replace(f"{{{key}}}", value)
 
-        # Inject edge connection prompts
         if node_id:
             for edge in self.edges:
                 if edge.get("target") == node_id:
@@ -435,24 +400,24 @@ class WorkflowEngine:
                     if edge_prompt:
                         prompt = f"{prompt}\n\n--- Connection ({edge_type}) ---\n{edge_prompt}"
 
-        # Inject upstream outputs
         if predecessor_ids:
             upstream_outputs = []
             for pred_id in predecessor_ids:
                 if pred_id in self._results:
                     pred_result = self._results[pred_id]
-                    # Extract the actual output string
-                    if isinstance(pred_result, dict):
-                        output = pred_result.get("result", str(pred_result))
-                    else:
-                        output = str(pred_result)
-                    upstream_outputs.append({"agent_name": pred_id, "output": output})
+                    output = (
+                        pred_result.get("result", str(pred_result))
+                        if isinstance(pred_result, dict)
+                        else str(pred_result)
+                    )
+                    upstream_outputs.append(
+                        {"agent_name": pred_id, "output": output}
+                    )
 
             if upstream_outputs:
                 from main.framework.core.input_merger import merge_inputs
 
                 merged = merge_inputs(upstream_outputs)
-                # Replace {upstream} placeholder or append to end
                 if "{upstream}" in prompt:
                     prompt = prompt.replace("{upstream}", merged)
                 else:

@@ -5,6 +5,11 @@ from typing import Optional, List
 
 
 class HAPIBridge:
+    """Concrete implementation of the AgentBackend protocol.
+
+    Manages sessions via the HAPI Hub HTTP API.
+    """
+
     def __init__(self, hub_url: str, api_token: str = ""):
         self.hub_url = hub_url.rstrip("/")
         self._cli_token = api_token
@@ -12,7 +17,6 @@ class HAPIBridge:
         self._jwt_expires_at = 0
         self._machine_id = None
         self.headers = {}
-        self._semaphore = asyncio.Semaphore(10)
         self._active_sessions = {}
 
     async def _ensure_jwt(self):
@@ -86,10 +90,13 @@ class HAPIBridge:
     ) -> list:
         """Get messages from a session."""
         await self._ensure_jwt()
+        params: dict = {"limit": limit}
+        if offset > 0:
+            params["offset"] = offset
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(
                 f"{self.hub_url}/api/sessions/{session_id}/messages",
-                params={"limit": limit},
+                params=params,
                 headers=self.headers,
             )
             resp.raise_for_status()
@@ -141,13 +148,19 @@ class HAPIBridge:
     async def create_session_for_node(
         self, node_id: str, agent: str, prompt: str
     ) -> str:
-        """Create a session for a specific node."""
+        """Create a session for a specific node.
+
+        Args:
+            node_id: Workflow node identifier.
+            agent: Target agent name (passed to spawn).
+            prompt: Initial prompt (sent after session creation).
+        """
         await self._ensure_jwt()
         await self._ensure_machine()
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 f"{self.hub_url}/api/machines/{self._machine_id}/spawn",
-                json={"directory": ".", "agent": "opencode"},
+                json={"directory": ".", "agent": agent, "hidden": True},
                 headers=self.headers,
             )
             resp.raise_for_status()
@@ -159,6 +172,9 @@ class HAPIBridge:
                 "status": "pending",
                 "node_id": node_id,
             }
+            # Send the initial prompt if provided
+            if prompt:
+                await self.send_message(session_id, str(prompt))
             return session_id
 
     async def get_session_status(self, session_id: str) -> str:

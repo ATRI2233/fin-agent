@@ -1,10 +1,11 @@
 """Workflow trigger and execution status APIs."""
 
-from fastapi import APIRouter, HTTPException, status
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 from typing import Optional
 
-from main.framework.core.workflow_engine import WorkflowEngine
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
@@ -70,9 +71,9 @@ def _get_workflow_or_404(workflow_id: str) -> Workflow:
         db.close()
 
 
-async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str):
+async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str, container):
     """Background task to execute workflow."""
-    engine = WorkflowEngine(workflow_id, params)
+    engine = container.create_workflow_engine(workflow_id, params)
     engine.execution_id = execution_id
     try:
         await engine.execute()
@@ -92,9 +93,10 @@ async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str)
 
 
 @router.post("/workflows/{workflow_id}/trigger", status_code=status.HTTP_202_ACCEPTED)
-async def trigger_workflow(workflow_id: str, payload: TriggerRequest):
+async def trigger_workflow(workflow_id: str, payload: TriggerRequest, request: Request):
     """Trigger a workflow execution asynchronously."""
     _get_workflow_or_404(workflow_id)
+    container = request.app.state.container
 
     db = SessionLocal()
     try:
@@ -105,7 +107,9 @@ async def trigger_workflow(workflow_id: str, payload: TriggerRequest):
         import asyncio
 
         exec_id = str(execution.id)
-        asyncio.create_task(_run_workflow_async(workflow_id, payload.params, exec_id))
+        asyncio.create_task(
+            _run_workflow_async(workflow_id, payload.params, exec_id, container)
+        )
 
         return TriggerResponse(execution_id=exec_id)
     finally:

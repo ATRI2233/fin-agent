@@ -125,7 +125,7 @@ export default function AgentsPage() {
           if (Array.isArray(mcpTools)) {
             for (const tool of mcpTools) {
               tools.push({
-                key: `${serverName}:${tool.name}`,
+                key: `${serverName}_${tool.name}`,
                 title: tool.name,
                 description: tool.description || '',
                 source: 'mcp',

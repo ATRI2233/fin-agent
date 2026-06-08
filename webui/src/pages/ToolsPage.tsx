@@ -50,7 +50,7 @@ export default function ToolsPage() {
             // 有 tools 字段：展开每个 tool
             for (const tool of mcpTools) {
               allRows.push({
-                key: `${serverName}:${tool.name}`,
+                key: `${serverName}_${tool.name}`,
                 name: tool.name,
                 description: tool.description || '',
                 enabled: serverEnabled,

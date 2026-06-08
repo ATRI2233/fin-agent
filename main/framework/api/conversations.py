@@ -1,6 +1,8 @@
 """Conversation API - CRUD + message handling."""
 
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, Depends, Request, status, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, List
 from uuid import uuid4
@@ -10,9 +12,7 @@ from main.framework.models.database import get_db, SessionLocal
 from main.framework.models.conversation import Conversation, Message
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
-from main.framework.core.hapi_bridge import HAPIBridge
-from main.framework.core.workflow_engine import WorkflowEngine
-from main.framework.config import settings
+from main.framework.core.protocols import AgentBackend
 
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
@@ -57,78 +57,43 @@ class ConversationResponse(BaseModel):
     message_count: int = 0
 
 
-# ���� HAPI Session Manager ������������������������������������������������������������������������������������������
+# ---- HAPI Session Manager ----
 
 
 class HAPISessionManager:
     """Manages the mapping between conversations and HAPI sessions."""
 
-    def __init__(self):
-        self._sessions: dict[str, HAPIBridge] = {}  # conversation_id -> HAPIBridge
+    def __init__(self, backend: AgentBackend):
+        self._backend = backend
+        self._session_ids: dict[str, str] = {}  # conversation_id -> hapi_session_id
 
     async def get_or_create_session(
         self, conversation_id: str, db
-    ) -> tuple[str, HAPIBridge]:
+    ) -> tuple[str, AgentBackend]:
         """Get or create HAPI session for a conversation."""
-        # Check if we already have a bridge instance
-        if conversation_id in self._sessions:
-            bridge = self._sessions[conversation_id]
-            return bridge._session_id, bridge
+        if conversation_id in self._session_ids:
+            return self._session_ids[conversation_id], self._backend
 
-        # Check database for existing session
         conversation = (
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
         if conversation and conversation.hapi_session_id:
-            # Create bridge with existing session
-            bridge = HAPIBridge(settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN)
-            bridge._session_id = conversation.hapi_session_id
-            self._sessions[conversation_id] = bridge
-            return conversation.hapi_session_id, bridge
+            self._session_ids[conversation_id] = conversation.hapi_session_id
+            return conversation.hapi_session_id, self._backend
 
-        # Create new session
-        bridge = HAPIBridge(settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN)
-        session_id = await bridge.create_session(agent="opencode")
+        session_id = await self._backend.create_session(agent="opencode")
 
-        # Save to database
         if conversation:
             conversation.hapi_session_id = session_id
             db.commit()
 
-        # Cache bridge
-        bridge._session_id = session_id
-        self._sessions[conversation_id] = bridge
-
-        return session_id, bridge
+        self._session_ids[conversation_id] = session_id
+        return session_id, self._backend
 
     async def cleanup_session(self, conversation_id: str, db=None) -> Optional[str]:
-        """Delete HAPI session for a conversation (cleanup, not abort).
+        """Delete HAPI session for a conversation."""
+        session_id = self._session_ids.pop(conversation_id, None)
 
-        Looks up hapi_session_id from the in-memory cache first, then falls
-        back to the database — so sessions created before the current process
-        started are still cleaned up. Calls HAPIBridge.cleanup_sessions()
-        (DELETE) so the session is actually removed from ~/.hapi/hapi.db,
-        not merely marked inactive.
-
-        Args:
-            conversation_id: fin-agent conversation id.
-            db: optional SQLAlchemy session; required to look up hapi_session_id
-                when the bridge isn't in the current process's cache.
-
-        Returns:
-            The hapi_session_id that was deleted, or None if no session existed.
-        """
-        bridge = None
-        session_id: Optional[str] = None
-
-        # 1) Fast path: in-memory cache (current process).
-        if conversation_id in self._sessions:
-            bridge = self._sessions[conversation_id]
-            session_id = getattr(bridge, "_session_id", None)
-            del self._sessions[conversation_id]
-
-        # 2) Fallback: look up hapi_session_id in the DB. Covers server restarts
-        #    and any case where the cache missed.
         if not session_id and db is not None:
             conversation = (
                 db.query(Conversation)
@@ -141,28 +106,24 @@ class HAPISessionManager:
         if not session_id:
             return None
 
-        # 3) Actually DELETE the HAPI session (not abort).
         try:
-            bridge = bridge or HAPIBridge(
-                settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN
-            )
-            await bridge.cleanup_sessions([session_id])
+            await self._backend.cleanup_sessions([session_id])
         except Exception as e:
-            # Don't fail the caller — log and let the conversation row be deleted.
             print(f"Warning: Failed to delete HAPI session {session_id}: {e}")
 
         return session_id
 
     def get_session_id(self, conversation_id: str) -> Optional[str]:
-        """Get HAPI session ID for a conversation."""
-        if conversation_id in self._sessions:
-            bridge = self._sessions[conversation_id]
-            return getattr(bridge, "_session_id", None)
-        return None
+        return self._session_ids.get(conversation_id)
 
 
-# Global session manager
-session_manager = HAPISessionManager()
+# Will be initialised in startup via configure_session_manager()
+session_manager: HAPISessionManager = None  # type: ignore[assignment]
+
+
+def configure_session_manager(backend: AgentBackend) -> None:
+    global session_manager
+    session_manager = HAPISessionManager(backend)
 
 
 def _save_workflow_status(
@@ -193,59 +154,48 @@ def _save_workflow_status(
 
 
 async def _process_agent_message(
-    conversation_id: str, message_id: str, content: str, agent: str
+    conversation_id: str, message_id: str, content: str, agent: str, backend: AgentBackend
 ):
     """Process agent message in background."""
     db = SessionLocal()
     try:
-        # Get HAPI session for this conversation
-        session_id, bridge = await session_manager.get_or_create_session(
+        session_id, _ = await session_manager.get_or_create_session(
             conversation_id, db
         )
 
-        # If agent changed, create a new session
         conversation = (
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
         if conversation and conversation.current_agent != agent:
-            # Agent changed - cleanup old session and create new one
             await session_manager.cleanup_session(conversation_id, db=db)
             conversation.hapi_session_id = None
             db.commit()
 
-        # Get or create session
-        session_id, bridge = await session_manager.get_or_create_session(
+        session_id, _ = await session_manager.get_or_create_session(
             conversation_id, db
         )
 
-        # Update current agent
         if conversation:
             conversation.current_agent = agent
             db.commit()
 
-        # Prepare prompt - use @ to directly invoke agent
         if agent and agent != "fin-orchestrator":
             prompt = f"@{agent} {content}"
         else:
             prompt = content
 
-        # Get message count before sending (to ignore old responses)
-        msg_count = await bridge.get_message_count(session_id)
+        msg_count = await backend.get_message_count(session_id)
 
-        # Send to HAPI
-        await bridge.send_message(session_id, prompt)
-        result = await bridge.wait_for_completion(session_id, after_count=msg_count)
+        await backend.send_message(session_id, prompt)
+        result = await backend.wait_for_completion(session_id, after_count=msg_count)
 
-        # Parse response
         try:
             import json
-
             parsed = json.loads(result)
             response_content = parsed.get("result", result)
         except Exception:
             response_content = result
 
-        # Save assistant message
         assistant_msg = Message(
             id=str(uuid4()),
             conversation_id=conversation_id,
@@ -256,7 +206,6 @@ async def _process_agent_message(
         )
         db.add(assistant_msg)
 
-        # Update conversation
         conversation = (
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
@@ -266,7 +215,6 @@ async def _process_agent_message(
         db.commit()
 
     except Exception as e:
-        # Save error message
         error_msg = Message(
             id=str(uuid4()),
             conversation_id=conversation_id,
@@ -282,29 +230,23 @@ async def _process_agent_message(
 
 
 async def _execute_workflow_async(
-    conversation_id: str, execution_id: str, workflow_id: str, params: dict
+    conversation_id: str, execution_id: str, workflow_id: str, params: dict, container
 ):
     """Execute workflow in background and save results to conversation."""
     db = SessionLocal()
     try:
-        # Status callback for real-time updates
-        async def status_callback(status: str, detail: str, agent: str = None):
+        async def status_callback(st: str, detail: str, agent: str = ""):
             db2 = SessionLocal()
             try:
                 _save_workflow_status(
-                    db2,
-                    conversation_id,
-                    execution_id,
-                    workflow_id,
-                    status,
-                    detail,
-                    agent,
+                    db2, conversation_id, execution_id, workflow_id, st, detail, agent,
                 )
             finally:
                 db2.close()
 
-        # Execute workflow with status callback
-        engine = WorkflowEngine(workflow_id, params, status_callback=status_callback)
+        engine = container.create_workflow_engine(
+            workflow_id, params, status_callback=status_callback
+        )
         engine.execution_id = execution_id
         await engine.execute()
 
@@ -388,11 +330,10 @@ async def _execute_workflow_async(
                     .filter(ExecutionNode.execution_id == execution_id)
                     .all()
                 )
-                hapi = HAPIBridge(settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN)
                 for node in nodes:
                     if node.hapi_session_id:
                         try:
-                            await hapi.abort_session(node.hapi_session_id)
+                            await container.backend.abort_session(node.hapi_session_id)
                         except Exception:
                             pass
         except Exception:
@@ -562,9 +503,11 @@ async def send_message(
     conversation_id: str,
     payload: MessageCreate,
     background_tasks: BackgroundTasks,
+    request: Request,
     db=Depends(get_db),
 ):
     """Send a message (async processing)."""
+    container = request.app.state.container
     conversation = (
         db.query(Conversation).filter(Conversation.id == conversation_id).first()
     )
@@ -618,13 +561,13 @@ async def send_message(
         db.add(status_msg)
         db.commit()
 
-        # Start background task
         background_tasks.add_task(
             _execute_workflow_async,
             conversation_id=conversation_id,
             execution_id=str(execution.id),
             workflow_id=payload.workflow_id,
             params={"question": payload.content},
+            container=container,
         )
 
         return {
@@ -642,13 +585,13 @@ async def send_message(
         # Agent mode - async processing
         agent = payload.agent or conversation.current_agent or "fin-orchestrator"
 
-        # Start background task
         background_tasks.add_task(
             _process_agent_message,
             conversation_id=conversation_id,
             message_id=str(user_msg.id),
             content=payload.content,
             agent=agent,
+            backend=container.backend,
         )
 
         return {

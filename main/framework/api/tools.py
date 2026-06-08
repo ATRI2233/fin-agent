@@ -1,97 +1,36 @@
+"""Tools API — reads tool definitions from opencode.json MCP config."""
+
+import json
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="/api/v1/tools", tags=["tools"])
 
-TOOLS = [
-    {
-        "name": "market-snapshot",
-        "description": "Get current market snapshot",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "fred-search",
-        "description": "Search FRED economic data",
-        "server": "fred",
-    },
-    {
-        "name": "fred-series",
-        "description": "Get FRED time series data",
-        "server": "fred",
-    },
-    {
-        "name": "fred-browse",
-        "description": "Browse FRED economic data",
-        "server": "fred",
-    },
-    {
-        "name": "sector-rotation",
-        "description": "Analyze sector rotation",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "news-sentiment",
-        "description": "News sentiment analysis",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "technical-levels",
-        "description": "Technical analysis levels",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "fundamental-scan",
-        "description": "Fundamental analysis scan",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "analyst-ratings",
-        "description": "Analyst ratings",
-        "server": "fin-agent-mcp-server",
-    },
-    {"name": "risk-gauge", "description": "Risk assessment gauge", "server": "risk"},
-    {"name": "position-sizing", "description": "Position sizing", "server": "risk"},
-    {
-        "name": "institutional-flow",
-        "description": "Institutional flow analysis",
-        "server": "risk",
-    },
-    {
-        "name": "insider-trading",
-        "description": "Insider trading tracking",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "options-greeks",
-        "description": "Options Greeks calculation",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "earnings-calendar",
-        "description": "Earnings calendar",
-        "server": "fin-agent-mcp-server",
-    },
-    {"name": "sec-filings", "description": "SEC filings", "server": "sec-edgar"},
-    {
-        "name": "signal-fusion",
-        "description": "Multi-signal fusion",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "consistency-check",
-        "description": "Signal consistency check",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "fear-greed-index",
-        "description": "Fear and greed index",
-        "server": "fin-agent-mcp-server",
-    },
-    {
-        "name": "commodity-prices",
-        "description": "Commodity prices",
-        "server": "fin-agent-mcp-server",
-    },
-]
+
+def _load_tools_from_opencode() -> list[dict]:
+    """Load tools from all enabled MCP servers in opencode.json."""
+    config_path = Path(__file__).resolve().parents[3] / ".opencode" / "opencode.json"
+    if not config_path.exists():
+        return []
+    with open(config_path, encoding="utf-8") as f:
+        config = json.load(f)
+    tools = []
+    for server_name, server_cfg in config.get("mcp", {}).items():
+        if not server_cfg.get("enabled", True):
+            continue
+        for tool in server_cfg.get("tools", []):
+            tools.append({
+                "name": tool["name"],
+                "description": tool.get("description", ""),
+                "server": server_name,
+                "category": tool.get("category", ""),
+            })
+    return tools
+
+
+# Load once at import time
+TOOLS: list[dict] = _load_tools_from_opencode()
 
 
 @router.get("")

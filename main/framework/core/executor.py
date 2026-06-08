@@ -1,25 +1,37 @@
+"""Background job executor — polls for pending jobs and dispatches to agents."""
+
+from __future__ import annotations
+
 import asyncio
 import logging
 import threading
 import time
 from typing import Optional
 
-from main.framework.config import Settings
-
-settings = Settings()
-from main.framework.core.hapi_bridge import HAPIBridge
+from main.framework.core.agent_dispatcher import AgentDispatcher
 from main.framework.core.job_manager import JobManager
 from main.framework.core.log_collector import current_job_id
+from main.framework.core.protocols import AgentBackend, JobStore
 
 logger = logging.getLogger(__name__)
 
 
 class JobExecutor:
-    def __init__(self):
-        self.jm = JobManager()
-        self.hapi = HAPIBridge(settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN)
+    """Polls the job queue and dispatches work via AgentDispatcher."""
+
+    def __init__(
+        self,
+        dispatcher: AgentDispatcher,
+        job_store: JobStore | None = None,
+    ):
+        self._dispatcher = dispatcher
+        self._job_store: JobStore = job_store or JobManager()
         self._running = False
         self._thread: Optional[threading.Thread] = None
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
     def start(self):
         if self._running:
@@ -35,10 +47,14 @@ class JobExecutor:
             self._thread.join(timeout=5)
         logger.info("JobExecutor stopped")
 
+    # ------------------------------------------------------------------
+    # Worker
+    # ------------------------------------------------------------------
+
     def _worker_loop(self):
         while self._running:
             try:
-                jobs = self.jm.list_jobs(status="pending", limit=10)
+                jobs = self._job_store.list_jobs(status="pending", limit=10)
                 for job in jobs:
                     if not self._running:
                         break
@@ -51,38 +67,24 @@ class JobExecutor:
     def _execute_job_sync(self, job):
         token = current_job_id.set(job.id)
         try:
-            self.jm.update_job(job.id, status="running")
+            self._job_store.update_job(job.id, status="running")
             logger.info(f"Executing job {job.id} with agent {job.agent}")
-            timeout = job.timeout if hasattr(job, "timeout") and job.timeout else 300
+            timeout = getattr(job, "timeout", None) or 300
+
             loop = asyncio.new_event_loop()
             try:
                 result = loop.run_until_complete(
-                    self.dispatch_to_agent(job.agent, job.prompt, job.id, timeout)
+                    self._dispatcher.dispatch(
+                        job.agent, job.prompt, timeout=timeout
+                    )
                 )
             finally:
                 loop.close()
-            self.jm.complete_job(job.id, result)
+
+            self._job_store.complete_job(job.id, result)
             logger.info(f"Job {job.id} completed")
         except Exception as e:
             logger.error(f"Job {job.id} failed: {e}")
-            self.jm.fail_job(job.id, str(e))
+            self._job_store.fail_job(job.id, str(e))
         finally:
             current_job_id.reset(token)
-
-    async def dispatch_to_agent(self, agent, prompt, job_id, timeout=300):
-        session_id = await self.hapi.create_session(agent="opencode")
-        try:
-            # Clear instruction to dispatch to specific agent
-            agent_prompt = f"Use task(subagent_type=\"{agent}\", prompt=\"{prompt}\") to get answer. Do not answer yourself."
-            await self.hapi.send_message(session_id, agent_prompt)
-            raw = await self.hapi.wait_for_completion(session_id, timeout=timeout)
-            return self.parse_response(raw)
-        finally:
-            await self.hapi.abort_session(session_id)
-
-    def parse_response(self, raw):
-        try:
-            import json
-            return json.loads(raw)
-        except Exception:
-            return {"result": raw, "parsed": False}

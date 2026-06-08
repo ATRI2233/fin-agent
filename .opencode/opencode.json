@@ -4,12 +4,22 @@
     "macro-scout": {
       "tools": {
         "ashare-mcp-server_ashare_market_snapshot": true,
+        "ashare-mcp-server_ashare_market_breadth": true,
         "fin-agent-mcp-server_market_snapshot": true,
         "fin-agent-mcp-server_commodity_prices": true,
         "fin-agent-mcp-server_fear_greed_index": true,
         "fred-mcp-server_fred_search": true,
         "fred-mcp-server_fred_series": true,
+        "fred-mcp-server_fred_get_series": true,
         "fred-mcp-server_fred_category": true,
+        "fred-mcp-server_fred_browse": true,
+        "cn-macro-mcp-server_cn_macro_credit": true,
+        "cn-macro-mcp-server_cn_macro_rates": true,
+        "cn-macro-mcp-server_cn_macro_pmi": true,
+        "cn-macro-mcp-server_cn_macro_inflation": true,
+        "cn-macro-mcp-server_cn_macro_industry": true,
+        "cn-macro-mcp-server_cn_macro_northbound": true,
+        "cn-macro-mcp-server_cn_macro_fx": true,
         "*": false
       }
     },
@@ -18,22 +28,41 @@
         "ashare-mcp-server_ashare_quote": true,
         "ashare-mcp-server_ashare_technical_levels": true,
         "fin-agent-mcp-server_technical_levels": true,
+        "fin-agent-mcp-server_market_snapshot": true,
+        "ashare-mcp-server_ashare_market_snapshot": true,
+        "fin-agent-mcp-server_fear_greed_index": true,
+        "ashare-mcp-server_ashare_fund_flow": true,
+        "fin-agent-mcp-server_options_greeks": true,
         "*": false
       }
     },
     "fundamental-auditor": {
       "tools": {
         "ashare-mcp-server_ashare_fundamental_scan": true,
+        "ashare-mcp-server_ashare_market_snapshot": true,
+        "ashare-mcp-server_ashare_news_sentiment": true,
+        "ashare-mcp-server_ashare_quote": true,
         "fin-agent-mcp-server_fundamental_scan": true,
         "fin-agent-mcp-server_analyst_ratings": true,
-        "fin-agent-mcp-server_sec_filings": true,
-        "sec-edgar-mcp_*": true,
+        "fin-agent-mcp-server_earnings_calendar": true,
+        "fin-agent-mcp-server_market_snapshot": true,
+        "fin-agent-mcp-server_fear_greed_index": true,
+        "cn-macro-mcp-server_cn_macro_pmi": true,
+        "cn-macro-mcp-server_cn_macro_inflation": true,
+        "cn-macro-mcp-server_cn_macro_credit": true,
+        "cn-macro-mcp-server_cn_macro_rates": true,
+        "sec-edgar-mcp_sec_filing_content": true,
+        "sec-edgar-mcp_sec_financial_data": true,
+        "sec-edgar-mcp_sec_filings_search": true,
+        "sec-edgar-mcp_sec_company_search": true,
+        "sec-edgar-mcp_sec_company_facts": true,
         "*": false
       }
     },
     "sentiment-decoder": {
       "tools": {
         "ashare-mcp-server_ashare_news_sentiment": true,
+        "ashare-mcp-server_ashare_market_breadth": true,
         "fin-agent-mcp-server_news_sentiment": true,
         "fin-agent-mcp-server_fear_greed_index": true,
         "*": false
@@ -42,6 +71,9 @@
     "sector-rotator": {
       "tools": {
         "ashare-mcp-server_ashare_fund_flow": true,
+        "ashare-mcp-server_ashare_market_snapshot": true,
+        "ashare-mcp-server_ashare_news_sentiment": true,
+        "ashare-mcp-server_ashare_sector_rotation": true,
         "fin-agent-mcp-server_sector_rotation": true,
         "*": false
       }
@@ -49,8 +81,11 @@
     "smart-money-hound": {
       "tools": {
         "ashare-mcp-server_ashare_fund_flow": true,
+        "ashare-mcp-server_ashare_fund_flow_real": true,
         "ashare-mcp-server_ashare_lhb": true,
         "fin-agent-mcp-server_insider_trading": true,
+        "risk-mcp-server_institutional_flow": true,
+        "sec-edgar-mcp_*": true,
         "*": false
       }
     },
@@ -58,6 +93,7 @@
       "tools": {
         "risk-mcp-server_*": true,
         "fin-agent-mcp-server_risk_gauge": true,
+        "fin-agent-mcp-server_options_greeks": true,
         "*": false
       }
     },
@@ -65,10 +101,22 @@
       "tools": {
         "lib-mcp-server_signal_fusion": true,
         "lib-mcp-server_consistency_check": true,
+        "lib-mcp-server_conflict_resolver": true,
         "*": false
       }
     },
     "memory-learner": {
+      "tools": {
+        "lib-mcp-server_memory_recall": true,
+        "lib-mcp-server_memory_save": true,
+        "lib-mcp-server_memory_verify": true,
+        "lib-mcp-server_experience_summary": true,
+        "lib-mcp-server_rule_manage": true,
+        "lib-mcp-server_memory_learner": true,
+        "*": false
+      }
+    },
+    "fin-orchestrator": {
       "tools": {
         "lib-mcp-server_memory_recall": true,
         "lib-mcp-server_memory_save": true,
@@ -81,6 +129,13 @@
     "devil-advocate": {
       "tools": {
         "lib-mcp-server_devil_advocate": true,
+        "lib-mcp-server_memory_recall": true,
+        "fin-agent-mcp-server_news_sentiment": true,
+        "fin-agent-mcp-server_fundamental_scan": true,
+        "fin-agent-mcp-server_technical_levels": true,
+        "ashare-mcp-server_ashare_news_sentiment": true,
+        "ashare-mcp-server_ashare_fundamental_scan": true,
+        "ashare-mcp-server_ashare_technical_levels": true,
         "*": false
       }
     }
@@ -99,7 +154,10 @@
         { "name": "ashare_news_sentiment", "description": "获取 A 股新闻及情绪评分", "category": "情绪" },
         { "name": "ashare_market_snapshot", "description": "获取 A 股大盘指数（上证/深证/创业板/沪深300/科创50等）", "category": "行情" },
         { "name": "ashare_fund_flow", "description": "获取 A 股个股资金流向（超大单/大单/中单/小单净流入）", "category": "资金" },
-        { "name": "ashare_lhb", "description": "获取龙虎榜数据（最近上榜股票）", "category": "资金" }
+        { "name": "ashare_lhb", "description": "获取龙虎榜数据（最近上榜股票）", "category": "资金" },
+        { "name": "ashare_sector_rotation", "description": "获取 A 股板块轮动分析：行业板块涨跌幅排名、动量信号、轮入/轮出板块", "category": "轮动" },
+        { "name": "ashare_fund_flow_real", "description": "获取 A 股个股实时资金流向：主力/超大单/大单/中单/小单 净流入与净占比", "category": "资金" },
+        { "name": "ashare_market_breadth", "description": "获取 A 股市场广度：涨跌家数、涨停/跌停家数、涨跌家数比、市场情绪", "category": "情绪" }
       ]
     },
     "fin-agent-mcp-server": {
@@ -138,7 +196,9 @@
         { "name": "rule_manage", "description": "规则管理：经验规则增删改查", "category": "记忆" },
         { "name": "signal_fusion", "description": "信号融合：多维度加权计算", "category": "分析" },
         { "name": "consistency_check", "description": "逻辑一致性检查：检测矛盾信号", "category": "分析" },
-        { "name": "devil_advocate", "description": "魔鬼代言人：反方论点生成", "category": "分析" }
+        { "name": "devil_advocate", "description": "魔鬼代言人：反方论点生成", "category": "分析" },
+        { "name": "conflict_resolver", "description": "冲突解决：多信号矛盾调和", "category": "分析" },
+        { "name": "memory_learner", "description": "记忆学习：从历史交易中提取经验", "category": "记忆" }
       ]
     },
     "fred-mcp-server": {
@@ -163,10 +223,25 @@
       "enabled": true,
       "type": "stdio",
       "tools": [
-        { "name": "risk_position_size", "description": "仓位计算：Kelly/固定比例/波动率调整", "category": "风控" },
-        { "name": "risk_stop_loss", "description": "止损计算：ATR/百分比/技术位止损", "category": "风控" },
-        { "name": "risk_portfolio_analysis", "description": "组合分析：持仓集中度/相关性/行业分布", "category": "风控" },
-        { "name": "risk_hedge", "description": "对冲建议：期权/反向ETF/行业对冲", "category": "风控" }
+        { "name": "position_sizing", "description": "仓位计算：Kelly/固定比例/波动率调整", "category": "风控" },
+        { "name": "risk_gauge", "description": "止损计算：ATR/百分比/技术位止损", "category": "风控" },
+        { "name": "institutional_flow", "description": "对冲建议：期权/反向ETF/行业对冲", "category": "风控" }
+      ]
+    },
+    "cn-macro-mcp-server": {
+      "command": "python",
+      "args": ["-m", "agents.mcp.cn_macro.cn_macro_mcp_server"],
+      "description": "中国宏观数据 — 信用/利率/PMI/通胀/行业/北向/外汇",
+      "enabled": true,
+      "type": "stdio",
+      "tools": [
+        { "name": "cn_macro_credit", "description": "信用数据：社融/M2/信贷", "category": "宏观" },
+        { "name": "cn_macro_rates", "description": "利率数据：LPR/SHIBOR/国债收益率", "category": "宏观" },
+        { "name": "cn_macro_pmi", "description": "PMI 数据：制造业/非制造业", "category": "宏观" },
+        { "name": "cn_macro_inflation", "description": "通胀数据：CPI/PPI", "category": "宏观" },
+        { "name": "cn_macro_industry", "description": "行业数据：工业增加值/利润", "category": "宏观" },
+        { "name": "cn_macro_northbound", "description": "北向资金：净流入/持仓", "category": "资金" },
+        { "name": "cn_macro_fx", "description": "外汇数据：汇率/外储", "category": "宏观" }
       ]
     },
     "sec-edgar-mcp": {
@@ -179,7 +254,8 @@
         { "name": "sec_company_search", "description": "搜索 SEC EDGAR 公司信息", "category": "基本面" },
         { "name": "sec_filings_search", "description": "搜索 SEC 财报文件", "category": "基本面" },
         { "name": "sec_filing_content", "description": "获取 SEC 财报内容", "category": "基本面" },
-        { "name": "sec_financial_data", "description": "获取 SEC 财务数据", "category": "基本面" }
+        { "name": "sec_financial_data", "description": "获取 SEC 财务数据", "category": "基本面" },
+        { "name": "sec_company_facts", "description": "获取公司 XBRL 财务事实数据", "category": "基本面" }
       ]
     }
   }

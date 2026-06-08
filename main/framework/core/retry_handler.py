@@ -1,11 +1,12 @@
 """Retry handling with exponential backoff and circuit breaker for workflow execution."""
 
+from __future__ import annotations
+
 import asyncio
 import functools
 import logging
 from typing import Any, Callable, TypeVar
 
-from main.framework.config import settings
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 
@@ -68,9 +69,15 @@ class WorkflowRetryHandler:
     # Circuit breaker threshold - skip node after this many total retries across workflow
     CIRCUIT_BREAKER_THRESHOLD = 5
 
-    def __init__(self, workflow_id: str, execution_id: str | None = None):
+    def __init__(
+        self,
+        workflow_id: str,
+        execution_id: str | None = None,
+        dispatcher: Any = None,  # AgentDispatcher (avoid circular import)
+    ):
         self.workflow_id = workflow_id
         self.execution_id = execution_id
+        self._dispatcher = dispatcher
         # Track retry counts per node across all retry operations (key: "node_id:execution_id")
         self._retry_counts: dict[str, int] = {}
         # Track total retries per node within current workflow execution
@@ -235,16 +242,26 @@ class WorkflowRetryHandler:
             # Execute with retry decorator
             @retry_on_failure(max_attempts=max_attempts, delay=delay, backoff=backoff)
             async def execute_with_retry():
-                from main.framework.core.hapi_bridge import HAPIBridge
                 from datetime import datetime
 
-                hapi = HAPIBridge(hub_url=settings.HAPI_HUB_URL)
-                session_id = await hapi.create_session_for_node(
-                    node_id, exec_node.agent, exec_node.input or {}
-                )
-                result = await hapi.wait_for_completion(session_id)
+                if self._dispatcher is None:
+                    from main.framework.core.agent_dispatcher import AgentDispatcher
+                    from main.framework.core.hapi_bridge import HAPIBridge
+                    from main.framework.config import settings as _settings
 
-                # Update execution node
+                    backend = HAPIBridge(
+                        hub_url=_settings.HAPI_HUB_URL,
+                        api_token=_settings.HAPI_API_TOKEN,
+                    )
+                    self._dispatcher = AgentDispatcher(backend)
+
+                prompt = exec_node.input if isinstance(exec_node.input, str) else str(exec_node.input or "")
+                resp = await self._dispatcher.dispatch(
+                    exec_node.agent, prompt, timeout=300
+                )
+                result = resp["result"]
+
+                # Update execution node in a fresh session
                 db2 = SessionLocal()
                 try:
                     en = (
@@ -259,7 +276,7 @@ class WorkflowRetryHandler:
                         en.status = "completed"
                         en.output = {"result": result}
                         en.completed_at = datetime.utcnow()
-                        en.hapi_session_id = session_id
+                        en.hapi_session_id = resp.get("session_id", "")
                         db2.commit()
                 finally:
                     db2.close()
