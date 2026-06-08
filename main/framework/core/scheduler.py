@@ -33,6 +33,10 @@ class WorkflowScheduler:
         self._scheduler = AsyncIOScheduler()
         self._workflow_jobs: dict[str, dict] = {}  # workflow_id -> job_info
 
+    def is_running(self) -> bool:
+        """Check if the scheduler is currently running."""
+        return self._scheduler.running
+
     def start(self) -> None:
         """Start APScheduler background runner."""
         if not self._scheduler.running:

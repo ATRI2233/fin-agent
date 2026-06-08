@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from functools import lru_cache
 from typing import Any
 
 from main.framework.config import settings
@@ -14,22 +13,34 @@ class ConcurrencyLimiter:
     """Limits concurrent HAPI sessions using asyncio.Semaphore."""
 
     def __init__(self, max_concurrent: int = 10):
+        self._max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._active_count = 0
+
+    @property
+    def active_count(self) -> int:
+        """Number of currently active sessions."""
+        return self._active_count
+
+    @property
+    def max_concurrent(self) -> int:
+        """Maximum concurrent sessions allowed."""
+        return self._max_concurrent
+
+    @property
+    def available_slots(self) -> int:
+        """Approximate number of available semaphore slots."""
+        return max(0, self._max_concurrent - self._active_count)
 
     async def acquire(self) -> None:
         """Acquire a semaphore slot (async context manager entry)."""
         await self._semaphore.acquire()
         self._active_count += 1
-        logger.debug(
-            f"ConcurrencyLimiter acquired: {self._active_count}/{self._semaphore._value + self._active_count}"
-        )
 
     def release(self) -> None:
         """Release a slot back to the semaphore."""
         self._semaphore.release()
         self._active_count -= 1
-        logger.debug(f"ConcurrencyLimiter released: {self._active_count}")
 
     async def __aenter__(self) -> None:
         await self.acquire()
@@ -134,19 +145,9 @@ _workflow_cache: dict[str, Any] = {}
 _cache_max_size = 100
 
 
-def _get_workflow_cache_key(workflow_id: str) -> str:
-    """Generate cache key for workflow."""
-    return workflow_id
-
-
-@lru_cache(maxsize=100)
-def _cached_workflow_definition(workflow_id: str) -> tuple | None:
-    """LRU-cached workflow definition lookup.
-
-    Note: lru_cache requires hashable args, returns hashable tuple.
-    Actual caching is handled by the module-level dict for flexibility.
-    """
-    return None
+def get_workflow_cache_size() -> int:
+    """Return the current number of cached workflow definitions."""
+    return len(_workflow_cache)
 
 
 async def get_cached_workflow(workflow_id: str) -> dict | None:

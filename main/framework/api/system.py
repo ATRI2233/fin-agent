@@ -30,11 +30,13 @@ def _get_concurrency_status() -> dict:
         from main.framework.core.performance import get_concurrency_limiter
 
         limiter = get_concurrency_limiter()
-        current = limiter._active_count
-        max_val = limiter._semaphore._value + current
-        return {"current": current, "max": max_val}
+        return {
+            "current": limiter.active_count,
+            "max": limiter.max_concurrent,
+            "available": limiter.available_slots,
+        }
     except ImportError:
-        return {"current": 0, "max": 0}
+        return {"current": 0, "max": 0, "available": 0}
 
 
 def _get_scheduler_status() -> dict:
@@ -43,7 +45,7 @@ def _get_scheduler_status() -> dict:
         from main.framework.core.scheduler import get_scheduler
 
         scheduler = get_scheduler()
-        running = scheduler._scheduler.running
+        running = scheduler.is_running()
         jobs = scheduler.list_scheduled_workflows()
         scheduled_count = len(jobs)
 
@@ -178,16 +180,16 @@ async def log_stats():
         from main.framework.core.log_collector import get_log_collector
 
         collector = get_log_collector()
+        s = collector.stats()
+        # Per-job breakdown (top 10)
         with collector._lock:
-            job_count = len(collector._logs)
-            total_entries = sum(len(buf) for buf in collector._logs.values())
             per_job = {jid: len(buf) for jid, buf in collector._logs.items()}
         top_jobs = dict(sorted(per_job.items(), key=lambda x: -x[1])[:10])
         return {
-            "active_jobs_with_logs": job_count,
-            "total_log_entries": total_entries,
-            "max_jobs": collector._max_jobs,
-            "max_entries_per_job": collector._max_entries_per_job,
+            "active_jobs_with_logs": s["total_jobs"],
+            "total_log_entries": s["total_entries"],
+            "max_jobs": s["max_jobs"],
+            "max_entries_per_job": s["max_entries_per_job"],
             "top_jobs": top_jobs,
         }
     except Exception:
@@ -199,23 +201,25 @@ async def cache_stats():
     """Cache and concurrency statistics."""
     try:
         from main.framework.core.performance import (
-            _workflow_cache,
+            get_workflow_cache_size,
             get_concurrency_limiter,
         )
 
         limiter = get_concurrency_limiter()
-        max_conc = limiter._semaphore._value + limiter._active_count
+        cache_size = get_workflow_cache_size()
         return {
             "workflow_cache": {
-                "size": len(_workflow_cache),
+                "size": cache_size,
                 "max_size": 100,
-                "usage_pct": round(len(_workflow_cache) / 100 * 100, 1),
+                "usage_pct": round(cache_size / 100 * 100, 1),
             },
             "concurrency": {
-                "active": limiter._active_count,
-                "max": max_conc,
-                "available": limiter._semaphore._value,
-                "usage_pct": round(limiter._active_count / max(max_conc, 1) * 100, 1),
+                "active": limiter.active_count,
+                "max": limiter.max_concurrent,
+                "available": limiter.available_slots,
+                "usage_pct": round(
+                    limiter.active_count / max(limiter.max_concurrent, 1) * 100, 1
+                ),
             },
         }
     except Exception:

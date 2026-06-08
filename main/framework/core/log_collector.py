@@ -144,6 +144,17 @@ class LogCollector:
             buf = self._logs.get(job_id)
             return len(buf) if buf else 0
 
+    def stats(self) -> dict:
+        """Return summary statistics about stored logs."""
+        with self._lock:
+            total_entries = sum(len(buf) for buf in self._logs.values())
+            return {
+                "total_jobs": len(self._logs),
+                "total_entries": total_entries,
+                "max_jobs": self._max_jobs,
+                "max_entries_per_job": self._max_entries_per_job,
+            }
+
 
 # Module-level singleton
 _log_collector = LogCollector()
