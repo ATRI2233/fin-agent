@@ -1,0 +1,10 @@
+Task 2: Hook count verification
+Timestamp: 2026-06-09
+
+Hook IDs (expected: 4):
+  1. check-file-lines
+  2. ruff-check
+  3. eslint-check
+  4. dependency-check
+
+Total: 4 hooks

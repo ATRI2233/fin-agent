@@ -377,7 +377,7 @@ Wave FINAL (4 review tasks, parallel):
 
 ### Wave 1: Foundation (并行, 7个任务)
 
-- [ ] 1. **pyproject.toml + pytest + ruff 配置**
+- [x] 1. **pyproject.toml + pytest + ruff 配置**
 
   **What to do**:
   - 创建 `pyproject.toml`，包含：
@@ -440,7 +440,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `pyproject.toml`
   - Pre-commit: `ruff check main/`
 
-- [ ] 2. **.pre-commit-config.yaml 配置**
+- [x] 2. **.pre-commit-config.yaml 配置**
 
   **What to do**:
   - 创建 `.pre-commit-config.yaml`，包含 4 个 hook（仅引用 Task 1/3 已创建的工具）：
@@ -491,7 +491,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `chore(infra): add .pre-commit-config.yaml`
   - Files: `.pre-commit-config.yaml`
 
-- [ ] 3. **scripts/check_lines.py + scripts/check_dependencies.py**
+- [x] 3. **scripts/check_lines.py + scripts/check_dependencies.py**
 
   **What to do**:
   - 创建 `scripts/` 目录
@@ -562,7 +562,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `chore(infra): add line/dependency check scripts`
   - Files: `scripts/check_lines.py`, `scripts/check_dependencies.py`
 
-- [ ] 4. **SQLite WAL 模式在 database.py 落地**
+- [x] 4. **SQLite WAL 模式在 database.py 落地**
 
   **What to do**:
   - 修改 `main/framework/models/database.py`：
@@ -630,7 +630,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/models/database.py`, `main/data_maintenance/models/maintenance_db.py`
   - Pre-commit: `python scripts/check_lines.py`
 
-- [ ] 5. **tests/conftest.py + 隔离测试 DB fixture**
+- [x] 5. **tests/conftest.py + 隔离测试 DB fixture**
 
   **What to do**:
   - 创建 `tests/conftest.py`，包含：
@@ -709,7 +709,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `tests/conftest.py`, `tests/__init__.py`, `tests/integration/__init__.py`, `tests/unit/__init__.py`
   - Pre-commit: `pytest --collect-only tests/`
 
-- [ ] 6. **webui/.eslintrc.json 配置**
+- [x] 6. **webui/.eslintrc.json 配置**
 
   **What to do**:
   - 创建 `webui/.eslintrc.json`，包含：

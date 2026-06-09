@@ -1,0 +1,21 @@
+﻿DB ISOLATION VERIFICATION (Task 5 - tests/conftest.py)
+======================================================
+Method: SHA256 hash of data/*.db copied to temp dir before/after running tests.
+Reason: data/finagent.db was locked by running uvicorn server (PID 11576) on port 8001,
+        so direct Get-FileHash on the live file failed. Using file copy to a temp location
+        bypasses the lock and allows hashing.
+
+BEFORE running pytest tests/integration/_test_conftest_demo.py:
+  finagent.db    SHA256 = 865CE29A904DE02064E31DB14FFC3563DEB0815C82E7A00B2014CD6B86945B6A
+  maintenance.db SHA256 = 6BFEFF4156FFE801C173A12C7F2011D9873696F91956E91A016F3325E1C69F56
+
+AFTER running pytest tests/integration/_test_conftest_demo.py (2 tests passed):
+  finagent.db    SHA256 = 865CE29A904DE02064E31DB14FFC3563DEB0815C82E7A00B2014CD6B86945B6A
+  maintenance.db SHA256 = 6BFEFF4156FFE801C173A12C7F2011D9873696F91956E91A016F3325E1C69F56
+
+RESULT: Hashes are IDENTICAL - real data/finagent.db and data/maintenance.db were NOT touched.
+This proves conftest.py uses an isolated in-memory SQLite engine (sqlite:///:memory:).
+
+Engine URL verification (from conftest.py):
+  engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+  The fixture test_engine never references the real data/finagent.db file path.
