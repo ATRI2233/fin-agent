@@ -1,0 +1,44 @@
+# Task W5-5: Migrate test_scheduled_workflow.py to container-based scheduler reset
+# Branch: phase2-refactor
+# Date: 2026-06-09
+
+## Changes Made
+
+### tests/conftest.py
+- Added `reset_container_scheduler` fixture (autouse=True) after `client` fixture
+- Uses lazy import of `get_container` from `main.framework.core.container`
+- Pops "scheduler" from `container._instances` after each test
+
+### tests/integration/test_scheduled_workflow.py
+- Removed entire `_reset_scheduler_singleton` fixture (lines 67-97)
+- Removed `import asyncio` (no longer needed)
+- Updated docstring to reference conftest fixture instead of module-level singleton
+- All 4 test functions preserved unchanged
+
+## Verification
+
+### grep check
+```
+$ grep -c "_scheduler_instance" tests/integration/test_scheduled_workflow.py
+0
+```
+
+### pytest output
+```
+tests/integration/test_scheduled_workflow.py::test_schedule_workflow_with_cron PASSED [ 25%]
+tests/integration/test_scheduled_workflow.py::test_list_scheduled_workflows PASSED [ 50%]
+tests/integration/test_scheduled_workflow.py::test_unschedule_unscheduled_workflow_returns_404 PASSED [ 75%]
+tests/integration/test_scheduled_workflow.py::test_schedule_with_invalid_cron_returns_400 PASSED [100%]
+
+4 passed, 8 warnings in 0.61s
+```
+
+### LSP diagnostics
+- tests/conftest.py: No errors
+- tests/integration/test_scheduled_workflow.py: No errors
+
+## Checklist
+- [x] tests/conftest.py has reset_container_scheduler fixture
+- [x] test_scheduled_workflow.py uses new fixture (no _scheduler_instance)
+- [x] grep -c "_scheduler_instance" → 0
+- [x] pytest → 4 passed (same as before)

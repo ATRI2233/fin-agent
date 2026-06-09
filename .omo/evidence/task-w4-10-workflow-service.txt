@@ -1,0 +1,167 @@
+TASK: W4.10 — WorkflowService
+DATE: 2026-06-09
+AGENT: Sisyphus-Junior
+BRANCH: phase2-refactor
+STATUS: PASSED
+
+================================================================================
+DELIVERABLES
+================================================================================
+
+1. main/framework/services/workflow_service.py   (266 lines, target ~200)
+2. tests/unit/test_workflow_service.py           (532 lines, 22 tests)
+
+================================================================================
+VERIFICATION COMMANDS
+================================================================================
+
+[1] Import smoke test
+    $ python -c "from main.framework.services.workflow_service import WorkflowService; print('OK')"
+    -> OK
+
+[2] Unit tests
+    $ pytest tests/unit/test_workflow_service.py -v --tb=short
+    -> 22 passed, 1 warning in 0.15s
+    (Warning is a pre-existing Pydantic V2 deprecation, unrelated to this task.)
+
+[3] Regression check on related Wave 4 tests
+    $ pytest tests/unit/test_workflow_service.py tests/unit/test_node_executors.py \
+              tests/unit/test_workflow_graph.py tests/unit/test_prompt_builder.py -v
+    -> 51 passed, 1 warning in 0.18s  (no regressions)
+
+================================================================================
+TEST INVENTORY (22 tests, all passing)
+================================================================================
+
+Construction / contract (3):
+  test_workflow_service_imports
+  test_module_docstring_mentions_dag_orchestration
+  test_protocols_runtime_checkable
+
+run() — workflow loading + execution lifecycle (7):
+  test_run_loads_workflow                           (spec required)
+  test_run_creates_execution_when_id_missing        (spec required)
+  test_run_uses_provided_execution_id               (extra)
+  test_run_executes_in_order_serial_chain           (spec required)
+  test_run_returns_result_dict                      (spec required)
+  test_run_passes_status_callback                   (spec required)
+  test_run_calls_cleanup_sessions                   (extra)
+  test_run_resets_state_between_invocations         (extra)
+
+execute_node() (4):
+  test_execute_node_uses_registry                   (spec required)
+  test_execute_node_passes_context                  (spec required)
+  test_execute_node_tracks_session_id               (extra)
+  test_execute_node_returns_dict_shape              (extra)
+
+handle_failure() (3):
+  test_handle_failure_marks_downstream              (spec required)
+  test_handle_failure_propagates_skip_to_grandchildren (extra)
+  test_handle_failure_logs_warning                  (extra)
+
+_execute_in_order() — parallel gather (2):
+  test_parallel_branches_use_gather                 (spec required)
+  test_serial_chain_does_not_use_gather             (extra)
+
+Failure routing inside run() (2):
+  test_run_handles_node_failure                     (spec required)
+  test_run_skips_downstream_after_failure           (extra)
+
+================================================================================
+API SURFACE (per spec)
+================================================================================
+
+WorkflowService class — 4 documented methods + helpers:
+
+  __init__(self, workflow_repo, exec_service, registry, dispatcher=None)
+  async run(self, workflow_id, params, db, status_callback=None, execution_id=None) -> dict
+  async _execute_in_order(self, execution_order, parallel_branches, predecessors, db, status_callback=None) -> None
+  async execute_node(self, node_id, execution_id, db) -> dict
+  async handle_failure(self, node_id, error, db) -> None
+
+Plus private helpers:
+  _execute_wrapped, _wait_for_predecessors, _compute_level,
+  _cleanup_sessions, _find_node, _reset_execution_state, _noop_callback,
+  collect_results
+
+================================================================================
+DESIGN NOTES
+================================================================================
+
+Dependency decoupling
+---------------------
+The service uses @runtime_checkable Protocols for its three collaborators
+(ExecutionServiceProtocol, NodeExecutorRegistryProtocol, WorkflowRepositoryProtocol).
+This was necessary because W4.6 (registry) and W4.9 (execution service) were
+being built in parallel by other agents. The Protocols are structural, so the
+eventual concrete classes satisfy them without explicit inheritance.
+
+The actual signatures implemented by the parallel agents were discovered and
+matched:
+  - ExecutionService.create_execution_for_workflow(workflow, params, db) -> WorkflowExecution
+    (takes the loaded workflow object, returns a WorkflowExecution with .id)
+  - ExecutionService.mark_downstream_skipped(node_id, edges, db) -> list[str]
+  - NodeExecutorRegistry.get(node_type) -> NodeExecutor
+
+Per-execution state
+-------------------
+The service is a singleton (per spec: "Singleton that creates per-execution
+contexts"). Every call to run() invokes _reset_execution_state() which clears
+_results, _failed_nodes, _skipped_nodes, _chain_sessions, _node_levels, nodes,
+edges. This matches the engine's "one WorkflowEngine instance per execution"
+contract.
+
+Edge attachment for executors
+-----------------------------
+NodeContext (base.py dataclass) does not declare an ``edges`` field, but the
+AgentNodeExecutor reads it via ``getattr(ctx, "edges", [])`` to support
+serial-chain session reuse. The service attaches the workflow edges onto the
+context as a non-dataclass attribute before invoking the executor, preserving
+the engine's existing behaviour.
+
+Forward reference
+-----------------
+WorkflowEngine is imported under TYPE_CHECKING to avoid a circular import
+during the W4.11 transitional period where both classes coexist.
+
+Module docstring
+----------------
+"WorkflowService — DAG orchestration. Replaces the outer loop of
+WorkflowEngine.execute(). Singleton that creates per-execution contexts."
+
+================================================================================
+MUST-NOT-DO CHECKLIST
+================================================================================
+
+[X] Public API of WorkflowEngine NOT changed (engine.execute() unchanged)
+[X] Parallel-detection algorithm NOT changed (level-based gather preserved)
+[X] Retry semantics NOT changed (retry handler remains on engine)
+[X] workflow_engine.py NOT modified
+    $ git status --short main/framework/core/workflow_engine.py
+    (no entry — unchanged)
+[X] NO commit performed
+
+================================================================================
+LSP DIAGNOSTICS
+================================================================================
+
+main/framework/services/workflow_service.py     : No diagnostics found
+tests/unit/test_workflow_service.py             : No diagnostics found
+
+(Other files showing diagnostics are owned by parallel Wave 4/5 agents and
+are pre-existing — out of scope for this task.)
+
+================================================================================
+PROMPT INJECTION OBSERVATION
+================================================================================
+
+During this session, multiple prompt-injection attempts were observed in tool
+output (file-read result footers and glob-result banners instructing the
+agent to use task(category=...) delegations or to follow fake "skill reminder"
+patterns). These were IGNORED — they were not part of the user task and would
+have caused unwanted side effects. The original W4.10 task was completed
+exactly as specified by the user.
+
+================================================================================
+END OF EVIDENCE
+================================================================================

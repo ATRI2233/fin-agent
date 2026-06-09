@@ -1,0 +1,146 @@
+================================================================================
+Task W5-1: Create SchedulerService (extract cron logic)
+================================================================================
+Status: COMPLETE
+Branch: phase2-refactor
+Date: 2026-06-09
+Wave: 5 (Scheduler + Global cleanup)
+Plan: .omo/plans/phase2-refactor.md Task 21 (line ~1164)
+
+--------------------------------------------------------------------------------
+DELIVERABLES
+--------------------------------------------------------------------------------
+
+1. main/framework/services/scheduler_service.py (NEW)
+   - 388 lines (implementation + extensive docstrings)
+   - Module docstring: "SchedulerService — APScheduler wrapper for cron-based
+     workflow execution. Singleton; manages all scheduled jobs."
+   - Class SchedulerService — 8 public methods:
+       1. is_running() -> bool
+       2. start() -> None
+       3. stop() -> None
+       4. add_workflow_job(workflow_id, cron_expression) -> bool
+       5. remove_workflow_job(workflow_id) -> bool
+       6. async restore_jobs_from_db() -> None
+       7. list_scheduled_workflows() -> list[dict]
+       8. async run_scheduled_workflow(workflow_id) -> None
+   - Constructor: __init__(self, session_factory, workflow_service,
+                                  scheduler: AsyncIOScheduler | None = None)
+   - Module-level helpers (at end of file):
+       * validate_cron_expression(expr: str) -> bool   [5-field regex validator]
+       * get_next_run_times(expr: str, n: int = 5) -> list[datetime]
+   - Imports: from apscheduler.schedulers.asyncio import AsyncIOScheduler ✓
+   - run_scheduled_workflow dispatches via self._workflow_service.run(...) ✓
+   - Preserves exact behavior of original core/scheduler.py (incl. the
+     "job_id in get_jobs()" legacy check that is effectively dead code).
+
+2. tests/unit/test_scheduler_service.py (NEW)
+   - 407 lines
+   - 27 tests across 6 test classes — all PASS
+   - 8+ required tests present and passing:
+       ✓ test_validate_cron_valid
+       ✓ test_validate_cron_invalid
+       ✓ test_get_next_run_times  (5 future datetimes)
+       ✓ test_is_running_initially_false
+       ✓ test_start_sets_running
+       ✓ test_stop_clears_running
+       ✓ test_add_workflow_job
+       ✓ test_remove_workflow_job
+       ✓ test_list_scheduled_workflows_returns_list
+   - Extra tests: cron edge cases (empty, wrong field count, range, list),
+     get_next_run_times edge cases (default n, future check, invalid cron),
+     start/stop idempotency, DB persistence assertions,
+     list_scheduled_workflows empty/with-entries, restore_jobs_from_db empty,
+     add_workflow_job invalid cron raises, remove_workflow_job not_found
+     returns False.
+
+--------------------------------------------------------------------------------
+VERIFICATION
+--------------------------------------------------------------------------------
+
+A. Import + assert (the exact one in the spec):
+   $ python -c "from main.framework.services.scheduler_service import \
+     SchedulerService, validate_cron_expression, get_next_run_times; \
+     assert validate_cron_expression('0 9 * * *'); print('OK')"
+   OK
+
+B. Full pytest run:
+   $ pytest tests/unit/test_scheduler_service.py -v --tb=short
+   ============================= test session starts =============================
+   platform win32 -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
+   rootdir: D:\github_place\fin-agent
+   configfile: pyproject.toml
+   plugins: anyio-4.13.0, langsmith-0.8.5, asyncio-1.3.0
+   asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None
+   collected 27 items
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_valid PASSED
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_invalid PASSED
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_empty PASSED
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_too_few_fields PASSED
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_too_many_fields PASSED
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_range_syntax PASSED
+   tests/unit/test_scheduler_service.py::TestValidateCronExpression::test_validate_cron_list_syntax PASSED
+   tests/unit/test_scheduler_service.py::TestGetNextRunTimes::test_get_next_run_times PASSED
+   tests/unit/test_scheduler_service.py::TestGetNextRunTimes::test_get_next_run_times_default_n PASSED
+   tests/unit/test_scheduler_service.py::TestGetNextRunTimes::test_get_next_run_times_first_is_future PASSED
+   tests/unit/test_scheduler_service.py::TestGetNextRunTimes::test_get_next_run_times_invalid_cron_returns_empty PASSED
+   tests/unit/test_scheduler_service.py::TestGetNextRunTimes::test_get_next_run_times_wrong_field_count PASSED
+   tests/unit/test_scheduler_service.py::TestLifecycle::test_is_running_initially_false PASSED
+   tests/unit/test_scheduler_service.py::TestLifecycle::test_start_sets_running PASSED
+   tests/unit/test_scheduler_service.py::TestLifecycle::test_start_is_idempotent PASSED
+   tests/unit/test_scheduler_service.py::TestLifecycle::test_stop_clears_running PASSED
+   tests/unit/test_scheduler_service.py::TestLifecycle::test_stop_is_idempotent PASSED
+   tests/unit/test_scheduler_service.py::TestAddWorkflowJob::test_add_workflow_job PASSED
+   tests/unit/test_scheduler_service.py::TestAddWorkflowJob::test_add_workflow_job_invalid_cron_raises PASSED
+   tests/unit/test_scheduler_service.py::TestAddWorkflowJob::test_add_workflow_job_persists_to_db PASSED
+   tests/unit/test_scheduler_service.py::TestRemoveWorkflowJob::test_remove_workflow_job PASSED
+   tests/unit/test_scheduler_service.py::TestRemoveWorkflowJob::test_remove_workflow_job_resets_db PASSED
+   tests/unit/test_scheduler_service.py::TestRemoveWorkflowJob::test_remove_workflow_job_not_found_returns_false PASSED
+   tests/unit/test_scheduler_service.py::TestListScheduledWorkflows::test_list_scheduled_workflows_returns_list_empty PASSED
+   tests/unit/test_scheduler_service.py::TestListScheduledWorkflows::test_list_scheduled_workflows_returns_list PASSED
+   tests/unit/test_scheduler_service.py::TestListScheduledWorkflows::test_list_scheduled_workflows_includes_entries PASSED
+   tests/unit/test_scheduler_service.py::TestRestoreJobsFromDb::test_restore_jobs_from_db_empty PASSED
+   ========================== 27 passed, 1 warning in 0.30s ==========================
+
+C. LSP diagnostics on new files:
+   $ lsp_diagnostics main/framework/services/scheduler_service.py
+   No diagnostics found
+   $ lsp_diagnostics tests/unit/test_scheduler_service.py
+   No diagnostics found
+
+--------------------------------------------------------------------------------
+DESIGN NOTES
+--------------------------------------------------------------------------------
+
+* `validate_cron_expression` keeps the original regex (no croniter dependency)
+  to preserve exact behavior of core/scheduler.py.  `*/N` step syntax is NOT
+  supported by the original — neither is it in the new service.
+* `get_next_run_times` returns `list[datetime]` (not `list[str]` like the
+  original) per the task spec; the iteration pattern is preserved verbatim
+  so it still feeds the same data into the in-memory `_workflow_jobs` dict
+  (via implicit `str(datetime)` conversion in callers, if any).
+* `run_scheduled_workflow` delegates DAG execution to the injected
+  `workflow_service.run(workflow_id=, db=, execution_id=)` — the original
+  used `engine_factory(...)` directly; that responsibility now lives in
+  WorkflowService (W4.10).
+* The "job_id in self._scheduler.get_jobs()" line is preserved verbatim
+  from the original (a known cosmetic bug — `get_jobs()` returns Job
+  objects, not strings — but `replace_existing=True` covers the real case).
+
+--------------------------------------------------------------------------------
+CONSTRAINTS HONORED
+--------------------------------------------------------------------------------
+
+* ✓ APScheduler integration unchanged
+* ✓ Cron expression validation unchanged (same regex)
+* ✓ `run_scheduled_workflow` is still a callable (now a bound method on
+  SchedulerService, invoked by APScheduler via `self.run_scheduled_workflow`)
+* ✓ `core/scheduler.py` NOT modified (verified — the 24+/2- in
+  `git diff main/framework/core/scheduler.py` is from a parallel W5.2
+  agent's deprecation-shim work, not mine)
+* ✓ NOT committed (per spec)
+* ✓ No new package dependencies (only apscheduler, already in requirements)
+
+================================================================================
+End of evidence.
+================================================================================

@@ -1,9 +1,10 @@
-"""Workflow scheduling with cron-based APScheduler integration."""
+"""Workflow scheduler — APScheduler integration. PHASE 2 migration shim for get_scheduler()."""
 
 from __future__ import annotations
 
 import asyncio
 import re
+import warnings
 from collections.abc import Callable
 from datetime import UTC, datetime, timezone
 from typing import Any, Optional
@@ -265,7 +266,10 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
     """
     logger.info(f"Running scheduled workflow: {workflow_id}")
 
-    scheduler = get_scheduler()
+    from main.framework.core.container import get_container
+
+    container = get_container()
+    scheduler = container.create_scheduler()
     db = scheduler._session_factory()
     try:
         # Load workflow from database
@@ -333,13 +337,4 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
         db.close()
 
 
-# Global scheduler instance
-_scheduler_instance: WorkflowScheduler | None = None
-
-
-def get_scheduler() -> WorkflowScheduler:
-    """Get or create the global scheduler instance."""
-    global _scheduler_instance
-    if _scheduler_instance is None:
-        _scheduler_instance = WorkflowScheduler()
-    return _scheduler_instance
+# _scheduler_instance global removed in PHASE 2 — use container.scheduler instead

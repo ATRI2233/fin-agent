@@ -1,0 +1,85 @@
+Task W4.11: WorkflowEngine Refactor — Evidence
+==============================================
+Date: 2026-06-09
+Branch: phase2-refactor
+
+## Changes Made
+Refactored `main/framework/core/workflow_engine.py` from 562 lines to 242 lines (57% reduction).
+
+### What was removed:
+- `_execute_in_order()` — moved to WorkflowService._execute_in_order()
+- `_wait_for_predecessors()` — moved to WorkflowService
+- `_compute_level()` — moved to WorkflowService
+- `_execute_single_node()` — moved to WorkflowService._execute_wrapped()
+- `_build_prompt()` — moved to individual node executors (debate_executor._build_enriched_prompt, agent_executor)
+- The 4-type if/elif block in execute_node() — replaced by NodeExecutorRegistry dispatch
+
+### What was added:
+- `_get_service()` — lazy WorkflowService factory with protocol adapters
+- `_sync_from_service()` — copies service state back for collect_results() compat
+- `_WorkflowRepoAdapter` — wraps db session to satisfy WorkflowRepositoryProtocol
+- `_ExecServiceAdapter` — wraps db session to satisfy ExecutionServiceProtocol (create_execution_for_workflow, mark_downstream_skipped)
+
+### What was kept (backward compat):
+- Same constructor signature: `(workflow_id, params, dispatcher, db, status_callback, execution_id, exec_repo, workflow_repo)`
+- `execute()` — delegates to service.run(), accepts optional args with fallback to constructor defaults
+- `execute_node()` — 4 lines: registry lookup + delegate to service
+- `handle_failure()` — delegates to service.handle_failure()
+- `collect_results()` — kept as-is (synced from service state)
+- `_cleanup_sessions()` — kept as thin wrapper
+- `_build_predecessors()`, `_find_downstream()`, `_is_leaf()`, `_is_only_successor()` — delegate to workflow_graph module
+- `_get_agent_name()`, `_find_node()` — kept as-is
+- WorkflowRetryHandler import (still needed)
+
+## Verification Results
+
+### Line count
+```
+(Get-Content main/framework/core/workflow_engine.py | Measure-Object -Line).Lines
+→ 242 (target: ≤300) ✅
+```
+
+### Import
+```
+python -c "from main.framework.core.workflow_engine import WorkflowEngine; print('OK')"
+→ OK ✅
+```
+
+### Radon complexity
+```
+radon cc -s -n B main/framework/core/workflow_engine.py
+→ M 56:4 _ExecServiceAdapter.create_execution_for_workflow - B (7)
+→ M 234:4 WorkflowEngine._cleanup_sessions - B (6)
+Max rank: B ✅
+```
+
+### Integration tests
+```
+pytest tests/integration/test_workflow_flow.py -v --tb=short
+→ 5 passed ✅
+  - test_create_workflow PASSED
+  - test_list_workflows PASSED
+  - test_get_workflow_by_id PASSED
+  - test_create_parallel_workflow PASSED
+  - test_trigger_endpoint_exists PASSED
+```
+
+### Unit tests (workflow + executor)
+```
+pytest tests/unit/ -v -k "workflow or executor" --tb=short
+→ 78 passed ✅
+  Including:
+  - test_workflow_service.py (20 tests)
+  - test_executor_registry.py (8 tests)
+  - test_node_executors.py (14 tests)
+  - test_workflow_graph.py (9 tests)
+  - test_workflow_parser.py (13 tests)
+  - test_execution_service.py (2 tests)
+  - test_conversation_service.py (2 tests)
+  - test_scheduler_service.py (10 tests)
+```
+
+### LSP diagnostics
+```
+workflow_engine.py: No diagnostics found ✅
+```

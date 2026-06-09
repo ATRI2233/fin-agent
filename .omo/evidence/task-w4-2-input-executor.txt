@@ -1,0 +1,55 @@
+Task: W4.2 — InputNodeExecutor
+Date: 2026-06-09
+Branch: phase2-refactor
+
+== Files created ==
+1. main/framework/core/workflow/node_executors/input_executor.py (~30 lines)
+2. tests/unit/test_node_executors.py (3 tests for InputNodeExecutor; placeholder section
+   header so W4.3/W4.4/W4.5 can append below)
+
+== Files NOT touched ==
+- main/framework/core/workflow_engine.py (forbidden)
+- main/framework/core/workflow/node_executors/base.py (forbidden)
+
+== Import verification ==
+$ python -c "from main.framework.core.workflow.node_executors.input_executor import InputNodeExecutor; print('OK')"
+OK
+(exit 0)
+
+== Test run ==
+$ python -m pytest tests/unit/test_node_executors.py -v
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
+rootdir: D:\github_place\fin-agent
+configfile: pyproject.toml
+plugins: anyio-4.13.0, langsmith-0.8.5, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False
+collected 3 items
+
+tests/unit/test_node_executors.py::test_input_executor_returns_params PASSED [ 33%]
+tests/unit/test_node_executors.py::test_input_executor_does_not_call_backend PASSED [ 66%]
+tests/unit/test_node_executors.py::test_input_executor_output_has_input_key PASSED [100%]
+
+============================== 3 passed in 0.03s ==============================
+
+== LSP clean ==
+- input_executor.py: no diagnostics
+- test_node_executors.py: no diagnostics
+(Pre-existing diagnostics in conversations.py / test_conversation_service.py are
+ unrelated to this task and were not introduced here.)
+
+== Source-pattern match ==
+WorkflowEngine.execute_node lines 290-297 (input handler) returns self.params and
+sets exec_node.output = self.params. InputNodeExecutor mirrors this:
+    NodeResult(result=ctx.params, output={"input": ctx.params})
+Output wraps params under "input" key per spec; downstream nodes will read the
+unwrapped result via NodeContext.results.
+
+== Coordination note ==
+W4.3/W4.4/W4.5 will append their executor tests to tests/unit/test_node_executors.py
+below the existing "# InputNodeExecutor (W4.2)" section header. If you encounter a
+merge conflict, the rule is: keep all 3 InputNodeExecutor tests at the top of the
+file and append the other executors' tests below.
+
+== No commit made ==
+Per task spec, changes are staged in working tree only.

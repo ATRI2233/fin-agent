@@ -6,7 +6,9 @@ from datetime import UTC, datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from main.framework.core.container import get_service
 from main.framework.models.database import get_db
+from main.framework.services.scheduler_service import SchedulerService
 
 router = APIRouter(prefix="/api/v1/system", tags=["system"])
 
@@ -39,12 +41,9 @@ def _get_concurrency_status() -> dict:
         return {"current": 0, "max": 0, "available": 0}
 
 
-def _get_scheduler_status() -> dict:
+def _get_scheduler_status(scheduler: SchedulerService) -> dict:
     """Get WorkflowScheduler running state, job count, and next run time."""
     try:
-        from main.framework.core.scheduler import get_scheduler
-
-        scheduler = get_scheduler()
         running = scheduler.is_running()
         jobs = scheduler.list_scheduled_workflows()
         scheduled_count = len(jobs)
@@ -64,7 +63,7 @@ def _get_scheduler_status() -> dict:
             "scheduledJobs": scheduled_count,
             "nextRun": next_run,
         }
-    except ImportError:
+    except Exception:
         return {"running": False, "scheduledJobs": 0, "nextRun": None}
 
 
@@ -128,13 +127,16 @@ def _get_opencode_status() -> dict:
 
 
 @router.get("/status")
-async def system_status(db: Session = Depends(get_db)):
+async def system_status(
+    db: Session = Depends(get_db),
+    scheduler: SchedulerService = Depends(get_service(SchedulerService)),
+):
     """Aggregate system status for WebUI dashboard."""
     return {
         "opencode": _get_opencode_status(),
         "jobExecutor": _get_executor_status(),
         "concurrency": _get_concurrency_status(),
-        "scheduler": _get_scheduler_status(),
+        "scheduler": _get_scheduler_status(scheduler),
         "sessions": _get_session_status(db),
         "timestamp": datetime.now(UTC).isoformat(),
     }

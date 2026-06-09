@@ -134,6 +134,20 @@ def client(db_session, test_session_factory):
         pytest.skip(f"FastAPI app not importable: {e}")
 
 
+@pytest.fixture(autouse=True)
+def reset_container_scheduler():
+    """Reset container scheduler between tests."""
+    yield
+    try:
+        from main.framework.core.container import get_container
+
+        container = get_container()
+        if container and hasattr(container, "_instances"):
+            container._instances.pop("scheduler", None)
+    except Exception:
+        pass
+
+
 @pytest.fixture(scope="function")
 def maintenance_db_session(test_engine, test_session_factory):
     """Per-test session for maintenance DB tables."""

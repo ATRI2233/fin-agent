@@ -1,0 +1,121 @@
+================================================================================
+TASK: W5-2 - Scheduler Shim (PHASE 2 migration)
+File: main/framework/core/scheduler.py:get_scheduler()
+================================================================================
+
+VERIFICATION 1: pytest tests/integration/test_scheduled_workflow.py -v
+--------------------------------------------------------------------------------
+$ pytest tests/integration/test_scheduled_workflow.py -v --tb=short
+
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0 -- D:\programs\anaconda\python.exe
+cachedir: .pytest_cache
+rootdir: D:\github_place\fin-agent
+configfile: pyproject.toml
+plugins: anyio-4.13.0, langsmith-0.8.5, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 4 items
+
+tests/integration/test_scheduled_workflow.py::test_schedule_workflow_with_cron PASSED [ 25%]
+tests/integration/test_scheduled_workflow.py::test_list_scheduled_workflows PASSED [ 50%]
+tests/integration/test_scheduled_workflow.py::test_unschedule_unscheduled_workflow_returns_404 PASSED [ 75%]
+tests/integration/test_scheduled_workflow.py::test_schedule_with_invalid_cron_returns_400 PASSED [100%]
+
+============================== warnings summary ===============================
+tests/integration/test_scheduled_workflow.py::test_schedule_workflow_with_cron
+tests/integration/test_scheduled_workflow.py::test_schedule_with_invalid_cron_returns_400
+  D:\github_place\fin-agent\main\framework\api\scheduler_routes.py:18: DeprecationWarning: get_scheduler() using legacy _scheduler_instance global. Container.scheduler is preferred. Will be removed in PHASE 3.
+    scheduler = get_scheduler()
+
+tests/integration/test_scheduled_workflow.py::test_list_scheduled_workflows
+  D:\github_place\fin-agent\main\framework\api\scheduler_routes.py:43: DeprecationWarning: get_scheduler() using legacy _scheduler_instance global. Container.scheduler is preferred. Will be removed in PHASE 3.
+    scheduler = get_scheduler()
+
+tests/integration/test_scheduled_workflow.py::test_unschedule_unscheduled_workflow_returns_404
+  D:\github_place\fin-agent\main\framework\api\scheduler_routes.py:33: DeprecationWarning: get_scheduler() using legacy _scheduler_instance global. Container.scheduler is preferred. Will be removed in PHASE 3.
+    scheduler = get_scheduler()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 4 passed, 12 warnings in 0.58s ========================
+
+RESULT: 4 PASSED (no regression — task expected 3, all scheduled-workflow tests pass)
+DeprecationWarning fires from scheduler_routes.py callsites during test (legacy path).
+
+VERIFICATION 2: Standalone DeprecationWarning emission
+--------------------------------------------------------------------------------
+$ python -W default -c "from main.framework.core.scheduler import get_scheduler; get_scheduler()"
+
+<stdin>:1: DeprecationWarning: get_scheduler() using legacy _scheduler_instance global. Container.scheduler is preferred. Will be removed in PHASE 3.
+
+RESULT: DeprecationWarning EMITS as expected (container not configured in fresh Python process, falls through to legacy path with warning).
+
+================================================================================
+DIFF SUMMARY
+================================================================================
+
+File: main/framework/core/scheduler.py
+
+1. Module docstring (line 1):
+   BEFORE: """Workflow scheduling with cron-based APScheduler integration."""
+   AFTER:  """Workflow scheduler — APScheduler integration. PHASE 2 migration shim for get_scheduler()."""
+
+2. Added import (line 7):
+   NEW: import warnings
+
+3. get_scheduler() body (lines 341-365, ~25 lines):
+   BEFORE (3 lines):
+       def get_scheduler() -> WorkflowScheduler:
+           """Get or create the global scheduler instance."""
+           global _scheduler_instance
+           if _scheduler_instance is None:
+               _scheduler_instance = WorkflowScheduler()
+           return _scheduler_instance
+
+   AFTER (shim with container-first, legacy fallback + DeprecationWarning):
+       def get_scheduler() -> WorkflowScheduler:
+           """Get the singleton WorkflowScheduler instance.
+
+           Migration shim: prefers container.scheduler if configured (PHASE 2+).
+           Falls back to legacy _scheduler_instance with DeprecationWarning.
+           Will be removed in PHASE 3.
+           """
+           from main.framework.core.container import get_container
+
+           try:
+               container = get_container()
+               if container and hasattr(container, "scheduler") and container.scheduler:
+                   return container.scheduler
+           except Exception:
+               pass  # Container not configured, fall through
+
+           # Legacy path
+           global _scheduler_instance
+           if _scheduler_instance is None:
+               warnings.warn(
+                   "get_scheduler() using legacy _scheduler_instance global. "
+                   "Container.scheduler is preferred. Will be removed in PHASE 3.",
+                   DeprecationWarning,
+                   stacklevel=2,
+               )
+               _scheduler_instance = WorkflowScheduler()
+           return _scheduler_instance
+
+PRESERVED:
+- _scheduler_instance global (line 337-338) — still works, Task 26 will remove
+- Function signature: get_scheduler() -> WorkflowScheduler (unchanged)
+- run_scheduled_workflow (still needed for APScheduler to call)
+- All existing callers (api/scheduler_routes.py, api/system.py, tests) work unchanged
+
+================================================================================
+EXPECTED OUTCOME CHECKLIST
+================================================================================
+[x] core/scheduler.py:get_scheduler() modified (~15 lines -> actually 25, includes docstring + import)
+[x] pytest tests/integration/test_scheduled_workflow.py -v -> 4 passed (no regression, expected 3)
+[x] python -W default -c "..." -> emits DeprecationWarning when container is NOT configured
+[x] No changes to _scheduler_instance global (still works)
+[x] No changes to get_container() (already exists)
+[x] import warnings added
+[x] Module docstring updated to mention PHASE 2 migration shim
+[x] Function signature preserved
+
+NOT COMMITTED (per MUST NOT DO).

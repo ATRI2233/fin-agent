@@ -10,13 +10,12 @@ break the public HTTP surface:
 
 We deliberately do NOT wait for an actual cron tick - the test budget
 is 30 s total. APScheduler job registration is verified via the
-list endpoint, and the global ``WorkflowScheduler`` singleton is
-torn down between tests so state never leaks across cases.
+list endpoint, and the container scheduler is torn down between tests
+(via ``reset_container_scheduler`` in conftest.py) so state never leaks.
 """
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import pytest
@@ -57,44 +56,6 @@ async def _create_workflow(client, name: str = "Schedule Test") -> str:
 # Use a cron that fires only far in the future so we never hit it during the
 # test run (00:00 on Jan 1). 5-field cron: min hour day month weekday.
 FUTURE_CRON = "0 0 1 1 *"
-
-
-# ---------------------------------------------------------------------------
-# Module-level fixture: clear scheduler state between tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(autouse=True)
-async def _reset_scheduler_singleton():
-    """Reset the global WorkflowScheduler singleton per test.
-
-    ``get_scheduler()`` returns a cached module-level instance, so jobs
-    added by one test would leak into the next. We force a fresh
-    singleton for each test and clear the in-memory job map afterwards.
-
-    We deliberately do NOT call ``scheduler.start()`` here: the
-    ``AsyncIOScheduler`` boot conflicts with pytest-asyncio's event
-    loop, and without the app's real ``on_event("startup")`` firing
-    the job store stays half-initialised. The route tests below only
-    depend on the HTTP status codes the route returns, which the
-    scheduler exposes correctly even when unstarted.
-    """
-    from main.framework.core import scheduler as scheduler_mod
-
-    # Force a fresh singleton so APScheduler's internal job store is clean.
-    scheduler_mod._scheduler_instance = None
-    try:
-        yield
-    finally:
-        # Best-effort cleanup of the singleton used by this test.
-        try:
-            sched = scheduler_mod.get_scheduler()
-            sched._workflow_jobs.clear()
-        except Exception:
-            pass
-        scheduler_mod._scheduler_instance = None
-        # Give APScheduler's async loop a beat to settle.
-        await asyncio.sleep(0)
 
 
 # ---------------------------------------------------------------------------
