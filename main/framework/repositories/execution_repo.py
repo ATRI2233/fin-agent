@@ -277,3 +277,81 @@ class ExecutionRepository(BaseRepository[WorkflowExecution]):
 
     def mark_node_failed(self, node_id: str, execution_id: str, error: str) -> None:
         self.update_node(node_id, execution_id, status="failed", error=error)
+
+    # ------------------------------------------------------------------
+    # Workflow helpers (used by executions API)
+    # ------------------------------------------------------------------
+
+    def get_workflow_names(self, workflow_ids: list[str]) -> dict[str, str]:
+        """Return {workflow_id: name} for the given IDs."""
+        from main.framework.models.workflow import Workflow
+
+        with self._session() as db:
+            rows = db.query(Workflow).filter(Workflow.id.in_(workflow_ids)).all()
+            return {str(w.id): str(w.name) for w in rows}
+
+    def get_execution_detail(self, execution_id: str) -> tuple[WorkflowExecution | None, list[ExecutionNode], Any]:
+        """Return (execution, nodes, workflow) in one call.
+
+        ``workflow`` may be ``None`` if the referenced workflow no longer
+        exists.
+        """
+        from main.framework.models.workflow import Workflow
+
+        with self._session() as db:
+            execution = db.get(WorkflowExecution, execution_id)
+            if execution is None:
+                return None, [], None
+            nodes = db.query(ExecutionNode).filter(ExecutionNode.execution_id == execution_id).all()
+            workflow = db.get(Workflow, execution.workflow_id)
+            return execution, nodes, workflow
+
+    def get_first_node_input(self, execution_id: str) -> dict[str, Any]:
+        """Return the ``input`` payload of the first node (or ``{}``)."""
+        with self._session() as db:
+            node = db.query(ExecutionNode).filter(ExecutionNode.execution_id == execution_id).first()
+            if node is not None and node.input:  # type: ignore[truthy-bool]
+                return dict(node.input)  # type: ignore[arg-type]
+            return {}
+
+    def get_workflow(self, workflow_id: str) -> Any:
+        """Return the Workflow ORM instance (or ``None``)."""
+        from main.framework.models.workflow import Workflow
+
+        with self._session() as db:
+            return db.get(Workflow, workflow_id)
+
+    def create_execution_with_nodes(
+        self,
+        workflow_id: str,
+        nodes_data: list[dict[str, Any]],
+        params: dict[str, Any],
+    ) -> tuple[str, list[ExecutionNode]]:
+        """Atomically create a pending execution and its nodes.
+
+        Returns ``(execution_id, nodes)``.
+        """
+        with self._session() as db:
+            execution = WorkflowExecution(workflow_id=workflow_id, status="pending")
+            db.add(execution)
+            db.flush()  # populate execution.id
+            exec_id = str(execution.id)
+
+            nodes: list[ExecutionNode] = []
+            for node_data in nodes_data:
+                agent = node_data.get("agent", "")
+                if not agent:
+                    data = node_data.get("data", {})
+                    if isinstance(data, dict):
+                        agent = data.get("agentType", "") or data.get("label", "")
+                exec_node = ExecutionNode(
+                    execution_id=exec_id,
+                    node_id=node_data["id"],
+                    agent=agent,
+                    status="pending",
+                    input=params,
+                )
+                db.add(exec_node)
+                nodes.append(exec_node)
+            db.commit()
+            return exec_id, nodes
