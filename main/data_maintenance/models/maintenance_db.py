@@ -48,14 +48,17 @@ def _get_engine():
     return _engine
 
 
-def get_maintenance_db():
-    """FastAPI dependency — yields a DB session."""
+def _get_session_factory():
+    """Return (and lazily create) the session factory."""
     global _SessionLocal
     if _SessionLocal is None:
-        _SessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=_get_engine()
-        )
-    db = _SessionLocal()
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
+    return _SessionLocal
+
+
+def get_maintenance_db():
+    """FastAPI dependency — yields a DB session."""
+    db = _get_session_factory()()
     try:
         yield db
     finally:
@@ -64,12 +67,7 @@ def get_maintenance_db():
 
 def get_session():
     """Direct session factory for non-FastAPI usage."""
-    global _SessionLocal
-    if _SessionLocal is None:
-        _SessionLocal = sessionmaker(
-            autocommit=False, autoflush=False, bind=_get_engine()
-        )
-    return _SessionLocal()
+    return _get_session_factory()()
 
 
 def init_maintenance_db():
@@ -110,9 +108,7 @@ class MaintenanceData(MaintenanceBase):
     task_id = Column(String, nullable=False, index=True)
     data_key = Column(String, nullable=False, index=True)
     content = Column(Text, nullable=True)  # JSON string
-    fetched_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), index=True
-    )
+    fetched_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class MaintenanceLog(MaintenanceBase):
@@ -125,6 +121,4 @@ class MaintenanceLog(MaintenanceBase):
     records_updated = Column(Integer, default=0)
     error = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
-    completed_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
-    )
+    completed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
