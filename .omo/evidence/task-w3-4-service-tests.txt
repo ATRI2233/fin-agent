@@ -1,0 +1,235 @@
+TASK: W3-4 Unit tests for ConversationService + ConvSessionManager
+DATE: 2026-06-09
+BRANCH: phase2-refactor
+WORKDIR: D:\github_place\fin-agent
+
+================================================================================
+EVIDENCE: task-w3-4-service-tests
+================================================================================
+
+[1] FILES CREATED
+
+    Path  : D:\github_place\fin-agent\tests\unit\test_conversation_service.py
+    Lines : 432
+    Tests : 15 (target 10+)                                   ✓
+
+    Path  : D:\github_place\fin-agent\tests\unit\test_session_manager.py
+    Lines : 153
+    Tests : 9 (target 5+)                                     ✓
+
+    Path  : D:\github_place\fin-agent\tests\conftest.py         (modified)
+    Change: Registered ConversationService in test Container so Depends(
+            get_service(ConversationService)) resolves in controllers. This
+            was identified as a coordination gap by W3.2 / W3.3 evidence files
+            and explicitly handed off to W3-4.
+
+[2] TEST INVENTORY — test_conversation_service.py (15 tests)
+
+    TestCreateConversation (2):
+      ✓ test_create_conversation
+      ✓ test_create_conversation_default_title
+
+    TestGetConversation (2):
+      ✓ test_get_conversation_found
+      ✓ test_get_conversation_not_found_raises
+
+    TestListConversations (2):
+      ✓ test_list_conversations_empty
+      ✓ test_list_conversations_with_results
+
+    TestUpdateConversation (2):
+      ✓ test_update_conversation_title
+      ✓ test_update_conversation_not_found_raises
+
+    TestDeleteConversation (2):
+      ✓ test_delete_conversation_success
+      ✓ test_delete_conversation_not_found_raises
+
+    TestListMessages (2):
+      ✓ test_list_messages_returns_list
+      ✓ test_list_messages_conversation_missing_raises
+
+    TestSaveUserMessage (1):
+      ✓ test_save_user_message_persists
+
+    TestStartWorkflowExecution (2):
+      ✓ test_start_workflow_execution_creates_record
+      ✓ test_start_workflow_execution_workflow_missing_raises
+
+[3] TEST INVENTORY — test_session_manager.py (9 tests)
+
+    TestGetOrCreateSession (3):
+      ✓ test_get_or_create_session_returns_cached
+      ✓ test_get_or_create_session_creates_new
+      ✓ test_get_or_create_session_default_agent
+
+    TestCleanupSession (3):
+      ✓ test_cleanup_session_removes_from_dict
+      ✓ test_cleanup_session_handles_missing
+      ✓ test_cleanup_session_backend_failure_logs_warning
+
+    TestGetSessionId (3):
+      ✓ test_get_session_id_returns_value
+      ✓ test_get_session_id_returns_none_for_unknown
+      ✓ test_get_session_id_after_cleanup_returns_none
+
+[4] VERIFICATION COMMANDS + OUTPUT
+
+    > pytest tests/unit/test_conversation_service.py tests/unit/test_session_manager.py -v --tb=short
+    ============================= test session starts =============================
+    collected 24 items
+    ...
+    tests/unit/test_conversation_service.py::TestCreateConversation::test_create_conversation PASSED
+    tests/unit/test_conversation_service.py::TestCreateConversation::test_create_conversation_default_title PASSED
+    tests/unit/test_conversation_service.py::TestGetConversation::test_get_conversation_found PASSED
+    tests/unit/test_conversation_service.py::TestGetConversation::test_get_conversation_not_found_raises PASSED
+    tests/unit/test_conversation_service.py::TestListConversations::test_list_conversations_empty PASSED
+    tests/unit/test_conversation_service.py::TestListConversations::test_list_conversations_with_results PASSED
+    tests/unit/test_conversation_service.py::TestUpdateConversation::test_update_conversation_title PASSED
+    tests/unit/test_conversation_service.py::TestUpdateConversation::test_update_conversation_not_found_raises PASSED
+    tests/unit/test_conversation_service.py::TestDeleteConversation::test_delete_conversation_success PASSED
+    tests/unit/test_conversation_service.py::TestDeleteConversation::test_delete_conversation_not_found_raises PASSED
+    tests/unit/test_conversation_service.py::TestListMessages::test_list_messages_returns_list PASSED
+    tests/unit/test_conversation_service.py::TestListMessages::test_list_messages_conversation_missing_raises PASSED
+    tests/unit/test_conversation_service.py::TestSaveUserMessage::test_save_user_message_persists PASSED
+    tests/unit/test_conversation_service.py::TestStartWorkflowExecution::test_start_workflow_execution_creates_record PASSED
+    tests/unit/test_conversation_service.py::TestStartWorkflowExecution::test_start_workflow_execution_workflow_missing_raises PASSED
+    tests/unit/test_session_manager.py::TestGetOrCreateSession::test_get_or_create_session_returns_cached PASSED
+    tests/unit/test_session_manager.py::TestGetOrCreateSession::test_get_or_create_session_creates_new PASSED
+    tests/unit/test_session_manager.py::TestGetOrCreateSession::test_get_or_create_session_default_agent PASSED
+    tests/unit/test_session_manager.py::TestCleanupSession::test_cleanup_session_removes_from_dict PASSED
+    tests/unit/test_session_manager.py::TestCleanupSession::test_cleanup_session_handles_missing PASSED
+    tests/unit/test_session_manager.py::TestCleanupSession::test_cleanup_session_backend_failure_logs_warning PASSED
+    tests/unit/test_session_manager.py::TestGetSessionId::test_get_session_id_returns_value PASSED
+    tests/unit/test_session_manager.py::TestGetSessionId::test_get_session_id_returns_none_for_unknown PASSED
+    tests/unit/test_session_manager.py::TestGetSessionId::test_get_session_id_after_cleanup_returns_none PASSED
+    ========================== 24 passed, 1 warning in 0.18s ==========================
+
+    PASS COUNT: 24 / 24  (target ≥15)                                       ✓
+
+[5] MOCK-HEAVY VERIFICATION
+
+    > grep -c "Mock\|MagicMock" tests/unit/test_conversation_service.py
+    92                                              (target ≥10)             ✓
+
+    > grep -c "Mock\|MagicMock" tests/unit/test_session_manager.py
+    28                                              (bonus coverage)         ✓
+
+    Total: 120 Mock/MagicMock mentions across both test files.
+
+[6] NO REAL DATABASE VERIFICATION
+
+    > grep -c "create_engine\|SessionLocal" tests/unit/test_conversation_service.py tests/unit/test_session_manager.py
+    0                                               (target 0)              ✓
+
+    The test suite uses unittest.mock exclusively.  No SQLAlchemy sessions,
+    engine, or SessionLocal imports — fully isolated from any real database.
+
+[7] INTEGRATION REGRESSION CHECK (17 / 17 PASS)
+
+    > pytest tests/integration/ -v --tb=short
+    ============================= test session starts =============================
+    collected 17 items
+    tests/integration/test_conversation_flow.py::test_create_conversation PASSED                  [  5%]
+    tests/integration/test_conversation_flow.py::test_list_conversations PASSED                   [ 11%]
+    tests/integration/test_conversation_flow.py::test_get_conversation_by_id PASSED               [ 17%]
+    tests/integration/test_conversation_flow.py::test_send_agent_message_endpoint PASSED          [ 23%]
+    tests/integration/test_dispatch_flow.py::test_sync_dispatch PASSED                            [ 29%]
+    tests/integration/test_dispatch_flow.py::test_parallel_dispatch PASSED                        [ 35%]
+    tests/integration/test_dispatch_flow.py::test_dispatch_request_validation PASSED              [ 41%]
+    tests/integration/test_dispatch_flow.py::test_parallel_request_validation PASSED             [ 47%]
+    tests/integration/test_scheduled_workflow.py::test_schedule_workflow_with_cron PASSED         [ 52%]
+    tests/integration/test_scheduled_workflow.py::test_list_scheduled_workflows PASSED            [ 58%]
+    tests/integration/test_scheduled_workflow.py::test_unschedule_unscheduled_workflow_returns_404 PASSED [ 64%]
+    tests/integration/test_scheduled_workflow.py::test_schedule_with_invalid_cron_returns_400 PASSED [ 70%]
+    tests/integration/test_workflow_flow.py::test_create_workflow PASSED                          [ 76%]
+    tests/integration/test_workflow_flow.py::test_list_workflows PASSED                           [ 82%]
+    tests/integration/test_workflow_flow.py::test_get_workflow_by_id PASSED                       [ 88%]
+    tests/integration/test_workflow_flow.py::test_create_parallel_workflow PASSED                 [ 94%]
+    tests/integration/test_workflow_flow.py::test_trigger_endpoint_exists PASSED                  [100%]
+    ========================= 17 passed, 4 warnings in ~70s =========================
+
+    PASS COUNT: 17 / 17  (regression check satisfied)                          ✓
+
+[8] COORDINATION FIX (conftest.py)
+
+    The 4 conversation-flow integration tests were failing before W3-4 because
+    `Depends(get_service(ConversationService))` in `controllers/conversations.py`
+    could not resolve — the test Container built in conftest.py only registered
+    repositories, not services.  This was a documented coordination gap in
+    W3.2's and W3.3's evidence files; W3.3 explicitly handed it off to W3-4:
+
+      "W3.4 must mirror that registration in the test conftest's Container override."
+
+    Fix applied in tests/conftest.py (test code only, no production change):
+
+        from main.framework.services.conversation_service import ConversationService
+        test_container._instances["ConversationService"] = ConversationService(
+            conv_repo=test_container._instances["conversation_repo"],
+            workflow_repo=test_container._instances["workflow_repo"],
+        )
+
+    After this fix, all 4 previously-failing conversation tests now pass.
+
+[9] TEST DESIGN NOTES
+
+    For test_conversation_service.py:
+
+      - The fixture `service` overrides `ConversationService._repo_for` to
+        return the MagicMock `conv_repo`.  This is required because the service
+        constructs a fresh `ConversationRepository(db=...)` per call when a
+        session is passed in; mocking at the repository boundary is achieved by
+        replacing the helper, not by mocking SQLAlchemy sessions directly.
+
+      - `mock_db` is a `MagicMock()` configured with sane defaults for
+        `db.query(...).filter(...).count()/.delete()/.all()` and
+        `db.commit()/add()/refresh()`.  No real Session.
+
+      - `db.refresh.side_effect` is set to populate `execution.id` with a UUID,
+        mimicking SQLAlchemy's column-default behaviour during flush.  This is
+        the only test-level simulation of ORM behaviour; it does not touch a
+        real database.
+
+      - Tests verify `assert_called_once_with(...)` / `assert_called_once()` and
+        inspect `call_args.args / call_args.kwargs` to assert the service passed
+        the right values to the repository boundary.
+
+      - Error-path tests use `pytest.raises(NotFoundError)` (imported from
+        `main.framework.services.exceptions`) to assert the service translates
+        "entity not found" into the project-standard service exception.
+
+    For test_session_manager.py:
+
+      - `mock_backend` is a `MagicMock(spec=AgentBackend)` so only the real
+        Protocol methods are stubbable.  `create_session` and `cleanup_sessions`
+        are `AsyncMock` because `ConvSessionManager` calls them with `await`.
+
+      - `asyncio_mode = "auto"` is set in pyproject.toml — no explicit
+        `@pytest.mark.asyncio` decorator needed.
+
+      - Tests cover both happy-path dict caching and the
+        backend-failure defensive-logging branch (using pytest's `caplog`).
+
+[10] OWN CHANGES (this task only)
+
+    created: tests/unit/test_conversation_service.py
+    created: tests/unit/test_session_manager.py
+    modified: tests/conftest.py (ConversationService registration in test Container)
+
+    NOT modified:
+      main/framework/services/conversation_service.py        (W3.1)
+      main/framework/controllers/conversations.py            (W3.2)
+      main/framework/api/conversations.py                    (W3.3)
+      any other production file
+
+[11] NOT COMMITTED (per instructions — orchestrator commits per-wave)
+
+[12] SUMMARY
+
+    Unit tests written       : 24  (15 service + 9 session_manager; target ≥15) ✓
+    Unit tests passing       : 24 / 24                                          ✓
+    Mock density             : 92 / 28 = 120 mentions across both files          ✓
+    Real DB usage            : 0                                                ✓
+    Integration regression   : 17 / 17 passed                                   ✓
+    Production code modified : NO                                               ✓
+    Coordination fix applied : tests/conftest.py only                           ✓

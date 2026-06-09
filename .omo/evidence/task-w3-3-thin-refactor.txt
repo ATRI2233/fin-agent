@@ -1,0 +1,143 @@
+TASK: W3-3 Refactor api/conversations.py to thin re-export
+DATE: 2026-06-09
+BRANCH: phase2-refactor
+WORKDIR: D:\github_place\fin-agent
+
+================================================================================
+EVIDENCE: task-w3-3-thin-refactor
+================================================================================
+
+[1] FILE REPLACED
+    Path  : D:\github_place\fin-agent\main\framework\api\conversations.py
+    Before: 261 lines (full endpoints inline)
+    After : 6 lines (thin re-export)
+    Delta : 258 deletions, 6 insertions (-96% LoC)
+
+[2] NEW FILE CONTENT
+    """
+    Conversation API routes — re-exported from controllers/.
+
+    This file exists for backward compat with `from main.framework.api.conversations import router`.
+    The actual route definitions live in `main.framework.controllers.conversations`.
+    """
+
+    from main.framework.controllers.conversations import router
+
+    __all__ = ["router"]
+
+[3] STRUCTURAL VERIFICATION
+    > (Get-Content main/framework/api/conversations.py | Measure-Object -Line).Lines
+    6                                       ✓ (target ≤50)
+
+    > grep -c "^def \|^async def \|^class " main/framework/api/conversations.py
+    0                                       ✓ (target 0)
+
+    > python -m py_compile main/framework/api/conversations.py
+    COMPILE OK                              ✓
+
+    > python -m ruff check main/framework/api/conversations.py
+    All checks passed!                      ✓
+
+[4] IMPORT + ROUTE VERIFICATION
+    > python -c "from main.framework.api.conversations import router; print(len(router.routes))"
+    7                                       ✓ (target 7)
+
+    Routes registered (all paths match the original):
+      POST   /api/v1/conversations
+      GET    /api/v1/conversations
+      GET    /api/v1/conversations/{conversation_id}
+      PUT    /api/v1/conversations/{conversation_id}
+      DELETE /api/v1/conversations/{conversation_id}
+      GET    /api/v1/conversations/{conversation_id}/messages
+      POST   /api/v1/conversations/{conversation_id}/messages
+
+    Prefix preserved: /api/v1/conversations  ✓
+    Router tag preserved: conversations       ✓
+
+[5] MAIN.PY IMPORT — UNCHANGED, STILL WORKS
+    > grep "conversations" main/framework/main.py
+    12: from main.framework.api.conversations import router as conversations_router
+    65: app.include_router(conversations_router)
+
+    The aliased import `from main.framework.api.conversations import router as ...`
+    resolves correctly through the re-export.  ✓
+
+[6] INTEGRATION TEST RESULTS (17 total)
+
+    Passing — unchanged by this refactor (13 tests):
+      tests/integration/test_dispatch_flow.py::test_sync_dispatch                      PASSED
+      tests/integration/test_dispatch_flow.py::test_parallel_dispatch                  PASSED
+      tests/integration/test_dispatch_flow.py::test_dispatch_request_validation        PASSED
+      tests/integration/test_dispatch_flow.py::test_parallel_request_validation       PASSED
+      tests/integration/test_workflow_flow.py::test_create_workflow                    PASSED
+      tests/integration/test_workflow_flow.py::test_list_workflows                     PASSED
+      tests/integration/test_workflow_flow.py::test_get_workflow_by_id                 PASSED
+      tests/integration/test_workflow_flow.py::test_create_parallel_workflow           PASSED
+      tests/integration/test_workflow_flow.py::test_trigger_endpoint_exists            PASSED
+      tests/integration/test_scheduled_workflow.py::test_schedule_workflow_with_cron   PASSED
+      tests/integration/test_scheduled_workflow.py::test_list_scheduled_workflows      PASSED
+      tests/integration/test_scheduled_workflow.py::test_unschedule_unscheduled...404  PASSED
+      tests/integration/test_scheduled_workflow.py::test_schedule_with_invalid_cron400  PASSED
+
+    Failing — coordination gap with W3.2/W3.1 (4 tests):
+      tests/integration/test_conversation_flow.py::test_create_conversation            FAILED
+      tests/integration/test_conversation_flow.py::test_list_conversations             FAILED
+      tests/integration/test_conversation_flow.py::test_get_conversation_by_id         FAILED
+      tests/integration/test_conversation_flow.py::test_send_agent_message_endpoint    FAILED
+
+[7] ROOT CAUSE OF THE 4 CONVERSATION TEST FAILURES
+    NOT a regression from this refactor.
+    Caused by W3.2's controllers using `Depends(get_service(ConversationService))`
+    while tests/conftest.py (lines 87-105) builds a Container with only the 4
+    repository instances — it does NOT register `ConversationService`.
+
+    Traceback (root cause):
+      File "main/framework/core/container.py", line 217, in _from_factory
+        raise ValueError(f"No service registered for {interface.__name__}")
+      ValueError: No service registered for ConversationService
+
+    The fix is a 1-line addition to tests/conftest.py, e.g.:
+        from main.framework.services.conversation_service import ConversationService
+        test_container._instances["ConversationService"] = ConversationService(
+            conv_repo=test_container._instances["conversation_repo"],
+            workflow_repo=test_container._instances["workflow_repo"],
+        )
+
+    This conftest update is OUT OF SCOPE for W3-3 (per task MUST-NOT-DO list:
+    "Do NOT modify any other file"). It is a coordination gap that must be
+    filled by W3-1 (service) or W3-4 (tests) — neither is this task.
+
+[8] OWN CHANGES (this task only)
+    modified:  main/framework/api/conversations.py
+    NOT modified:
+      main/framework/main.py                                 (uses re-export, works)
+      main/framework/controllers/                            (W3.2)
+      main/framework/services/conversation_service.py        (W3.1)
+      main/framework/services/__init__.py                    (W3.2)
+      main/framework/api/__init__.py                         (untouched, per MUST-NOT-DO)
+      tests/conftest.py                                      (coordination gap, see [7])
+      any other file in main/ or tests/
+
+[9] NOT COMMITTED (per task instructions — orchestrator commits per-wave)
+
+[10] DEPENDENCY VERIFICATION
+     W3.2 deliverable: main/framework/controllers/conversations.py
+       - 155 lines (target ≤200)                                ✓
+       - 7 endpoints, prefix /api/v1/conversations               ✓
+       - imports from main.framework.services.conversation_service ✓
+       - imports from main.framework.services.exceptions        ✓
+       - imports from main.framework.services.message_processor  ✓
+     W3.1 deliverable: main/framework/services/conversation_service.py
+       - 178 lines (target ≤200)                                ✓
+       - 8 public methods                                        ✓
+       - constructor takes (conv_repo, workflow_repo)            ✓
+
+[11] SUMMARY
+     Refactor:        COMPLETE
+     Structural:      PASS (6 lines, 0 def/class, compiles, ruff clean)
+     Import chain:    PASS (7 routes, prefix + paths match)
+     main.py compat:  PASS (aliased re-export works)
+     Other tests:     13/13 PASSED
+     Conv tests:      4/4 FAILED — coordination gap (conftest needs
+                      ConversationService registration). NOT a regression
+                      from this task. See [7] for fix.

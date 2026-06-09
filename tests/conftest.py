@@ -91,6 +91,8 @@ def client(db_session, test_session_factory):
             from main.framework.repositories.conversation_repo import ConversationRepository
             from main.framework.repositories.execution_repo import ExecutionRepository
             from main.framework.repositories.workflow_repo import WorkflowRepository
+            from main.framework.services.conversation_service import ConversationService
+            from main.framework.services.scheduler_service import SchedulerService
 
             test_settings = Settings()
             test_container = Container(test_settings)
@@ -99,7 +101,27 @@ def client(db_session, test_session_factory):
             test_container._instances["execution_repo"] = ExecutionRepository(session_factory=test_session_factory)
             test_container._instances["agent_repo"] = AgentRepository(session_factory=test_session_factory)
             test_container._instances["workflow_repo"] = WorkflowRepository(session_factory=test_session_factory)
-            test_container._instances["conversation_repo"] = ConversationRepository(session_factory=test_session_factory)
+            test_container._instances["conversation_repo"] = ConversationRepository(
+                session_factory=test_session_factory
+            )
+
+            # W3.4 fix: Register ConversationService so Depends(get_service(...)) resolves
+            # in controllers (which were moved out of api/conversations.py in W3.2).
+            # Without this, integration tests fail with
+            # "No service registered for ConversationService".
+            test_container._instances["ConversationService"] = ConversationService(
+                conv_repo=test_container._instances["conversation_repo"],
+                workflow_repo=test_container._instances["workflow_repo"],
+            )
+
+            # W5.3 fix: Register SchedulerService so Depends(get_service(...)) resolves
+            # in api/scheduler_routes.py (which was migrated from get_scheduler() to DI).
+            # workflow_service is None because the route tests only exercise add/remove/list —
+            # they never let APScheduler fire a job (the test fixture never calls start()).
+            test_container._instances["SchedulerService"] = SchedulerService(
+                session_factory=test_session_factory,
+                workflow_service=None,
+            )
 
             configure(test_container)
             app.state.container = test_container
