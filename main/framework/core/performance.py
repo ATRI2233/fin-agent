@@ -55,9 +55,7 @@ class NodeTimeout:
     def __init__(self, default_timeout: int = 300):
         self.default_timeout = default_timeout
 
-    async def execute_with_timeout(
-        self, node_id: str, timeout_seconds: int | None = None, coro: Any = None
-    ) -> Any:
+    async def execute_with_timeout(self, node_id: str, timeout_seconds: int | None = None, coro: Any = None) -> Any:
         """Run node coroutine with timeout.
 
         Args:
@@ -74,9 +72,7 @@ class NodeTimeout:
         if coro is None:
             raise ValueError("coro must be a coroutine")
 
-        timeout = (
-            timeout_seconds if timeout_seconds is not None else self.default_timeout
-        )
+        timeout = timeout_seconds if timeout_seconds is not None else self.default_timeout
 
         try:
             result = await asyncio.wait_for(coro, timeout=timeout)
@@ -91,10 +87,11 @@ class NodeTimeout:
     async def _mark_node_timeout(self, node_id: str) -> None:
         """Mark node as timeout status in database."""
         try:
-            from main.framework.models.database import SessionLocal
+            from main.framework.models.database import get_db
             from main.framework.models.workflow_execution import ExecutionNode
 
-            db = SessionLocal()
+            db_gen = get_db()
+            db = next(db_gen)
             try:
                 exec_node = (
                     db.query(ExecutionNode)
@@ -109,7 +106,7 @@ class NodeTimeout:
                     exec_node.error = f"Execution timed out"
                     db.commit()
             finally:
-                db.close()
+                db_gen.close()
         except Exception as e:
             logger.error(f"Failed to mark node {node_id} as timeout: {e}")
 
@@ -122,9 +119,7 @@ def get_concurrency_limiter() -> ConcurrencyLimiter:
     """Get or create the global ConcurrencyLimiter instance."""
     global _concurrency_limiter
     if _concurrency_limiter is None:
-        _concurrency_limiter = ConcurrencyLimiter(
-            max_concurrent=settings.MAX_CONCURRENT_SESSIONS
-        )
+        _concurrency_limiter = ConcurrencyLimiter(max_concurrent=settings.MAX_CONCURRENT_SESSIONS)
     return _concurrency_limiter
 
 
@@ -200,10 +195,11 @@ def get_workflow_definition_from_db(workflow_id: str) -> dict | None:
         Workflow definition dict or None
     """
     try:
-        from main.framework.models.database import SessionLocal
+        from main.framework.models.database import get_db
         from main.framework.models.workflow import Workflow
 
-        db = SessionLocal()
+        db_gen = get_db()
+        db = next(db_gen)
         try:
             workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
             if workflow:
@@ -215,7 +211,7 @@ def get_workflow_definition_from_db(workflow_id: str) -> dict | None:
                 }
             return None
         finally:
-            db.close()
+            db_gen.close()
     except Exception as e:
         logger.error(f"Failed to load workflow {workflow_id} from DB: {e}")
         return None
