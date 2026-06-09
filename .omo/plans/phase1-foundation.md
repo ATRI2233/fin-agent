@@ -1055,7 +1055,7 @@ Wave FINAL (4 review tasks, parallel):
 
 ### Wave 3: Data Layer Build (并行, 8个任务 - 仅新建文件)
 
-- [ ] 12. **config/ 目录迁移（settings/constants/database）**
+- [x] 12. **config/ 目录迁移（settings/constants/database）**
 
   **What to do**:
   - 创建 `main/framework/config/` 包（`__init__.py`）
@@ -1449,7 +1449,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `feat(di): register all 5 Repositories in Container`
   - Files: `main/framework/core/container.py`
 
-- [ ] 19. **UnitOfWork 模式（跨 Repository 事务）**
+- [x] 19. **UnitOfWork 模式（跨 Repository 事务）**
 
   **What to do**:
   - 创建 `main/framework/services/__init__.py`（新包）
