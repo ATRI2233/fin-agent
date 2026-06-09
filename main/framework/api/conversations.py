@@ -264,7 +264,7 @@ async def _execute_workflow_async(conversation_id: str, execution_id: str, workf
                     )
 
             engine = container.create_workflow_engine(
-                workflow_id, params, status_callback=status_callback, execution_id=execution_id
+                workflow_id, params, db=db, status_callback=status_callback, execution_id=execution_id
             )
             await engine.execute()
 

@@ -1,4 +1,4 @@
-"""Lightweight dependency injection container.
+﻿"""Lightweight dependency injection container.
 
 Centralises the creation and lifecycle of all core services.
 Modules receive their dependencies via constructor injection instead
@@ -22,7 +22,7 @@ T = TypeVar("T")
 
 
 class Container:
-    """DI container — single source of truth for service instances."""
+    """DI container —?single source of truth for service instances."""
 
     def __init__(self, settings: Settings):
         self._settings = settings
@@ -108,7 +108,7 @@ class Container:
 
     @property
     def session_manager(self):
-        """Conversation ↔ session mapping (lazy, needs backend)."""
+        """Conversation —?session mapping (lazy, needs backend)."""
         if "session_manager" not in self._instances:
             from main.framework.api.conversations import ConvSessionManager
 
@@ -116,7 +116,7 @@ class Container:
         return self._instances["session_manager"]
 
     # ------------------------------------------------------------------
-    # Factory methods — create per-request / per-execution instances
+    # Factory methods —?create per-request / per-execution instances
     # ------------------------------------------------------------------
 
     def create_workflow_engine(self, workflow_id: str, params: dict, db=None, status_callback=None, execution_id=None):
@@ -170,11 +170,11 @@ def configure(container: Container) -> None:
 def get_container() -> Container:
     """Return the global container. Raises if not configured."""
     if _container is None:
-        raise RuntimeError("Container not configured — call configure() first")
+        raise RuntimeError("Container not configured —?call configure() first")
     return _container
 
 
-# Interface → container-property mapping for get_service lookup
+# Interface —?container-property mapping for get_service lookup
 _SERVICE_MAP: dict[type, str] = {
     ExecutionRepository: "execution_repo",
     AgentRepository: "agent_repo",
@@ -185,7 +185,7 @@ _SERVICE_MAP: dict[type, str] = {
 
 
 def get_service(interface: Type[T]):
-    """FastAPI ``Depends`` factory — resolve *interface* from the DI container.
+    """FastAPI ``Depends`` factory —?resolve *interface* from the DI container.
 
     Usage::
 
