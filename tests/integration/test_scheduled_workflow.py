@@ -1,28 +1,17 @@
 """Integration tests for scheduled workflow (Task 10 - safety net).
 
-These tests run against the CURRENT (unrefactored) code to lock in the
-behavior of the scheduler API endpoints. Wave 4 Task 28 migrates
-``main/framework/core/scheduler.py`` to a new architecture; these
-tests act as a regression net so we know the public HTTP surface
-(``POST /api/v1/workflows/{id}/schedule``,
-``GET /api/v1/workflows/scheduled``,
-``DELETE /api/v1/workflows/{id}/schedule``) keeps working after the
-refactor.
+These tests lock in the behavior of the scheduler API endpoints so that
+any refactor of ``main/framework/core/scheduler.py`` cannot silently
+break the public HTTP surface:
+
+- ``POST /api/v1/workflows/{id}/schedule``
+- ``GET  /api/v1/workflows/scheduled``
+- ``DELETE /api/v1/workflows/{id}/schedule``
 
 We deliberately do NOT wait for an actual cron tick - the test budget
 is 30 s total. APScheduler job registration is verified via the
 list endpoint, and the global ``WorkflowScheduler`` singleton is
 torn down between tests so state never leaks across cases.
-
-KNOWN ROUTING BUG (to be fixed in Wave 4 Task 28):
-    ``GET /api/v1/workflows/scheduled`` is shadowed by
-    ``GET /api/v1/workflows/{workflow_id}`` (workflows router is
-    registered before the scheduler router in main.py).  FastAPI
-    resolves the path-parameter route first, so a request for
-    ``/scheduled`` returns ``404 "Workflow not found"``.  The list
-    test below uses a discovery pattern that reports the current
-    state without failing - it will start asserting strictly once
-    the refactor fixes the route order.
 """
 
 from __future__ import annotations
@@ -31,7 +20,6 @@ import asyncio
 from typing import Any
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -140,46 +128,13 @@ async def test_schedule_workflow_with_cron(client):
 async def test_list_scheduled_workflows(client):
     """List scheduled workflows.
 
-    Locks in the GET /api/v1/workflows/scheduled contract. Tries the
-    canonical path first; if a routing conflict (see module docstring)
-    causes a 404, falls back to other reasonable paths so the test
-    acts as a discovery net for the Wave 4 refactor.
+    Locks in the GET /api/v1/workflows/scheduled contract: must return
+    HTTP 200 with a JSON list (possibly empty when nothing is scheduled).
     """
-    # Try the canonical scheduler-routes path first.
-    list_paths = [
-        "/api/v1/workflows/scheduled",
-        "/api/v1/scheduler/list",
-        "/api/v1/scheduler/jobs",
-        "/api/v1/scheduler",
-    ]
-
-    found = False
-    for path in list_paths:
-        try:
-            resp = await client.get(path)
-        except Exception as exc:  # network/transport error
-            print(f"  GET {path} raised {exc!r}")
-            continue
-
-        if resp.status_code == 200:
-            scheduled = resp.json()
-            assert isinstance(scheduled, list), f"GET {path} returned 200 but body is not a list: {scheduled!r}"
-            print(f"OK Listed {len(scheduled)} scheduled workflows via {path}")
-            found = True
-            break
-        else:
-            print(f"  GET {path} -> {resp.status_code} {resp.text[:120]}")
-
-    if not found:
-        # This is the expected state today (routing bug). We still
-        # PASS the test - the safety net value is in the diagnostic
-        # output above, which documents what the refactor must fix.
-        pytest.skip(
-            "No list-scheduled endpoint reachable. Known routing bug: "
-            "GET /api/v1/workflows/scheduled is shadowed by "
-            "GET /api/v1/workflows/{workflow_id}. To be fixed in "
-            "Wave 4 Task 28."
-        )
+    resp = await client.get("/api/v1/workflows/scheduled")
+    assert resp.status_code == 200, f"GET /api/v1/workflows/scheduled returned {resp.status_code}: {resp.text}"
+    scheduled = resp.json()
+    assert isinstance(scheduled, list), f"Expected a list, got {type(scheduled).__name__}: {scheduled!r}"
 
 
 @pytest.mark.asyncio

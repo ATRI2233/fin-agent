@@ -1,27 +1,27 @@
 """Application entry point — wires up all dependencies via Container."""
 
-from datetime import datetime, timezone
 import logging
+from datetime import UTC, datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from main.data_maintenance.api.data_maintenance import router as data_maintenance_router
+from main.framework.api.agents import router as agents_router
+from main.framework.api.conversations import router as conversations_router
+from main.framework.api.dispatch import router as dispatch_router
+from main.framework.api.executions import router as executions_router
+from main.framework.api.scheduler_routes import router as scheduler_router
+from main.framework.api.sessions import router as sessions_router
+from main.framework.api.skills import router as skills_router
+from main.framework.api.system import router as system_router
+from main.framework.api.tools import router as tools_router
+from main.framework.api.triggers import router as triggers_router
+from main.framework.api.workflows import router as workflows_router
 from main.framework.config import settings as settings
 from main.framework.core.auth import APIKeyMiddleware
 from main.framework.core.container import Container
-from main.framework.api.agents import router as agents_router
-from main.framework.api.tools import router as tools_router
-from main.framework.api.skills import router as skills_router
-from main.framework.api.workflows import router as workflows_router
-from main.framework.api.triggers import router as triggers_router
-from main.framework.api.scheduler_routes import router as scheduler_router
-from main.framework.api.system import router as system_router
-from main.framework.api.conversations import router as conversations_router
-from main.framework.api.sessions import router as sessions_router
-from main.framework.api.executions import router as executions_router
-from main.framework.api.dispatch import router as dispatch_router
-from main.data_maintenance.api.data_maintenance import router as data_maintenance_router
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +56,11 @@ app.add_middleware(APIKeyMiddleware)
 app.include_router(agents_router)
 app.include_router(tools_router)
 app.include_router(skills_router)
+# Scheduler routes MUST be included before workflows so that the explicit
+# path `/scheduled` is registered before the catch-all `/{workflow_id}`.
+app.include_router(scheduler_router)
 app.include_router(workflows_router)
 app.include_router(triggers_router)
-app.include_router(scheduler_router)
 app.include_router(system_router)
 app.include_router(conversations_router)
 app.include_router(sessions_router)
@@ -87,7 +89,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 async def health_check():
     return {
         "status": "ok",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -109,8 +111,9 @@ async def startup():
     session_cleanup.configure(container.backend)
 
     # Initialize data maintenance
+    from main.data_maintenance.core.data_maintenance import DataMaintenanceService
+    from main.data_maintenance.core.data_maintenance import configure as configure_maintenance
     from main.data_maintenance.models.maintenance_db import init_maintenance_db
-    from main.data_maintenance.core.data_maintenance import DataMaintenanceService, configure as configure_maintenance
 
     init_maintenance_db()
     configure_maintenance(container.dispatcher, scheduler._scheduler)
