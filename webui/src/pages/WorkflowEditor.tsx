@@ -1,6 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Typography, Button, Space, Spin, Alert, message, Modal, Form, Input, Select, Popconfirm, Tag } from 'antd';
-import { SaveOutlined, PlayCircleOutlined, SettingOutlined, ArrowLeftOutlined, DeleteOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { Typography, Button, Space, Spin, Alert, message, Modal, Form, Input, Select, Popconfirm, Tag, List, Badge, Tooltip, Divider } from 'antd';
+import {
+  SaveOutlined, PlayCircleOutlined, SettingOutlined, ArrowLeftOutlined,
+  DeleteOutlined, PlusOutlined, MinusCircleOutlined, BlockOutlined,
+  LinkOutlined, SearchOutlined, ApartmentOutlined, UngroupOutlined,
+} from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ReactFlow,
@@ -23,6 +27,8 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import DebateNodeComponent from '../components/workflow/nodes/DebateNode';
+import InputNodeComponent, { type InputNodeData } from '../components/workflow/nodes/InputNode';
+import OutputNodeComponent, { type OutputNodeData } from '../components/workflow/nodes/OutputNode';
 import { CronEditor } from '../components/CronEditor';
 
 // --- Edge Data Types ---
@@ -74,7 +80,22 @@ interface DebateNodeData {
 
 export type DebateNode = Node<DebateNodeData, 'debate'>;
 
-type WorkflowNode = AgentNode | DebateNode;
+// --- Workflow Block Node Data ---
+interface WorkflowBlockNodeData {
+  label: string;
+  workflowId: string;
+  workflowName: string;
+  childNodeIds: string[];
+  inputs: Record<string, string>;
+  [key: string]: unknown;
+}
+
+type WorkflowBlockNode = Node<WorkflowBlockNodeData, 'workflow-block'>;
+
+type InputNode = Node<InputNodeData, 'input'>;
+type OutputNode = Node<OutputNodeData, 'output'>;
+
+type WorkflowNode = AgentNode | DebateNode | WorkflowBlockNode | InputNode | OutputNode;
 
 // --- Agent Palette Node Component ---
 function AgentPaletteNode({ data }: { data: AgentNodeData }) {
@@ -95,25 +116,55 @@ function AgentPaletteNode({ data }: { data: AgentNodeData }) {
   );
 }
 
+// --- Workflow Block Node Component ---
+function WorkflowBlockNodeComponent({ data }: { data: WorkflowBlockNodeData }) {
+  return (
+    <div style={{
+      padding: '10px 16px',
+      background: 'rgba(82, 196, 26, 0.08)',
+      border: '1.5px dashed rgba(82, 196, 26, 0.4)',
+      borderRadius: 10,
+      minWidth: 140,
+      textAlign: 'center',
+      position: 'relative',
+    }}>
+      <Handle type="target" position={Position.Top} style={{ background: '#52C41A' }} />
+      <div style={{ fontSize: 11, color: '#52C41A', marginBottom: 2 }}>
+        <BlockOutlined style={{ marginRight: 4 }} />工作流块
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#E5E5E5' }}>{data.label}</div>
+      <div style={{ fontSize: 11, color: '#A0A0A0', marginTop: 2 }}>
+        <ApartmentOutlined style={{ marginRight: 4 }} />
+        {data.childNodeIds.length} 个节点
+      </div>
+      <Handle type="source" position={Position.Bottom} style={{ background: '#52C41A' }} />
+    </div>
+  );
+}
+
 const nodeTypes: NodeTypes = {
   agent: AgentPaletteNode,
   debate: DebateNodeComponent,
+  'workflow-block': WorkflowBlockNodeComponent,
+  input: InputNodeComponent,
+  output: OutputNodeComponent,
 };
 
 const edgeTypes = {
   default: EdgeWithLabel,
 };
 
-// --- Agent Palette ---
-const PALETTE_AGENTS = [
-  { type: 'macro-scout', label: '宏观侦察员', description: '判断天时' },
-  { type: 'sector-rotator', label: '板块轮动雷达', description: '判断地利' },
-  { type: 'sentiment-decoder', label: '新闻情绪解码器', description: '捕捉人和' },
-  { type: 'technical-chartist', label: '技术形态绘图师', description: '判断时机' },
-  { type: 'fundamental-auditor', label: '基本面估值审计师', description: '判断质地' },
-  { type: 'smart-money-hound', label: '聪明钱追踪犬', description: '判断主力' },
-  { type: 'risk-gatekeeper', label: '风控仓位守门员', description: '判断安全' },
-  { type: 'fusion-brain', label: '融合计算引擎', description: '多信号融合' },
+// --- Palette Agent (fetched from API) ---
+interface PaletteAgent {
+  type: string;
+  label: string;
+  description: string;
+}
+
+// --- Built-in special node types ---
+const BUILTIN_NODES: PaletteAgent[] = [
+  { type: 'input', label: '输入节点', description: '工作流入口' },
+  { type: 'output', label: '输出节点', description: '工作流出口' },
   { type: 'debate', label: '辩论块', description: '多Agent辩论+裁判' },
 ];
 
@@ -124,9 +175,6 @@ const AVAILABLE_TOOLS = [
   'fear_greed_index', 'earnings_calendar', 'analyst_ratings',
   'sec_filings', 'options_greeks', 'commodity_prices',
 ];
-
-// --- Debatable Agents (exclude debate itself) ---
-const DEBATABLE_AGENTS = PALETTE_AGENTS.filter((a) => a.type !== 'debate');
 
 // --- Agent Node Properties Panel ---
 interface NodePropertiesPanelProps {
@@ -250,9 +298,10 @@ interface DebatePropertiesPanelProps {
   selectedNode: DebateNode;
   onUpdateNode: (id: string, data: Partial<DebateNodeData>) => void;
   onDeleteNode: (id: string) => void;
+  agents: PaletteAgent[];
 }
 
-function DebatePropertiesPanel({ selectedNode, onUpdateNode, onDeleteNode }: DebatePropertiesPanelProps) {
+function DebatePropertiesPanel({ selectedNode, onUpdateNode, onDeleteNode, agents }: DebatePropertiesPanelProps) {
   const data = selectedNode.data;
 
   const addAgent = () => {
@@ -282,7 +331,7 @@ function DebatePropertiesPanel({ selectedNode, onUpdateNode, onDeleteNode }: Deb
   const judgeOptions = data.agents
     .filter((a) => a)
     .map((a) => {
-      const agent = PALETTE_AGENTS.find((pa) => pa.type === a);
+      const agent = agents.find((pa) => pa.type === a);
       return { label: agent ? `${agent.label} (${a})` : a, value: a };
     });
 
@@ -307,7 +356,7 @@ function DebatePropertiesPanel({ selectedNode, onUpdateNode, onDeleteNode }: Deb
                 onChange={(val) => updateAgent(idx, val)}
                 placeholder="选择 Agent"
                 style={{ width: 180 }}
-                options={DEBATABLE_AGENTS.map((a) => ({
+                options={agents.map((a) => ({
                   label: `${a.label} (${a.type})`,
                   value: a.type,
                 }))}
@@ -595,6 +644,342 @@ function EdgePromptEditor({ edge, onUpdateEdge, onClose }: EdgePromptEditorProps
   );
 }
 
+// --- Workflow Block Selector Modal ---
+interface WorkflowListItem {
+  id: string;
+  name: string;
+  status: string;
+  node_count: number;
+  created_at: string | null;
+}
+
+interface WorkflowBlockSelectorModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (workflowId: string, workflowName: string) => void;
+  currentWorkflowId?: string;
+}
+
+function WorkflowBlockSelectorModal({ visible, onClose, onSelect, currentWorkflowId }: WorkflowBlockSelectorModalProps) {
+  const [workflows, setWorkflows] = useState<WorkflowListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+
+  useEffect(() => {
+    if (!visible) return;
+    setLoading(true);
+    fetch('/api/v1/workflows')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: WorkflowListItem[]) => {
+        // 排除当前正在编辑的工作流
+        setWorkflows(data.filter((w) => w.id !== currentWorkflowId));
+      })
+      .catch(() => message.error('加载工作流列表失败'))
+      .finally(() => setLoading(false));
+  }, [visible, currentWorkflowId]);
+
+  const filtered = workflows.filter((w) =>
+    w.name.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  return (
+    <Modal
+      title={
+        <Space>
+          <BlockOutlined style={{ color: '#52C41A' }} />
+          <span>选择要导入的工作流</span>
+        </Space>
+      }
+      open={visible}
+      onCancel={onClose}
+      footer={null}
+      width={560}
+      destroyOnClose
+    >
+      <Input
+        placeholder="搜索工作流名称..."
+        prefix={<SearchOutlined />}
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        style={{ marginBottom: 16 }}
+        allowClear
+      />
+      <List
+        loading={loading}
+        dataSource={filtered}
+        locale={{ emptyText: '暂无可用工作流' }}
+        style={{ maxHeight: 400, overflowY: 'auto' }}
+        renderItem={(item) => (
+          <List.Item
+            style={{
+              cursor: 'pointer',
+              padding: '12px 16px',
+              borderRadius: 8,
+              marginBottom: 4,
+              background: 'rgba(139,157,195,0.04)',
+              border: '1px solid rgba(139,157,195,0.10)',
+              transition: 'all 0.2s',
+            }}
+            onClick={() => {
+              onSelect(item.id, item.name);
+              onClose();
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(82, 196, 26, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(82, 196, 26, 0.25)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(139,157,195,0.04)';
+              e.currentTarget.style.borderColor = 'rgba(139,157,195,0.10)';
+            }}
+          >
+            <List.Item.Meta
+              title={
+                <Space>
+                  <span style={{ color: '#E5E5E5' }}>{item.name}</span>
+                  <Badge
+                    status={item.status === 'draft' ? 'default' : item.status === 'running' ? 'processing' : 'success'}
+                    text={<span style={{ fontSize: 11, color: '#A0A0A0' }}>{item.status}</span>}
+                  />
+                </Space>
+              }
+              description={
+                <Space size={16}>
+                  <span style={{ fontSize: 12, color: '#6B6B6B' }}>
+                    <ApartmentOutlined style={{ marginRight: 4 }} />
+                    {item.node_count} 个节点
+                  </span>
+                  {item.created_at && (
+                    <span style={{ fontSize: 12, color: '#6B6B6B' }}>
+                      {new Date(item.created_at).toLocaleDateString()}
+                    </span>
+                  )}
+                </Space>
+              }
+            />
+            <Tooltip title="点击导入此工作流">
+              <Button type="primary" size="small" ghost icon={<LinkOutlined />}>
+                导入
+              </Button>
+            </Tooltip>
+          </List.Item>
+        )}
+      />
+    </Modal>
+  );
+}
+
+// --- Workflow Block Properties Panel ---
+interface WorkflowBlockPropertiesPanelProps {
+  selectedNode: WorkflowBlockNode;
+  onDeleteBlock: (blockId: string) => void;
+  onUngroupBlock: (blockId: string) => void;
+}
+
+function WorkflowBlockPropertiesPanel({ selectedNode, onDeleteBlock, onUngroupBlock }: WorkflowBlockPropertiesPanelProps) {
+  const data = selectedNode.data;
+
+  return (
+    <div style={{ padding: 16 }}>
+      <Typography.Text strong style={{ display: 'block', marginBottom: 12, fontSize: 14, color: '#E5E5E5' }}>
+        <Tag color="green">workflow-block</Tag> 工作流块属性
+      </Typography.Text>
+      <Form layout="vertical" size="small">
+        <Form.Item label="块名称">
+          <Input value={data.label} disabled style={{ color: '#E5E5E5' }} />
+        </Form.Item>
+
+        <Form.Item label="引用工作流">
+          <div style={{
+            padding: '8px 12px',
+            background: 'rgba(82, 196, 26, 0.06)',
+            border: '1px solid rgba(82, 196, 26, 0.15)',
+            borderRadius: 6,
+          }}>
+            <div style={{ color: '#E5E5E5', fontWeight: 500 }}>{data.workflowName}</div>
+            <div style={{ fontSize: 11, color: '#6B6B6B', marginTop: 2 }}>ID: {data.workflowId}</div>
+          </div>
+        </Form.Item>
+
+        <Form.Item label="包含节点">
+          <Tag color="blue">{data.childNodeIds.length} 个节点</Tag>
+        </Form.Item>
+
+        <Divider style={{ margin: '12px 0', borderColor: 'rgba(255,255,255,0.06)' }} />
+
+        <Form.Item>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Button
+              icon={<UngroupOutlined />}
+              block
+              onClick={() => onUngroupBlock(selectedNode.id)}
+              style={{ color: '#52C41A', borderColor: 'rgba(82, 196, 26, 0.3)' }}
+            >
+              解组（保留子节点）
+            </Button>
+            <Popconfirm
+              title="移除整个工作流块？"
+              description="将删除此块及其所有子节点，此操作不可撤销。"
+              onConfirm={() => onDeleteBlock(selectedNode.id)}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button danger icon={<DeleteOutlined />} block>
+                移除整个块
+              </Button>
+            </Popconfirm>
+          </Space>
+        </Form.Item>
+      </Form>
+    </div>
+  );
+}
+
+// --- Input Node Properties Panel ---
+interface InputNodePropertiesPanelProps {
+  selectedNode: InputNode;
+  onUpdateNode: (id: string, data: Record<string, unknown>) => void;
+  onDeleteNode: (id: string) => void;
+}
+
+function InputNodePropertiesPanel({ selectedNode, onUpdateNode, onDeleteNode }: InputNodePropertiesPanelProps) {
+  const data = selectedNode.data;
+  const params = data.params ?? [];
+
+  const addParam = () => {
+    onUpdateNode(selectedNode.id, { params: [...params, { key: '', type: 'string', default: '' }] });
+  };
+
+  const removeParam = (idx: number) => {
+    onUpdateNode(selectedNode.id, { params: params.filter((_, i) => i !== idx) });
+  };
+
+  const updateParam = (idx: number, field: 'key' | 'type' | 'default', val: string) => {
+    const next = params.map((p, i) => (i === idx ? { ...p, [field]: val } : p));
+    onUpdateNode(selectedNode.id, { params: next });
+  };
+
+  return (
+    <div style={{ padding: 16 }}>
+      <Typography.Text strong style={{ display: 'block', marginBottom: 12, fontSize: 14, color: '#E5E5E5' }}>
+        <Tag color="green">input</Tag> 输入节点属性
+      </Typography.Text>
+      <Form layout="vertical" size="small">
+        <Form.Item label="名称">
+          <Input
+            value={data.label}
+            onChange={(e) => onUpdateNode(selectedNode.id, { label: e.target.value })}
+            placeholder="输入节点名称"
+          />
+        </Form.Item>
+
+        <Form.Item label="输入参数">
+          {params.map((param, idx) => (
+            <Space key={idx} style={{ display: 'flex', marginBottom: 4 }} align="start">
+              <Input
+                placeholder="参数名"
+                value={param.key}
+                onChange={(e) => updateParam(idx, 'key', e.target.value)}
+                style={{ width: 80 }}
+              />
+              <Select
+                value={param.type}
+                onChange={(val) => updateParam(idx, 'type', val)}
+                style={{ width: 70 }}
+                options={[
+                  { label: 'string', value: 'string' },
+                  { label: 'number', value: 'number' },
+                  { label: 'boolean', value: 'boolean' },
+                ]}
+              />
+              <Input
+                placeholder="默认值"
+                value={param.default}
+                onChange={(e) => updateParam(idx, 'default', e.target.value)}
+                style={{ width: 60 }}
+              />
+              <MinusCircleOutlined
+                style={{ color: '#C47C7C', cursor: 'pointer', paddingTop: 8 }}
+                onClick={() => removeParam(idx)}
+              />
+            </Space>
+          ))}
+          <Button type="dashed" onClick={addParam} icon={<PlusOutlined />} size="small" block>
+            添加参数
+          </Button>
+        </Form.Item>
+
+        <Form.Item>
+          <Popconfirm
+            title="删除此节点？"
+            description="此操作不可撤销。"
+            onConfirm={() => onDeleteNode(selectedNode.id)}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button danger icon={<DeleteOutlined />} block>
+              删除节点
+            </Button>
+          </Popconfirm>
+        </Form.Item>
+      </Form>
+    </div>
+  );
+}
+
+// --- Output Node Properties Panel ---
+interface OutputNodePropertiesPanelProps {
+  selectedNode: OutputNode;
+  onUpdateNode: (id: string, data: Record<string, unknown>) => void;
+  onDeleteNode: (id: string) => void;
+}
+
+function OutputNodePropertiesPanel({ selectedNode, onUpdateNode, onDeleteNode }: OutputNodePropertiesPanelProps) {
+  const data = selectedNode.data;
+
+  return (
+    <div style={{ padding: 16 }}>
+      <Typography.Text strong style={{ display: 'block', marginBottom: 12, fontSize: 14, color: '#E5E5E5' }}>
+        <Tag color="gold">output</Tag> 输出节点属性
+      </Typography.Text>
+      <Form layout="vertical" size="small">
+        <Form.Item label="名称">
+          <Input
+            value={data.label}
+            onChange={(e) => onUpdateNode(selectedNode.id, { label: e.target.value })}
+            placeholder="输出节点名称"
+          />
+        </Form.Item>
+
+        <Form.Item label="输出键名（可选）">
+          <Input
+            value={data.outputKey ?? ''}
+            onChange={(e) => onUpdateNode(selectedNode.id, { outputKey: e.target.value })}
+            placeholder="从上游结果中提取指定键"
+          />
+        </Form.Item>
+
+        <Form.Item>
+          <Popconfirm
+            title="删除此节点？"
+            description="此操作不可撤销。"
+            onConfirm={() => onDeleteNode(selectedNode.id)}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button danger icon={<DeleteOutlined />} block>
+              删除节点
+            </Button>
+          </Popconfirm>
+        </Form.Item>
+      </Form>
+    </div>
+  );
+}
+
 // --- Main Workflow Editor ---
 export default function WorkflowEditor() {
   const { id } = useParams<{ id: string }>();
@@ -611,8 +996,31 @@ export default function WorkflowEditor() {
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
+  const [blockSelectorVisible, setBlockSelectorVisible] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const isDirty = useRef(false);
+
+  // --- Palette agents (fetched from API) ---
+  const [paletteAgents, setPaletteAgents] = useState<PaletteAgent[]>([]);
+  const allPalette = [...BUILTIN_NODES, ...paletteAgents];
+  const debatableAgents = paletteAgents; // only real agents, not debate
+
+  useEffect(() => {
+    fetch('/api/v1/agents')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((agents: Array<{ name: string; description?: string }>) => {
+        setPaletteAgents(
+          agents
+            .filter((a) => a.name !== 'fin-orchestrator')
+            .map((a) => ({
+              type: a.name,
+              label: a.name,
+              description: a.description ?? '',
+            }))
+        );
+      })
+      .catch(() => {/* keep empty */});
+  }, []);
 
   const fetchWorkflow = useCallback(async () => {
     if (!id || id === 'new') {
@@ -656,7 +1064,7 @@ export default function WorkflowEditor() {
   }, [id]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, data: { prompt: '', promptType: 'context' as PromptType } }, eds)),
+    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true, style: { stroke: '#6B6B6B', strokeWidth: 2 }, data: { prompt: '', promptType: 'context' as PromptType } }, eds)),
     [setEdges]
   );
 
@@ -763,7 +1171,7 @@ export default function WorkflowEditor() {
       const agentType = event.dataTransfer.getData('application/reactflow');
       if (!agentType) return;
       const position = { x: event.clientX - 280, y: event.clientY - 60 };
-      const agent = PALETTE_AGENTS.find((a) => a.type === agentType);
+      const agent = allPalette.find((a) => a.type === agentType);
 
       if (agentType === 'debate') {
         const newNode: DebateNode = {
@@ -773,19 +1181,138 @@ export default function WorkflowEditor() {
           data: { label: 'Debate', agents: [], judge: '', prompt: '' },
         };
         setNodes((nds) => [...nds, newNode]);
+      } else if (agentType === 'input') {
+        const newNode: InputNode = {
+          id: `input-${Date.now()}`,
+          type: 'input',
+          position,
+          data: { label: '输入', params: [] },
+        };
+        setNodes((nds) => [...nds, newNode]);
+      } else if (agentType === 'output') {
+        const newNode: OutputNode = {
+          id: `output-${Date.now()}`,
+          type: 'output',
+          position,
+          data: { label: '输出', outputKey: '' },
+        };
+        setNodes((nds) => [...nds, newNode]);
       } else {
         const newNode: AgentNode = {
           id: `${agentType}-${Date.now()}`,
           type: 'agent',
           position,
           data: { label: agent?.label ?? agentType, agentType, inputs: {} },
-        };
+          // agent field at node level — backend workflow engine reads this
+          agent: agentType,
+        } as AgentNode;
         setNodes((nds) => [...nds, newNode]);
       }
       isDirty.current = true;
     },
     [setNodes]
   );
+
+  // --- Workflow Block Import Handler ---
+  const handleImportWorkflowBlock = useCallback(async (workflowId: string, workflowName: string) => {
+    try {
+      const res = await fetch(`/api/v1/workflows/${workflowId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const sourceNodes = (data.nodes ?? []) as Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }>;
+      const sourceEdges = (data.edges ?? []) as Array<{ id: string; source: string; target: string; data?: Record<string, unknown> }>;
+
+      if (sourceNodes.length === 0) {
+        message.warning('该工作流没有节点，无法导入');
+        return;
+      }
+
+      const prefix = `wf-${workflowId.substring(0, 8)}-`;
+      const timestamp = Date.now();
+
+      // 计算源节点的边界框，用于定位
+      const minX = Math.min(...sourceNodes.map((n) => n.position.x));
+      const minY = Math.min(...sourceNodes.map((n) => n.position.y));
+      const baseX = 200; // 在画布上的基础位置
+      const baseY = 100;
+
+      // 为导入的节点添加前缀 ID 并调整位置
+      const importedNodes: WorkflowNode[] = sourceNodes.map((sn) => {
+        const newId = `${prefix}${sn.id}`;
+        const nodeType = sn.type === 'debate' ? 'debate' : 'agent';
+        return {
+          id: newId,
+          type: nodeType as 'agent' | 'debate',
+          position: {
+            x: baseX + (sn.position.x - minX),
+            y: baseY + (sn.position.y - minY),
+          },
+          data: { ...sn.data } as AgentNodeData & DebateNodeData,
+        } as WorkflowNode;
+      });
+
+      // 为导入的边添加前缀 ID
+      const importedEdges: WorkflowEdge[] = sourceEdges.map((se) => ({
+        id: `${prefix}${se.id}`,
+        source: `${prefix}${se.source}`,
+        target: `${prefix}${se.target}`,
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: '#6B6B6B', strokeWidth: 2 },
+        data: se.data ? { prompt: String(se.data.prompt ?? ''), promptType: (se.data.promptType as PromptType) ?? 'context' } : { prompt: '', promptType: 'context' as PromptType },
+      }));
+
+      // 创建工作流块容器节点
+      const blockNodeId = `wfb-${timestamp}`;
+      const childNodeIds = importedNodes.map((n) => n.id);
+      const blockNode: WorkflowBlockNode = {
+        id: blockNodeId,
+        type: 'workflow-block',
+        position: { x: baseX - 20, y: baseY - 60 },
+        data: {
+          label: workflowName,
+          workflowId,
+          workflowName,
+          childNodeIds,
+          inputs: {},
+        },
+      };
+
+      setNodes((nds) => [...nds, blockNode, ...importedNodes]);
+      setEdges((eds) => [...eds, ...importedEdges]);
+      isDirty.current = true;
+      message.success(`已导入工作流「${workflowName}」（${sourceNodes.length} 个节点）`);
+    } catch {
+      message.error('导入工作流失败');
+    }
+  }, [setNodes, setEdges]);
+
+  // --- Ungroup Workflow Block ---
+  const handleUngroupBlock = useCallback((blockId: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== blockId));
+    isDirty.current = true;
+    message.success('已解组工作流块，子节点已保留');
+  }, [setNodes]);
+
+  // --- Delete Workflow Block and Children ---
+  const handleDeleteBlock = useCallback((blockId: string) => {
+    setNodes((nds) => {
+      const blockNode = nds.find((n) => n.id === blockId) as WorkflowBlockNode | undefined;
+      if (!blockNode) return nds;
+      const childIds = new Set(blockNode.data.childNodeIds);
+      return nds.filter((n) => n.id !== blockId && !childIds.has(n.id));
+    });
+    setEdges((eds) => {
+      // 移除与块节点和其子节点相关的边
+      const blockNode = nodes.find((n) => n.id === blockId) as WorkflowBlockNode | undefined;
+      if (!blockNode) return eds;
+      const childIds = new Set(blockNode.data.childNodeIds);
+      return eds.filter((e) => e.source !== blockId && e.target !== blockId && !childIds.has(e.source) && !childIds.has(e.target));
+    });
+    setSelectedNodeId(null);
+    isDirty.current = true;
+    message.success('已移除工作流块及其所有子节点');
+  }, [nodes, setNodes, setEdges]);
 
   if (loading) {
     return (
@@ -848,7 +1375,7 @@ export default function WorkflowEditor() {
         }}>
           <Typography.Text strong style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#E5E5E5' }}>Agent 列表</Typography.Text>
           <Typography.Text style={{ fontSize: 11, display: 'block', marginBottom: 12, color: '#6B6B6B' }}>拖拽 Agent 到画布</Typography.Text>
-          {PALETTE_AGENTS.map((agent) => (
+          {allPalette.map((agent) => (
             <div
               key={agent.type}
               draggable
@@ -876,6 +1403,64 @@ export default function WorkflowEditor() {
               <div style={{ color: '#6B6B6B', fontSize: 11 }}>{agent.label} - {agent.description}</div>
             </div>
           ))}
+
+          {/* 工作流块复用区域 */}
+          <Divider style={{ margin: '16px 0 12px', borderColor: 'rgba(255,255,255,0.06)' }} />
+          <Typography.Text strong style={{ display: 'block', marginBottom: 4, fontSize: 13, color: '#E5E5E5' }}>
+            <BlockOutlined style={{ marginRight: 6, color: '#52C41A' }} />工作流块复用
+          </Typography.Text>
+          <Typography.Text style={{ fontSize: 11, display: 'block', marginBottom: 12, color: '#6B6B6B' }}>
+            导入已有工作流到画布
+          </Typography.Text>
+          <Button
+            type="dashed"
+            block
+            icon={<PlusOutlined />}
+            onClick={() => setBlockSelectorVisible(true)}
+            style={{
+              borderColor: 'rgba(82, 196, 26, 0.3)',
+              color: '#52C41A',
+              marginBottom: 8,
+            }}
+          >
+            选择工作流导入
+          </Button>
+
+          {/* 显示已导入的工作流块列表 */}
+          {nodes.filter((n): n is WorkflowBlockNode => n.type === 'workflow-block').map((block) => (
+            <div
+              key={block.id}
+              style={{
+                padding: '8px 12px',
+                marginBottom: 6,
+                background: 'rgba(82, 196, 26, 0.06)',
+                border: '1px solid rgba(82, 196, 26, 0.18)',
+                borderRadius: 8,
+                fontSize: 12,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onClick={() => {
+                setSelectedNodeId(block.id);
+                setSelectedEdgeId(null);
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(82, 196, 26, 0.12)';
+                e.currentTarget.style.borderColor = 'rgba(82, 196, 26, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(82, 196, 26, 0.06)';
+                e.currentTarget.style.borderColor = 'rgba(82, 196, 26, 0.18)';
+              }}
+            >
+              <div style={{ fontWeight: 600, color: '#52C41A', fontSize: 11 }}>
+                <BlockOutlined style={{ marginRight: 4 }} />{block.data.workflowName}
+              </div>
+              <div style={{ color: '#A0A0A0', fontSize: 11, marginTop: 2 }}>
+                {block.data.childNodeIds.length} 个节点
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Center: React Flow */}
@@ -891,6 +1476,7 @@ export default function WorkflowEditor() {
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
+            defaultEdgeOptions={{ type: 'smoothstep', animated: true, style: { stroke: '#6B6B6B', strokeWidth: 2 } }}
             fitView
             style={{ width: '100%', height: '100%' }}
           >
@@ -910,9 +1496,28 @@ export default function WorkflowEditor() {
           overflowY: 'auto',
         }}>
           {selectedNode ? (
-            selectedNode.type === 'debate' ? (
+            selectedNode.type === 'workflow-block' ? (
+              <WorkflowBlockPropertiesPanel
+                selectedNode={selectedNode as WorkflowBlockNode}
+                onDeleteBlock={handleDeleteBlock}
+                onUngroupBlock={handleUngroupBlock}
+              />
+            ) : selectedNode.type === 'debate' ? (
               <DebatePropertiesPanel
                 selectedNode={selectedNode as DebateNode}
+                onUpdateNode={onUpdateNode}
+                onDeleteNode={onDeleteNode}
+                agents={debatableAgents}
+              />
+            ) : selectedNode.type === 'input' ? (
+              <InputNodePropertiesPanel
+                selectedNode={selectedNode as InputNode}
+                onUpdateNode={onUpdateNode}
+                onDeleteNode={onDeleteNode}
+              />
+            ) : selectedNode.type === 'output' ? (
+              <OutputNodePropertiesPanel
+                selectedNode={selectedNode as OutputNode}
                 onUpdateNode={onUpdateNode}
                 onDeleteNode={onDeleteNode}
               />
@@ -944,6 +1549,14 @@ export default function WorkflowEditor() {
         workflowId={id ?? 'new'}
         workflowName={workflowName}
         onNameChange={setWorkflowName}
+      />
+
+      {/* Workflow Block Selector Modal */}
+      <WorkflowBlockSelectorModal
+        visible={blockSelectorVisible}
+        onClose={() => setBlockSelectorVisible(false)}
+        onSelect={handleImportWorkflowBlock}
+        currentWorkflowId={id}
       />
     </div>
   );

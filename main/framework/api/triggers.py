@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow import Workflow
@@ -73,23 +76,61 @@ def _get_workflow_or_404(workflow_id: str) -> Workflow:
 
 async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str, container):
     """Background task to execute workflow."""
-    engine = container.create_workflow_engine(workflow_id, params)
-    engine.execution_id = execution_id
+    db = SessionLocal()
     try:
+        from main.framework.models.workflow import Workflow
+        from main.framework.models.workflow_execution import ExecutionNode
+
+        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+        if not workflow:
+            return
+
+        # Update execution status
+        execution = (
+            db.query(WorkflowExecution)
+            .filter(WorkflowExecution.id == execution_id)
+            .first()
+        )
+        if not execution:
+            return
+        execution.status = "running"
+        db.commit()
+
+        # Create all ExecutionNode records
+        for node in (workflow.nodes or []):
+            agent = node.get("agent", "")
+            if not agent:
+                data = node.get("data", {})
+                if isinstance(data, dict):
+                    agent = data.get("agentType", "") or data.get("label", "")
+            exec_node = ExecutionNode(
+                execution_id=execution_id,
+                node_id=node["id"],
+                agent=agent,
+                status="pending",
+                input=params,
+            )
+            db.add(exec_node)
+        db.commit()
+
+        engine = container.create_workflow_engine(workflow_id, params, execution_id=execution_id)
         await engine.execute()
-    except Exception:
-        db = SessionLocal()
+
+    except Exception as e:
+        logger.error(f"Workflow execution failed: {e}", exc_info=True)
         try:
             execution = (
                 db.query(WorkflowExecution)
                 .filter(WorkflowExecution.id == execution_id)
                 .first()
             )
-            if execution and str(execution.status) == "running":
+            if execution:
                 execution.status = "failed"
                 db.commit()
-        finally:
-            db.close()
+        except Exception:
+            pass
+    finally:
+        db.close()
 
 
 @router.post("/workflows/{workflow_id}/trigger", status_code=status.HTTP_202_ACCEPTED)

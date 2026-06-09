@@ -27,11 +27,10 @@ import {
 const { Text } = Typography;
 const { TextArea } = Input;
 
-// ©¤©¤ Types ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ Types ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 interface Conversation {
   id: string;
   title: string;
-  hapi_session_id?: string;
   current_agent: string;
   created_at: string;
   updated_at: string;
@@ -47,6 +46,7 @@ interface Message {
   execution_id?: string;
   extra_data?: any;
   created_at: string;
+  _struck?: boolean;
 }
 
 interface Workflow {
@@ -61,7 +61,7 @@ interface Agent {
   mode: string;
 }
 
-// ©¤©¤ API Helpers ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ API Helpers ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const API_V1 = '/api/v1';
 
 async function fetchConversations(): Promise<Conversation[]> {
@@ -124,26 +124,45 @@ async function fetchAgents(): Promise<Agent[]> {
   return res.json();
 }
 
-// ©¤©¤ Message Bubble Component ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ Message Bubble Component ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
   const isSystem = msg.role === 'system';
-  const isWorkflowStatus = msg.extra_data?.type === 'workflow_status';
-  const isWorkflowResult = msg.extra_data?.type === 'workflow_result';
-  const isWorkflowError = msg.extra_data?.type === 'workflow_error';
+  const msgType = msg.extra_data?.type;
+  const isWorkflowStart = msgType === 'workflow_start';
+  const isWorkflowStatus = msgType === 'workflow_status';
+  const isWorkflowResult = msgType === 'workflow_result';
+  const isWorkflowError = msgType === 'workflow_error';
+  const isStruck = msg._struck;
 
-  // Workflow status: compact display with spinner
-  if (isWorkflowStatus) {
+  // Workflow status: compact inline display with status indicator
+  if (isWorkflowStatus || isWorkflowStart) {
+    const statusText = msg.extra_data?.status || '';
+    const isCompleted = statusText === 'completed';
+    const isFailed = statusText === 'failed';
+    const iconColor = isFailed ? '#ff4d4f' : isCompleted ? '#52c41a' : '#6B8EC4';
+
     return (
-      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 6, opacity: isStruck ? 0.5 : 1 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 12px' }}>
-          <SyncOutlined spin style={{ color: '#6B8EC4', fontSize: 12 }} />
+          {isStruck ? (
+            <span style={{ position: 'relative', display: 'inline-flex', width: 12, height: 12 }}>
+              <SyncOutlined style={{ color: '#555', fontSize: 12 }} />
+              <span style={{ position: 'absolute', top: '50%', left: -1, right: -1, height: 1, background: '#555' }} />
+            </span>
+          ) : isFailed ? (
+            <ThunderboltOutlined style={{ color: iconColor, fontSize: 12 }} />
+          ) : isCompleted ? (
+            <BranchesOutlined style={{ color: iconColor, fontSize: 12 }} />
+          ) : (
+            <SyncOutlined spin style={{ color: iconColor, fontSize: 12 }} />
+          )}
           {msg.agent && (
-            <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>
+            <Tag color={isStruck ? 'default' : isFailed ? 'error' : isCompleted ? 'success' : 'blue'} style={{ fontSize: 10, margin: 0, textDecoration: isStruck ? 'line-through' : 'none' }}>
               {msg.agent}
             </Tag>
           )}
-          <Text style={{ color: '#888', fontSize: 12 }}>{msg.content}</Text>
+          <Text style={{ color: isStruck ? '#555' : isFailed ? '#ff7875' : '#888', fontSize: 12, textDecoration: isStruck ? 'line-through' : 'none' }}>{msg.content}</Text>
         </div>
       </div>
     );
@@ -170,7 +189,7 @@ function MessageBubble({ msg }: { msg: Message }) {
             width: 32,
             height: 32,
             borderRadius: '50%',
-            background: isUser ? '#6B8EC4' : isSystem ? '#525252' : isWorkflowResult ? '#52c41a' : '#1890ff',
+            background: isUser ? '#6B8EC4' : isWorkflowError ? '#ff4d4f' : isSystem ? '#525252' : isWorkflowResult ? '#52c41a' : '#1890ff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -179,6 +198,8 @@ function MessageBubble({ msg }: { msg: Message }) {
         >
           {isUser ? (
             <UserOutlined style={{ color: '#fff', fontSize: 14 }} />
+          ) : isWorkflowError ? (
+            <ThunderboltOutlined style={{ color: '#fff', fontSize: 14 }} />
           ) : isSystem ? (
             <ThunderboltOutlined style={{ color: '#fff', fontSize: 14 }} />
           ) : isWorkflowResult ? (
@@ -192,9 +213,9 @@ function MessageBubble({ msg }: { msg: Message }) {
           style={{
             padding: '12px 16px',
             borderRadius: 12,
-            background: isUser ? '#1a3a5c' : isSystem ? '#2a2a2a' : isWorkflowResult ? '#1a2e1a' : '#1e1e1e',
+            background: isUser ? '#1a3a5c' : isWorkflowError ? '#2a1a1a' : isSystem ? '#2a2a2a' : isWorkflowResult ? '#1a2e1a' : '#1e1e1e',
             border: '1px solid',
-            borderColor: isUser ? '#2a4a6c' : isSystem ? '#3a3a3a' : isWorkflowResult ? '#2a4a2a' : '#2e2e2e',
+            borderColor: isUser ? '#2a4a6c' : isWorkflowError ? '#4a2a2a' : isSystem ? '#3a3a3a' : isWorkflowResult ? '#2a4a2a' : '#2e2e2e',
           }}
         >
           {/* Agent/Workflow tags */}
@@ -206,8 +227,8 @@ function MessageBubble({ msg }: { msg: Message }) {
                 </Tag>
               )}
               {msg.workflow_id && (
-                <Tag color="purple" style={{ fontSize: 11 }}>
-                  workflow
+                <Tag color={isWorkflowError ? 'error' : 'purple'} style={{ fontSize: 11 }}>
+                  {isWorkflowError ? 'workflow error' : 'workflow'}
                 </Tag>
               )}
             </div>
@@ -255,7 +276,7 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
-// ©¤©¤ Main Chat Page ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+// ï¿½ï¿½ï¿½ï¿½ Main Chat Page ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 export default function ChatPage() {
   // State
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -277,7 +298,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ©¤©¤ Load Data ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+  // ï¿½ï¿½ï¿½ï¿½ Load Data ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   useEffect(() => {
     loadConversations();
     loadAgents();
@@ -290,8 +311,13 @@ export default function ChatPage() {
     }
   }, [currentConversation]);
 
+  // Only auto-scroll when user sends a message or first load
+  const shouldAutoScroll = useRef(false);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (shouldAutoScroll.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      shouldAutoScroll.current = false;
+    }
   }, [messages]);
 
   // Cleanup polling on unmount
@@ -339,23 +365,29 @@ export default function ChatPage() {
     }
   };
 
-  // ©¤©¤ Poll for new messages ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+  // Poll for new messages
   const startPolling = useCallback((conversationId: string, userMessageId: string, pollMode: string) => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
 
     let pollCount = 0;
-    const maxPolls = 120; // 60 seconds max
+    const maxPolls = 120; // 4 minutes at 2s interval
+
+    const stopPolling = () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      setProcessingMessage(false);
+      setPendingMessageId(null);
+      setSendingMessage(false);
+    };
 
     pollingRef.current = setInterval(async () => {
       pollCount++;
       if (pollCount > maxPolls) {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-        }
-        setProcessingMessage(false);
-        setPendingMessageId(null);
+        stopPolling();
         return;
       }
 
@@ -363,39 +395,38 @@ export default function ChatPage() {
         const msgs = await fetchMessages(conversationId);
         setMessages(msgs);
 
-        if (pollMode === 'agent') {
-          // Agent mode: look for assistant reply to our message
-          const response = msgs.find(
-            m => m.role === 'assistant' && m.extra_data?.in_reply_to === userMessageId
+        // Find the user message index to only look at messages AFTER it
+        const userIdx = msgs.findIndex(m => m.id === userMessageId);
+        const afterUser = userIdx >= 0 ? msgs.slice(userIdx + 1) : msgs;
+
+        if (pollMode === 'workflow') {
+          // For workflow mode: only stop on workflow_result or workflow_error
+          const hasWorkflowResult = afterUser.some(m =>
+            m.extra_data?.type === 'workflow_result'
           );
-          if (response) {
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current);
-            }
-            setProcessingMessage(false);
-            setPendingMessageId(null);
+          const hasWorkflowError = afterUser.some(m =>
+            m.extra_data?.type === 'workflow_error'
+          );
+          if (hasWorkflowResult || hasWorkflowError) {
+            stopPolling();
           }
         } else {
-          // Workflow mode: look for workflow_result or workflow_error
-          const response = msgs.find(
-            m => (m.extra_data?.type === 'workflow_result' || m.extra_data?.type === 'workflow_error')
-                 && m.execution_id
+          // For agent mode: stop on any assistant or non-workflow system message
+          const hasResponse = afterUser.some(m =>
+            m.role === 'assistant' ||
+            (m.role === 'system' && m.extra_data?.type !== 'workflow_status' && m.extra_data?.type !== 'workflow_start')
           );
-          if (response) {
-            if (pollingRef.current) {
-              clearInterval(pollingRef.current);
-            }
-            setProcessingMessage(false);
-            setPendingMessageId(null);
+          if (hasResponse) {
+            stopPolling();
           }
         }
       } catch (err) {
         console.error('Polling error:', err);
       }
-    }, 500); // Poll every 500ms
+    }, 2000);
   }, []);
 
-  // ©¤©¤ Conversation Management ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+  // ï¿½ï¿½ï¿½ï¿½ Conversation Management ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   const handleNewConversation = async () => {
     try {
       const conv = await createConversation();
@@ -420,7 +451,7 @@ export default function ChatPage() {
     }
   };
 
-  // ©¤©¤ Send Message ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+  // ï¿½ï¿½ï¿½ï¿½ Send Message ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   const handleSend = async () => {
     if (!inputValue.trim() || !currentConversation || processingMessage) return;
 
@@ -428,6 +459,7 @@ export default function ChatPage() {
     setInputValue('');
     setSendingMessage(true);
     setProcessingMessage(true);
+    shouldAutoScroll.current = true;
 
     try {
       const result = await sendMessage(
@@ -467,9 +499,9 @@ export default function ChatPage() {
     }
   };
 
-  // ©¤©¤ Render ©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤©¤
+  // ï¿½ï¿½ï¿½ï¿½ Render ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
   return (
-    <div style={{ display: 'flex', height: '100%', background: '#0a0a0a' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 52px)', background: '#0a0a0a', overflow: 'hidden' }}>
       {/* Sidebar - Conversation List */}
       <div
         style={{
@@ -563,9 +595,26 @@ export default function ChatPage() {
                     </Tag>
                   )}
                   {processingMessage && (
-                    <Tag color="orange" icon={<LoadingOutlined spin />}>
-                      Processing
-                    </Tag>
+                    <Space size={8}>
+                      <Tag color="orange" icon={<LoadingOutlined spin />}>
+                        Processing
+                      </Tag>
+                      <Button
+                        size="small"
+                        danger
+                        onClick={() => {
+                          if (pollingRef.current) {
+                            clearInterval(pollingRef.current);
+                            pollingRef.current = null;
+                          }
+                          setProcessingMessage(false);
+                          setPendingMessageId(null);
+                          setSendingMessage(false);
+                        }}
+                      >
+                        å–æ¶ˆ
+                      </Button>
+                    </Space>
                   )}
                 </div>
               </div>
@@ -606,34 +655,61 @@ export default function ChatPage() {
                   </Text>
                 </div>
               ) : (
-                messages
-                  .filter(msg => msg.extra_data?.type !== 'workflow_status') // Hide workflow status from main view
-                  .map((msg) => (
-                    <MessageBubble key={msg.id} msg={msg} />
-                  ))
+                (() => {
+                  // Build a map: agent -> latest status from workflow_status messages
+                  const agentLatestStatus: Record<string, string> = {};
+                  for (const m of messages) {
+                    if (m.extra_data?.type === 'workflow_status' && m.agent) {
+                      agentLatestStatus[m.agent] = m.extra_data.status || '';
+                    }
+                  }
+                  // If all agents are done, strike through the "workflow_start" too
+                  const allAgents = Object.keys(agentLatestStatus);
+                  const allDone = allAgents.length > 0 && allAgents.every(
+                    a => agentLatestStatus[a] === 'completed' || agentLatestStatus[a] === 'failed'
+                  );
+
+                  return messages.map((msg) => {
+                    // For "working" messages: strike through if agent has a later status
+                    if (msg.extra_data?.type === 'workflow_status' && msg.agent) {
+                      const latest = agentLatestStatus[msg.agent];
+                      if (latest && latest !== msg.extra_data.status) {
+                        const updated = { ...msg, _struck: true, extra_data: { ...msg.extra_data, status: latest } };
+                        return <MessageBubble key={msg.id} msg={updated} />;
+                      }
+                    }
+                    // For workflow_start, strike through if all agents done
+                    if (msg.extra_data?.type === 'workflow_start' && allDone) {
+                      const updated = { ...msg, _struck: true };
+                      return <MessageBubble key={msg.id} msg={updated} />;
+                    }
+                    return <MessageBubble key={msg.id} msg={msg} />;
+                  });
+                })()
               )}
               
               {/* Workflow status indicator */}
-              {processingMessage && mode === 'workflow' && (
-                <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 16 }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 16px', background: '#1a1a2a', borderRadius: 8, border: '1px solid #2a2a4a' }}>
-                    <SyncOutlined spin style={{ color: '#6B8EC4' }} />
-                    <Text style={{ color: '#888', fontSize: 13 }}>
-                      Workflow executing...
-                    </Text>
-                    {/* Show latest workflow status messages */}
-                    {messages
-                      .filter(m => m.extra_data?.type === 'workflow_status')
-                      .slice(-3)
-                      .map(m => (
-                        <Tag key={m.id} color="processing" style={{ fontSize: 10 }}>
-                          {m.agent || m.content}
+              {processingMessage && mode === 'workflow' && (() => {
+                const workflowMsgs = messages.filter(m =>
+                  m.extra_data?.type === 'workflow_status' || m.extra_data?.type === 'workflow_start'
+                );
+                const latestMsg = workflowMsgs[workflowMsgs.length - 1];
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 16 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 16px', background: '#1a1a2a', borderRadius: 8, border: '1px solid #2a2a4a' }}>
+                      <SyncOutlined spin style={{ color: '#6B8EC4' }} />
+                      <Text style={{ color: '#E0E0E0', fontSize: 13 }}>
+                        {latestMsg?.content || 'Workflow executing...'}
+                      </Text>
+                      {latestMsg?.agent && (
+                        <Tag color="blue" style={{ fontSize: 10 }}>
+                          {latestMsg.agent}
                         </Tag>
-                      ))
-                    }
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               
               <div ref={messagesEndRef} />
             </div>

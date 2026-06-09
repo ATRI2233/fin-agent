@@ -86,7 +86,7 @@ class ExecutionRepository:
                     "started_at": n.started_at.isoformat() if n.started_at else None,
                     "completed_at": n.completed_at.isoformat() if n.completed_at else None,
                     "duration_seconds": duration,
-                    "hapi_session_id": n.hapi_session_id,
+                    "session_id": n.session_id,
                     "retry_count": n.retry_count or 0,
                 })
             return timeline
@@ -188,7 +188,7 @@ class ExecutionRepository:
             status="completed",
             output=output,
             completed_at=datetime.now(timezone.utc),
-            hapi_session_id=session_id,
+            session_id=session_id,
         )
 
     def mark_node_failed(

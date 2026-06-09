@@ -13,6 +13,19 @@ def validate_dag(nodes: list[Node], edges: list[Edge]) -> bool:
     if len(nodes) > 50:
         raise ValueError("Workflow cannot have more than 50 nodes")
 
+    # Validate input/output node constraints
+    node_map: dict[NodeId, Node] = {n["id"]: n for n in nodes}
+    targets_of: set[NodeId] = {e["target"] for e in edges}
+    sources_of: set[NodeId] = {e["source"] for e in edges}
+
+    for node in nodes:
+        ntype = node.get("type", "agent")
+        nid = node["id"]
+        if ntype == "input" and nid in targets_of:
+            raise ValueError(f"Input node '{nid}' cannot have incoming edges")
+        if ntype == "output" and nid in sources_of:
+            raise ValueError(f"Output node '{nid}' cannot have outgoing edges")
+
     if not edges:
         return True
 

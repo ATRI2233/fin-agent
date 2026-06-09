@@ -285,6 +285,25 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
         db.add(execution)
         db.commit()
 
+        # Create ExecutionNode records
+        from main.framework.models.workflow_execution import ExecutionNode
+
+        for node in (workflow.nodes or []):
+            agent = node.get("agent", "")
+            if not agent:
+                data = node.get("data", {})
+                if isinstance(data, dict):
+                    agent = data.get("agentType", "") or data.get("label", "")
+            exec_node = ExecutionNode(
+                execution_id=execution.id,
+                node_id=node["id"],
+                agent=agent,
+                status="pending",
+                input={},
+            )
+            db.add(exec_node)
+        db.commit()
+
         logger.info(
             f"Created execution {execution.id} for scheduled workflow {workflow_id}"
         )
@@ -292,14 +311,19 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
         # Run via WorkflowEngine (created through factory for DI)
         if _engine_factory is None:
             raise RuntimeError("Scheduler not configured: call scheduler.configure() first")
-        engine = _engine_factory(workflow_id=workflow_id, params={})
+        engine = _engine_factory(
+            workflow_id=workflow_id, params={}, execution_id=str(execution.id)
+        )
 
         try:
             result = await engine.execute()
 
             # Update execution with final status
-            execution.status = result.get("status", "completed")
-            db.commit()
+            db.expire_all()
+            execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == execution.id).first()
+            if execution:
+                execution.status = result.get("status", "completed")
+                db.commit()
 
             logger.info(
                 f"Scheduled workflow {workflow_id} execution completed: {execution.status}"
@@ -307,7 +331,10 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
             return result
 
         except Exception as e:
-            execution.status = "failed"
+            execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == execution.id).first()
+            if execution:
+                execution.status = "failed"
+                db.commit()
             logger.error(f"Scheduled workflow {workflow_id} execution failed: {e}")
             raise
 

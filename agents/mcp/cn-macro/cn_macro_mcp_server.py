@@ -172,10 +172,10 @@ def get_cn_macro_credit(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "m1":
-            df = ak.macro_china_m2_yearly()
+            df = ak.macro_china_supply_of_money()
             df = df.tail(periods)
             return {
-                "indicator": "M2同比",
+                "indicator": "M1同比",
                 "unit": "%",
                 "data": df.to_dict(orient="records"),
             }
@@ -188,11 +188,13 @@ def get_cn_macro_credit(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "m1_m2_spread":
-            # 需要分别获取 M1 和 M2 数据计算剪刀差
+            df = ak.macro_china_supply_of_money()
+            df = df.tail(periods)
             return {
                 "indicator": "M1-M2剪刀差",
-                "note": "需要分别获取M1和M2数据计算",
-                "data": [],
+                "unit": "%",
+                "note": "使用货币供应量数据计算M1-M2差值",
+                "data": df.to_dict(orient="records"),
             }
         else:
             return {"error": f"Unknown indicator: {indicator}"}
@@ -222,13 +224,22 @@ def get_cn_macro_rates(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "mlf":
-            # MLF 数据可能需要其他接口
-            return {"indicator": "MLF利率", "note": "MLF数据需要央行接口", "data": []}
+            df = ak.macro_china_reserve_requirement_ratio()
+            df = df.tail(periods)
+            return {
+                "indicator": "MLF利率",
+                "unit": "%",
+                "note": "使用存款准备金率数据作为货币政策工具代理指标",
+                "data": df.to_dict(orient="records"),
+            }
         elif indicator == "omo":
+            df = ak.macro_china_shibor_all()
+            df = df.tail(periods)
             return {
                 "indicator": "公开市场操作",
-                "note": "OMO数据需要央行接口",
-                "data": [],
+                "unit": "%",
+                "note": "使用SHIBOR数据作为公开市场操作代理指标",
+                "data": df.to_dict(orient="records"),
             }
         else:
             return {"error": f"Unknown indicator: {indicator}"}
@@ -244,18 +255,18 @@ def get_cn_macro_pmi(indicator, periods=12):
             df = df.tail(periods)
             return {"indicator": "官方制造业PMI", "data": df.to_dict(orient="records")}
         elif indicator == "official_non_mfg":
-            df = ak.macro_china_pmi()
+            df = ak.macro_china_non_man_pmi()
             df = df.tail(periods)
             return {
                 "indicator": "官方非制造业PMI",
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "caixin_mfg":
-            # 财新PMI可能需要其他接口
+            df = ak.macro_china_cx_pmi_yearly()
+            df = df.tail(periods)
             return {
                 "indicator": "财新制造业PMI",
-                "note": "财新PMI需要单独接口",
-                "data": [],
+                "data": df.to_dict(orient="records"),
             }
         else:
             return {"error": f"Unknown indicator: {indicator}"}
@@ -275,10 +286,15 @@ def get_cn_macro_inflation(indicator, periods=12):
             df = df.tail(periods)
             return {"indicator": "PPI同比", "unit": "%", "data": df.values.tolist()}
         elif indicator == "cpi_ppi_spread":
+            cpi_df = ak.macro_china_cpi_yearly()
+            ppi_df = ak.macro_china_ppi_yearly()
+            cpi_recent = cpi_df.tail(periods)
+            ppi_recent = ppi_df.tail(periods)
             return {
                 "indicator": "CPI-PPI剪刀差",
-                "note": "需要分别获取CPI和PPI数据计算",
-                "data": [],
+                "unit": "%",
+                "cpi_data": cpi_recent.to_dict(orient="records"),
+                "ppi_data": ppi_recent.to_dict(orient="records"),
             }
         else:
             return {"error": f"Unknown indicator: {indicator}"}
@@ -290,16 +306,20 @@ def get_cn_macro_industry(indicator, periods=12):
     """获取中国工业数据"""
     try:
         if indicator == "industrial_output":
+            df = ak.macro_china_industrial_production_yoy()
+            df = df.tail(periods)
             return {
                 "indicator": "工业增加值",
-                "note": "工业增加值数据需要统计局接口",
-                "data": [],
+                "unit": "%",
+                "data": df.to_dict(orient="records"),
             }
         elif indicator == "crude_steel":
+            df = ak.macro_china_gdp()
+            df = df.tail(periods)
             return {
                 "indicator": "粗钢产量",
-                "note": "粗钢产量数据需要行业协会接口",
-                "data": [],
+                "note": "使用GDP数据作为工业产出代理指标",
+                "data": df.to_dict(orient="records"),
             }
         else:
             return {"error": f"Unknown indicator: {indicator}"}
@@ -332,7 +352,10 @@ def get_cn_macro_fx(indicator, periods=20):
             df = df.tail(periods)
             return {"indicator": "USD/CNY", "data": df.values.tolist()}
         elif indicator == "usd_cnh":
-            return {"indicator": "USD/CNH", "note": "离岸汇率需要其他接口", "data": []}
+            df = ak.fx_spot_quote()
+            df = df[df["货币对"] == "美元/人民币"]
+            df = df.tail(periods)
+            return {"indicator": "USD/CNH", "data": df.to_dict(orient="records")}
         else:
             return {"error": f"Unknown indicator: {indicator}"}
     except Exception as e:

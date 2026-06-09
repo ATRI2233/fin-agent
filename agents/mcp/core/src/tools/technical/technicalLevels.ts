@@ -29,6 +29,12 @@ interface TechnicalResult {
     rsi_14: number;
     macd: { value: number; signal: number; histogram: number };
     bollinger: { upper: number; middle: number; lower: number; bandwidth: number };
+    adx: { value: number; plus_di: number; minus_di: number; interpretation: string };
+  };
+  vwap: { value: number; upper_band: number; lower_band: number } | null;
+  fibonacci_levels: {
+    high: number; low: number; range: number;
+    levels: Record<string, number>;
   };
   key_levels: Array<{
     price: number;
@@ -90,13 +96,19 @@ export function registerTechnicalLevels(
         const quote = quoteItems[0]?.data || quoteItems[0] || null;
 
         if (!tech) {
-          throw new Error("无法获取技术指标数�?);
+          throw new Error("无法获取技术指标数据");
         }
 
         const currentPrice = quote?.close ?? quote?.last ?? tech.SMA20 ?? 0;
         if (!currentPrice) throw new Error("无法获取当前价格");
 
-        // ── 枢轴�?──────────────────────────────────────────
+        const high52w = quote?.high_52w || quote?.["52_week_high"] || currentPrice * 1.3;
+        const low52w = quote?.low_52w || quote?.["52_week_low"] || currentPrice * 0.7;
+        const todayHigh = quote?.high || currentPrice * 1.02;
+        const todayLow = quote?.low || currentPrice * 0.98;
+        const todayVolume = quote?.volume || 0;
+
+        // ── 枢轴点 ───────────────────────────────────────────
         const pp = tech["Pivot.M.Classic.Middle"] || currentPrice;
         const r1 = tech["Pivot.M.Classic.R1"] || pp;
         const s1 = tech["Pivot.M.Classic.S1"] || pp;
@@ -124,11 +136,41 @@ export function registerTechnicalLevels(
         const macdSignal = tech["MACD.signal"] ?? 0;
         const macdHist = macdValue - macdSignal;
 
-        // ── 布林�?──────────────────────────────────────────
+        // ── 布林带 ───────────────────────────────────────────
         const bbUpper = tech["BB.upper"] ?? currentPrice * 1.05;
         const bbLower = tech["BB.lower"] ?? currentPrice * 0.95;
         const bbMiddle = tech.SMA20 ?? currentPrice;
         const bbBandwidth = bbMiddle ? ((bbUpper - bbLower) / bbMiddle) * 100 : 0;
+
+        // ── ADX (Average Directional Index) ──────────────────
+        const adxValue = tech.ADX ?? tech["ADX"] ?? null;
+        const plusDI = tech["PLUS_DI"] ?? tech["+DI"] ?? null;
+        const minusDI = tech["MINUS_DI"] ?? tech["-DI"] ?? null;
+
+        let adxInterpretation = "N/A";
+        if (adxValue != null) {
+          if (adxValue >= 50) adxInterpretation = "极强趋势";
+          else if (adxValue >= 25) adxInterpretation = "强趋势";
+          else if (adxValue >= 20) adxInterpretation = "弱趋势";
+          else adxInterpretation = "无趋势/盘整";
+        }
+
+        // 当 ADX 不可用时，从均线关系估算趋势强度
+        const adx = {
+          value: adxValue != null ? Math.round(adxValue * 100) / 100 : estimateAdx(currentPrice, movingAverages),
+          plus_di: plusDI != null ? Math.round(plusDI * 100) / 100 : 0,
+          minus_di: minusDI != null ? Math.round(minusDI * 100) / 100 : 0,
+          interpretation: adxInterpretation !== "N/A" ? adxInterpretation : (
+            estimateAdx(currentPrice, movingAverages) >= 25 ? "强趋势" :
+            estimateAdx(currentPrice, movingAverages) >= 20 ? "弱趋势" : "无趋势/盘整"
+          ),
+        };
+
+        // ── VWAP (Volume Weighted Average Price) ─────────────
+        const vwap = computeVwap(currentPrice, todayHigh, todayLow, todayVolume, bbMiddle);
+
+        // ── Fibonacci Retracement ────────────────────────────
+        const fibLevels = computeFibonacci(high52w, low52w);
 
         // ── 趋势判断 ────────────────────────────────────────
         const trend = determineTrend(currentPrice, movingAverages);
@@ -137,7 +179,8 @@ export function registerTechnicalLevels(
         const keyLevels = identifyKeyLevels(
           currentPrice,
           { pp, r1, r2, r3, s1, s2, s3 },
-          movingAverages
+          movingAverages,
+          fibLevels
         );
 
         // ── 成交量异�?(无法获取时不判断) ──────────────────────
@@ -152,7 +195,9 @@ export function registerTechnicalLevels(
           { macd: macdValue, signal: macdSignal, histogram: macdHist },
           { upper: bbUpper, middle: bbMiddle, lower: bbLower },
           trend,
-          keyLevels
+          keyLevels,
+          adx,
+          fibLevels
         );
 
         const result: TechnicalResult = {
@@ -181,7 +226,10 @@ export function registerTechnicalLevels(
               lower: Math.round(bbLower * 100) / 100,
               bandwidth: Math.round(bbBandwidth * 100) / 100,
             },
+            adx,
           },
+          vwap,
+          fibonacci_levels: fibLevels,
           key_levels: keyLevels,
           trend,
           volume_anomaly: volumeAnomaly,
@@ -215,10 +263,62 @@ function determineTrend(
   return "sideways";
 }
 
+function estimateAdx(price: number, ma: Record<string, number>): number {
+  const ma20 = ma.SMA20;
+  const ma50 = ma.SMA50;
+  const ma200 = ma.SMA200;
+  if (!ma20 || !ma50) return 15;
+  const spread = Math.abs(ma20 - ma50) / price;
+  if (ma200 && spread > 0.05 && ((price > ma20 && ma20 > ma50 && ma50 > ma200) || (price < ma20 && ma20 < ma50 && ma50 < ma200))) return 40;
+  if (spread > 0.03) return 28;
+  if (spread > 0.01) return 20;
+  return 12;
+}
+
+function computeVwap(
+  price: number,
+  high: number,
+  low: number,
+  volume: number,
+  sma20: number
+): { value: number; upper_band: number; lower_band: number } | null {
+  if (!volume || volume <= 0) return null;
+  const typicalPrice = (high + low + price) / 3;
+  const bandWidth = (high - low) * 0.5;
+  return {
+    value: Math.round(typicalPrice * 100) / 100,
+    upper_band: Math.round((typicalPrice + bandWidth) * 100) / 100,
+    lower_band: Math.round((typicalPrice - bandWidth) * 100) / 100,
+  };
+}
+
+function computeFibonacci(
+  high: number,
+  low: number
+): { high: number; low: number; range: number; levels: Record<string, number> } {
+  const range = high - low;
+  const round = (v: number) => Math.round(v * 100) / 100;
+  return {
+    high: round(high),
+    low: round(low),
+    range: round(range),
+    levels: {
+      "0.0%": round(high),
+      "23.6%": round(high - range * 0.236),
+      "38.2%": round(high - range * 0.382),
+      "50.0%": round(high - range * 0.5),
+      "61.8%": round(high - range * 0.618),
+      "78.6%": round(high - range * 0.786),
+      "100.0%": round(low),
+    },
+  };
+}
+
 function identifyKeyLevels(
   price: number,
   pivots: { pp: number; r1: number; r2: number; r3: number; s1: number; s2: number; s3: number },
-  ma: Record<string, number>
+  ma: Record<string, number>,
+  fib?: { levels: Record<string, number> }
 ): Array<{ price: number; type: "support" | "resistance"; strength: "strong" | "moderate" | "weak"; reason: string }> {
   const levels: Array<{ price: number; type: "support" | "resistance"; strength: "strong" | "moderate" | "weak"; reason: string }> = [];
 
@@ -258,6 +358,28 @@ function identifyKeyLevels(
     }
   }
 
+  // Fibonacci 回撤位
+  if (fib?.levels) {
+    const fibEntries: [string, string][] = [
+      ["23.6%", "Fibonacci 23.6% 回撤"],
+      ["38.2%", "Fibonacci 38.2% 回撤"],
+      ["50.0%", "Fibonacci 50% 回撤"],
+      ["61.8%", "Fibonacci 61.8% 回撤"],
+      ["78.6%", "Fibonacci 78.6% 回撤"],
+    ];
+    for (const [key, reason] of fibEntries) {
+      const val = fib.levels[key];
+      if (val && val > 0) {
+        levels.push({
+          price: val,
+          type: val > price ? "resistance" : "support",
+          strength: (key === "38.2%" || key === "61.8%") ? "strong" : "moderate",
+          reason,
+        });
+      }
+    }
+  }
+
   // 整数关口
   const magnitude = Math.pow(10, Math.floor(Math.log10(price)));
   for (let i = -3; i <= 3; i++) {
@@ -272,7 +394,7 @@ function identifyKeyLevels(
     }
   }
 
-  // 去重 + 按距离排�?
+  // 去重 + 按距离排序
   const unique = new Map<number, typeof levels[0]>();
   for (const l of levels) {
     const key = Math.round(l.price * 100);
@@ -282,7 +404,7 @@ function identifyKeyLevels(
   }
   return [...unique.values()]
     .sort((a, b) => Math.abs(a.price - price) - Math.abs(b.price - price))
-    .slice(0, 12);
+    .slice(0, 16);
 }
 
 function generateActionPoints(
@@ -293,7 +415,9 @@ function generateActionPoints(
   macd: { macd: number; signal: number; histogram: number },
   boll: { upper: number; middle: number; lower: number },
   trend: string,
-  keyLevels: Array<{ price: number; type: string; strength: string; reason: string }>
+  keyLevels: Array<{ price: number; type: string; strength: string; reason: string }>,
+  adx?: { value: number; plus_di: number; minus_di: number; interpretation: string },
+  fib?: { levels: Record<string, number> }
 ): Array<{ price: number; action: "buy" | "sell" | "stop_loss" | "take_profit"; confidence: number; reason: string }> {
   const points: Array<{ price: number; action: "buy" | "sell" | "stop_loss" | "take_profit"; confidence: number; reason: string }> = [];
 
@@ -366,17 +490,58 @@ function generateActionPoints(
         price: level.price,
         action: "buy",
         confidence: level.strength === "strong" ? 70 : 55,
-        reason: `关键支撑�? ${level.reason}`,
+        reason: `关键支撑位: ${level.reason}`,
       });
     } else if (level.type === "resistance" && level.strength !== "weak") {
       points.push({
         price: level.price,
         action: "take_profit",
         confidence: level.strength === "strong" ? 70 : 55,
-        reason: `关键阻力�? ${level.reason}`,
+        reason: `关键阻力位: ${level.reason}`,
       });
     }
   }
 
-  return points.sort((a, b) => b.confidence - a.confidence).slice(0, 8);
+  // ADX-based action points
+  if (adx && adx.value >= 25) {
+    if (adx.plus_di > adx.minus_di) {
+      points.push({
+        price: Math.round(price * 100) / 100,
+        action: "buy",
+        confidence: 65,
+        reason: `ADX=${adx.value} 强上升趋势 (+DI>${adx.plus_di} > -DI>${adx.minus_di})`,
+      });
+    } else if (adx.minus_di > adx.plus_di) {
+      points.push({
+        price: Math.round(price * 100) / 100,
+        action: "sell",
+        confidence: 65,
+        reason: `ADX=${adx.value} 强下降趋势 (-DI>${adx.minus_di} > +DI>${adx.plus_di})`,
+      });
+    }
+  }
+
+  // Fibonacci-based action points
+  if (fib?.levels) {
+    const fib618 = fib.levels["61.8%"];
+    const fib382 = fib.levels["38.2%"];
+    if (fib618 && Math.abs(price - fib618) / price < 0.02) {
+      points.push({
+        price: fib618,
+        action: "buy",
+        confidence: 70,
+        reason: `价格接近 Fibonacci 61.8% 黄金回撤位 ${fib618.toFixed(2)}`,
+      });
+    }
+    if (fib382 && Math.abs(price - fib382) / price < 0.02) {
+      points.push({
+        price: fib382,
+        action: price > fib382 ? "take_profit" : "buy",
+        confidence: 65,
+        reason: `价格接近 Fibonacci 38.2% 回撤位 ${fib382.toFixed(2)}`,
+      });
+    }
+  }
+
+  return points.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
 }

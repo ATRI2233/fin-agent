@@ -51,7 +51,7 @@ class TimelineNode(BaseModel):
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
     duration_seconds: Optional[float] = None
-    hapi_session_id: Optional[str] = None
+    session_id: Optional[str] = None
     retry_count: int = 0
 
 
@@ -138,7 +138,7 @@ async def get_execution(execution_id: str, request: Request):
                     "status": n.status,
                     "output": n.output,
                     "error": n.error,
-                    "hapi_session_id": n.hapi_session_id,
+                    "session_id": n.session_id,
                     "retry_count": n.retry_count or 0,
                 }
                 for n in nodes
@@ -204,20 +204,48 @@ async def retry_execution(execution_id: str, request: Request):
     finally:
         db.close()
 
-    # Create new execution via the container
-    engine = container.create_workflow_engine(workflow_id, params)
+    # Create new execution and nodes before returning response
+    db2 = SessionLocal()
+    try:
+        execution = WorkflowExecution(workflow_id=workflow_id, status="pending")
+        db2.add(execution)
+        db2.commit()
+        exec_id = str(execution.id)
 
-    # Run in background
+        workflow = db2.query(Workflow).filter(Workflow.id == workflow_id).first()
+        if workflow:
+            for node in (workflow.nodes or []):
+                agent = node.get("agent", "")
+                if not agent:
+                    data = node.get("data", {})
+                    if isinstance(data, dict):
+                        agent = data.get("agentType", "") or data.get("label", "")
+                exec_node = ExecutionNode(
+                    execution_id=exec_id,
+                    node_id=node["id"],
+                    agent=agent,
+                    status="pending",
+                    input=params,
+                )
+                db2.add(exec_node)
+            db2.commit()
+    finally:
+        db2.close()
+
+    # Run engine in background
     async def _run():
         try:
+            engine = container.create_workflow_engine(
+                workflow_id, params, execution_id=exec_id
+            )
             await engine.execute()
         except Exception as e:
-            logger.error(f"Retry execution failed: {e}")
+            logger.error(f"Retry execution failed: {e}", exc_info=True)
 
     asyncio.create_task(_run())
 
     return RetryResponse(
-        execution_id=engine.execution_id or "",
+        execution_id=exec_id,
         status="pending",
     )
 

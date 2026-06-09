@@ -1,14 +1,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Typography, Row, Col, Card, Table, Tag, Collapse, Space, Button, Spin, Alert, Tooltip } from 'antd';
+import { Typography, Row, Col, Card, Table, Tag, Space, Button, Spin, Alert, Tooltip } from 'antd';
 import {
   CloudServerOutlined,
   ReloadOutlined,
-  LinkOutlined,
-  ExpandOutlined,
+  RocketOutlined,
   SyncOutlined,
   CheckCircleOutlined,
   PauseCircleOutlined,
-  RocketOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -23,27 +21,21 @@ interface SessionInfo {
   updatedAt?: string;
 }
 
-interface JobExecutorStatus {
-  running: boolean;
-  pendingJobs?: number;
-  activeJobs?: number;
-  completedJobs?: number;
-}
-
 interface ConcurrencyStatus {
   current: number;
   max: number;
 }
 
-interface HubStatus {
+interface OpenCodeStatus {
   online: boolean;
+  binary: string;
 }
 
 interface SystemStatus {
-  hub: HubStatus;
+  opencode: OpenCodeStatus;
   sessions: { active: SessionInfo[]; count: number };
   concurrency: ConcurrencyStatus;
-  jobExecutor: JobExecutorStatus;
+  jobExecutor: { running: boolean };
   timestamp?: string;
 }
 
@@ -76,21 +68,12 @@ function formatTime(ts?: string): string {
 }
 
 // ── Component ───────────────────────────────────────────────────────
-export default function HapiPage() {
+export default function SessionsPage() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const checkBasicStatus = useCallback(async (): Promise<boolean> => {
-    try {
-      const res = await fetch('/hapi-api/', { method: 'GET', signal: AbortSignal.timeout(3000) });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }, []);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -99,17 +82,12 @@ export default function HapiPage() {
       setStatus(await res.json());
       setError(null);
     } catch (err) {
-      const online = await checkBasicStatus();
-      setStatus((prev) => {
-        if (prev) return { ...prev, hub: { ...prev.hub, online } };
-        return { hub: { online }, sessions: { active: [], count: 0 }, concurrency: { current: 0, max: 0 }, jobExecutor: { running: false } };
-      });
-      if (!status) setError(err instanceof Error ? err.message : 'Failed to fetch status');
+      setError(err instanceof Error ? err.message : 'Failed to fetch status');
     } finally {
       setLoading(false);
       setLastUpdated(new Date());
     }
-  }, [checkBasicStatus]);
+  }, []);
 
   useEffect(() => {
     fetchStatus();
@@ -123,47 +101,16 @@ export default function HapiPage() {
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <div style={{ textAlign: 'center' }}>
           <Spin size="large" />
-          <div style={{ marginTop: 16, color: 'var(--text-tertiary)', fontSize: 14 }}>正在连接 HAPI Hub…</div>
+          <div style={{ marginTop: 16, color: 'var(--text-tertiary)', fontSize: 14 }}>正在加载状态…</div>
         </div>
       </div>
     );
   }
 
-  const hubOnline = status?.hub?.online ?? false;
+  const ocOnline = status?.opencode?.online ?? false;
   const sessions: SessionInfo[] = Array.isArray(status?.sessions?.active) ? status.sessions.active : [];
   const concurrency = status?.concurrency ?? { current: 0, max: 0 };
-  const jobExecutor = status?.jobExecutor ?? { running: false };
   const activeCount = sessions.filter((s) => s.status === 'active').length;
-
-  // ── Offline ─────────────────────────────────────────────────────
-  if (!hubOnline && !loading) {
-    return (
-      <div className="page-container fade-in" style={{ maxWidth: 640, margin: '0 auto', paddingTop: 80 }}>
-        <Card className="card-spacious" style={{ textAlign: 'center', padding: '48px 32px' }}>
-          <CloudServerOutlined style={{ fontSize: 48, color: 'var(--text-tertiary)', marginBottom: 20 }} />
-          <h3 style={{ color: 'var(--text-primary)', marginBottom: 10, fontWeight: 600, fontSize: 22 }}>HAPI Hub 离线</h3>
-          <Text style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: 28, fontSize: 15 }}>
-            HAPI Hub 服务未运行。请启动以访问代理运行时功能。
-          </Text>
-          {error && <Alert type="warning" message={error} style={{ marginBottom: 20, textAlign: 'left' }} showIcon />}
-          <div style={{
-            background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
-            borderRadius: 10, padding: '16px 20px',
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 14, color: 'var(--accent)',
-            textAlign: 'left', marginBottom: 28,
-          }}>
-            <div>cd agents/hapi-hub</div>
-            <div>set CLI_API_TOKEN=your_token</div>
-            <div>npx hapi hub</div>
-          </div>
-          <Space size={12}>
-            <Button type="primary" icon={<ReloadOutlined />} onClick={fetchStatus} loading={loading} size="large">重试连接</Button>
-            <Button icon={<LinkOutlined />} href="http://localhost:3006" target="_blank" size="large">打开 HAPI Hub</Button>
-          </Space>
-        </Card>
-      </div>
-    );
-  }
 
   // ── Session table columns ───────────────────────────────────────
   const sessionColumns: ColumnsType<SessionInfo> = [
@@ -227,37 +174,36 @@ export default function HapiPage() {
       {/* ── Hero Header ─────────────────────────────────────────── */}
       <div style={{ marginBottom: 40, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div className="page-hero" style={{ marginBottom: 0 }}>
-          <h1 className="page-hero-title">HAPI Hub</h1>
-          <p className="page-hero-subtitle">代理运行时监控</p>
+          <h1 className="page-hero-title">Sessions</h1>
+          <p className="page-hero-subtitle">代理会话监控</p>
         </div>
         <Space size={12}>
           {lastUpdated && <Text type="secondary" style={{ fontSize: 12 }}>更新于 {lastUpdated.toLocaleTimeString()}</Text>}
           <Button icon={<ReloadOutlined />} onClick={fetchStatus} loading={loading}>刷新</Button>
-          <Button icon={<LinkOutlined />} href="http://localhost:3006" target="_blank">在新窗口打开</Button>
         </Space>
       </div>
 
       {/* ── Error ───────────────────────────────────────────────── */}
       {error && (
-        <Alert type="warning" message="部分数据 — 使用备用健康检查" description={error} style={{ marginBottom: 24 }} showIcon closable onClose={() => setError(null)} />
+        <Alert type="warning" message="部分数据加载失败" description={error} style={{ marginBottom: 24 }} showIcon closable onClose={() => setError(null)} />
       )}
 
       {/* ── Stat Cards ──────────────────────────────────────────── */}
       <Row gutter={[20, 20]} style={{ marginBottom: 28 }}>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8}>
           <div className="stat-card fade-in fade-in-1">
-            <div className="stat-card-icon" style={{ color: hubOnline ? '#5A9E7B' : '#D47070' }}>
+            <div className="stat-card-icon" style={{ color: ocOnline ? '#5A9E7B' : '#D47070' }}>
               <CloudServerOutlined />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-1)' }}>
-              <span className={`status-dot ${hubOnline ? 'active' : 'offline'}`} />
-              <span className="stat-card-number" style={{ fontSize: 32 }}>{hubOnline ? '在线' : '离线'}</span>
+              <span className={`status-dot ${ocOnline ? 'active' : 'offline'}`} />
+              <span className="stat-card-number" style={{ fontSize: 32 }}>{ocOnline ? '在线' : '离线'}</span>
             </div>
-            <div className="stat-card-label">Hub 状态</div>
+            <div className="stat-card-label">OpenCode</div>
           </div>
         </Col>
 
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8}>
           <div className="stat-card fade-in fade-in-1">
             <div className="stat-card-icon" style={{ color: '#6B8EC4' }}>
               <SyncOutlined />
@@ -269,24 +215,7 @@ export default function HapiPage() {
           </div>
         </Col>
 
-        <Col xs={12} sm={6}>
-          <div className="stat-card fade-in fade-in-2">
-            <div className="stat-card-icon" style={{ color: jobExecutor.running ? '#5A9E7B' : '#787878' }}>
-              <RocketOutlined />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-1)' }}>
-              {jobExecutor.running
-                ? <CheckCircleOutlined style={{ color: '#5A9E7B', fontSize: 20 }} />
-                : <PauseCircleOutlined style={{ color: '#787878', fontSize: 20 }} />}
-              <span className="stat-card-number" style={{ fontSize: 32, color: jobExecutor.running ? '#5A9E7B' : '#787878' }}>
-                {jobExecutor.running ? '运行中' : '停止'}
-              </span>
-            </div>
-            <div className="stat-card-label">任务执行器</div>
-          </div>
-        </Col>
-
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8}>
           <div className="stat-card fade-in fade-in-2">
             <div className="stat-card-icon" style={{ color: '#D4A85A' }}>
               <RocketOutlined />
@@ -296,24 +225,6 @@ export default function HapiPage() {
           </div>
         </Col>
       </Row>
-
-      {/* ── Job Executor Details ─────────────────────────────────── */}
-      {jobExecutor.running && (
-        <Row gutter={[20, 20]} style={{ marginBottom: 28 }}>
-          {[
-            { label: '活跃任务', value: jobExecutor.activeJobs ?? 0, color: '#5A9E7B' },
-            { label: '待处理任务', value: jobExecutor.pendingJobs ?? 0, color: '#D4A85A' },
-            { label: '已完成任务', value: jobExecutor.completedJobs ?? 0, color: '#787878' },
-          ].map((item, i) => (
-            <Col xs={8} key={item.label}>
-              <div className={`stat-card fade-in fade-in-${i + 3}`} style={{ padding: '16px 20px' }}>
-                <div className="stat-card-number" style={{ fontSize: 32, color: item.color }}>{item.value}</div>
-                <div className="stat-card-label">{item.label}</div>
-              </div>
-            </Col>
-          ))}
-        </Row>
-      )}
 
       {/* ── Sessions Table ──────────────────────────────────────── */}
       <Card
@@ -336,31 +247,6 @@ export default function HapiPage() {
           locale={{ emptyText: '暂无会话' }}
         />
       </Card>
-
-      {/* ── Embedded Dashboard ──────────────────────────────────── */}
-      <Collapse
-        ghost
-        expandIconPosition="end"
-        items={[{
-          key: 'iframe',
-          label: (
-            <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-primary)' }}>
-              <ExpandOutlined style={{ marginRight: 10, color: 'var(--accent)', opacity: 0.65 }} />
-              HAPI Hub 仪表盘（内嵌）
-            </span>
-          ),
-          children: (
-            <Card bodyStyle={{ padding: 0 }} style={{ overflow: 'hidden' }}>
-              <iframe
-                src="http://localhost:3006"
-                title="HAPI Hub"
-                style={{ width: '100%', height: 600, border: 'none', borderRadius: '0 0 14px 14px', display: 'block' }}
-              />
-            </Card>
-          ),
-        }]}
-        style={{ background: 'transparent' }}
-      />
     </div>
   );
 }

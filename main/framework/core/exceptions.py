@@ -16,8 +16,8 @@ class AgentNotFoundError(FrameworkException):
     pass
 
 
-class HAPIConnectionError(FrameworkException):
-    """Cannot connect to HAPI Hub."""
+class SessionError(FrameworkException):
+    """Session management error."""
 
     pass
 

@@ -38,9 +38,11 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
         position={Position.Left}
         style={{
           background: '#8B9DC3',
-          width: 10,
-          height: 10,
-          left: -5,
+          width: 20,
+          height: 20,
+          left: -10,
+          border: '3px solid #1A1A1A',
+          borderRadius: '50%',
         }}
       />
 
@@ -86,9 +88,11 @@ const AgentNode = memo(({ data, selected }: NodeProps) => {
         position={Position.Right}
         style={{
           background: '#8B9DC3',
-          width: 10,
-          height: 10,
-          right: -5,
+          width: 20,
+          height: 20,
+          right: -10,
+          border: '3px solid #1A1A1A',
+          borderRadius: '50%',
         }}
       />
     </div>

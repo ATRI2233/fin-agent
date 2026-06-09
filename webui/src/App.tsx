@@ -19,7 +19,7 @@ import {
   DatabaseOutlined,
 } from '@ant-design/icons';
 import FrameworkPage from './pages/FrameworkPage';
-import HapiPage from './pages/HapiPage';
+import SessionsPage from './pages/SessionsPage';
 import AgentsPage from './pages/AgentsPage';
 import SkillsPage from './pages/SkillsPage';
 import MCPServersPage from './pages/MCPServersPage';
@@ -54,9 +54,9 @@ const menuItems: MenuItem[] = [
     label: <Link to="/framework">Framework</Link>,
   },
   {
-    key: '/hapi',
+    key: '/sessions',
     icon: <CloudServerOutlined />,
-    label: <Link to="/hapi">HAPI Hub</Link>,
+    label: <Link to="/sessions">Sessions</Link>,
   },
   {
     key: '/chat',
@@ -98,7 +98,7 @@ const AppLayout: React.FC = () => {
     const path = location.pathname;
     if (path === '/') return 'Dashboard';
     if (path === '/framework') return 'Framework';
-    if (path === '/hapi') return 'HAPI Hub';
+    if (path === '/sessions') return 'Sessions';
     if (path === '/chat') return 'Chat';
     if (path === '/agents') return 'Agents';
     if (path === '/skills') return 'Skills';
@@ -338,7 +338,7 @@ const AppLayout: React.FC = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/framework" element={<FrameworkPage />} />
-            <Route path="/hapi" element={<HapiPage />} />
+            <Route path="/sessions" element={<SessionsPage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/agents" element={<AgentsPage />} />
             <Route path="/skills" element={<SkillsPage />} />

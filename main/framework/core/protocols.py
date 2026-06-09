@@ -1,7 +1,7 @@
 """Protocol definitions for dependency inversion.
 
 All core modules depend on these protocols (abstractions) rather than
-concrete implementations like HAPIBridge or SessionLocal.
+concrete implementations.
 """
 
 from __future__ import annotations
@@ -17,8 +17,8 @@ from typing import Any, Protocol, runtime_checkable
 class AgentBackend(Protocol):
     """Abstract interface for agent session management.
 
-    HAPIBridge is the current implementation.  Future backends could talk
-    to a different orchestrator, a local process, or a mock for testing.
+    OpenCodeBackend is the current implementation, using opencode CLI
+    subprocesses for direct agent routing.
     """
 
     async def create_session(self, cwd: str = ".", agent: str = "opencode") -> str:

@@ -68,71 +68,41 @@ def _get_scheduler_status() -> dict:
         return {"running": False, "scheduledJobs": 0, "nextRun": None}
 
 
-async def _get_session_status() -> dict:
-    """Get sessions from HAPI Hub, plus total count from in-memory + DB.
+def _get_session_status() -> dict:
+    """Get session status from the OpenCode backend.
 
     Returns:
         {
-            "active": [SessionInfo, ...],   # all sessions for HapiPage table
-            "count": int,                    # number of sessions
-            "total": int,                    # total sessions ever (DB)
+            "active": [SessionInfo, ...],
+            "count": int,
+            "total": int,
         }
     """
-    from datetime import datetime, timezone
+    from main.framework.models.database import SessionLocal
+    from main.framework.models.workflow_execution import ExecutionNode
 
     active_sessions: list = []
-    in_memory_count = 0
     db_total = 0
 
-    # Sessions from HAPI Hub (real source of truth)
-    try:
-        from main.framework.core.hapi_bridge import HAPIBridge
-        from main.framework.config import settings
-
-        bridge = HAPIBridge(settings.HAPI_HUB_URL, settings.HAPI_API_TOKEN)
-        sessions = await bridge.list_sessions()
-        for s in sessions:
-            active_at_ms = s.get("activeAt")
-            updated_at_ms = s.get("updatedAt")
-            started_at = None
-            updated_at = None
-            if active_at_ms:
-                started_at = datetime.fromtimestamp(
-                    active_at_ms / 1000, tz=timezone.utc
-                ).isoformat()
-            if updated_at_ms:
-                updated_at = datetime.fromtimestamp(
-                    updated_at_ms / 1000, tz=timezone.utc
-                ).isoformat()
-            active_sessions.append(
-                {
-                    "sessionId": s.get("id", ""),
-                    "status": "active" if s.get("active") else "inactive",
-                    "agent": (s.get("metadata") or {}).get("flavor", "opencode"),
-                    "startedAt": started_at,
-                    "updatedAt": updated_at,
-                }
-            )
-    except Exception as e:
-        import traceback
-
-        print(f"[system.py] _get_session_status HAPI fetch failed: {e}")
-        traceback.print_exc()
-
-    # In-memory active count (fallback / cross-check)
+    # Get active sessions from in-memory tracking
     try:
         from main.framework.core.session_cleanup import get_active_executions
 
         exec_map = get_active_executions()
-        in_memory_count = sum(len(sids) for sids in exec_map.values())
+        for exec_id, sids in exec_map.items():
+            for sid in sids:
+                active_sessions.append({
+                    "sessionId": sid,
+                    "status": "active",
+                    "agent": "",
+                    "startedAt": None,
+                    "updatedAt": None,
+                })
     except ImportError:
         pass
 
     # DB total (historical)
     try:
-        from main.framework.models.database import SessionLocal
-        from main.framework.models.workflow_execution import ExecutionNode
-
         db = SessionLocal()
         try:
             db_total = db.query(ExecutionNode).count()
@@ -143,32 +113,33 @@ async def _get_session_status() -> dict:
 
     return {
         "active": active_sessions,
-        "count": len(active_sessions) or in_memory_count,
+        "count": len(active_sessions),
         "total": db_total,
     }
 
 
-def _get_hub_status() -> dict:
-    """Check if HAPI Hub is reachable."""
-    import httpx
+def _get_opencode_status() -> dict:
+    """Check if opencode binary is available."""
+    import os
     from main.framework.config import settings
 
-    try:
-        resp = httpx.get(f"{settings.HAPI_HUB_URL}", timeout=3.0)
-        return {"online": resp.status_code == 200}
-    except Exception:
-        return {"online": False}
+    bin_path = settings.OPENCODE_BIN
+    exists = os.path.isfile(bin_path)
+    return {
+        "online": exists,
+        "binary": bin_path,
+    }
 
 
 @router.get("/status")
 async def system_status():
     """Aggregate system status for WebUI dashboard."""
     return {
-        "hub": _get_hub_status(),
+        "opencode": _get_opencode_status(),
         "jobExecutor": _get_executor_status(),
         "concurrency": _get_concurrency_status(),
         "scheduler": _get_scheduler_status(),
-        "sessions": await _get_session_status(),
+        "sessions": _get_session_status(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -181,7 +152,6 @@ async def log_stats():
 
         collector = get_log_collector()
         s = collector.stats()
-        # Per-job breakdown (top 10)
         with collector._lock:
             per_job = {jid: len(buf) for jid, buf in collector._logs.items()}
         top_jobs = dict(sorted(per_job.items(), key=lambda x: -x[1])[:10])

@@ -31,12 +31,13 @@ class WorkflowEngine:
         params: dict[str, Any],
         dispatcher: AgentDispatcher,
         status_callback: StatusCallback | None = None,
+        execution_id: str | None = None,
     ):
         self.workflow_id = workflow_id
         self.params = params
         self._dispatcher = dispatcher
         self._status_callback = status_callback or self._noop_callback
-        self.execution_id: str | None = None
+        self.execution_id: str | None = execution_id
         self.nodes: list[dict] = []
         self.edges: list[dict] = []
         self._results: dict[str, Any] = {}
@@ -54,9 +55,19 @@ class WorkflowEngine:
     # ------------------------------------------------------------------
 
     async def execute(self) -> dict[str, Any]:
+        """Execute the workflow DAG.
+
+        If execution_id is set, the caller (API) must have already created
+        the WorkflowExecution and ExecutionNode rows in its own session.
+        This method only UPDATES those rows, avoiding cross-session
+        visibility issues with SQLite.
+        """
         db = SessionLocal()
         try:
             from main.framework.models.workflow import Workflow
+
+            # Commit any implicit transaction so subsequent queries see fresh data
+            db.commit()
 
             workflow = db.query(Workflow).filter(Workflow.id == self.workflow_id).first()
             if not workflow:
@@ -69,23 +80,12 @@ class WorkflowEngine:
                 self.workflow_id, dispatcher=self._dispatcher
             )
 
-            execution = WorkflowExecution(
-                workflow_id=self.workflow_id, status="running"
+            total_nodes = len(self.nodes)
+            await self._status_callback(
+                "running",
+                f"Workflow started with {total_nodes} node(s), executing...",
+                "",
             )
-            db.add(execution)
-            db.commit()
-            self.execution_id = execution.id
-
-            for node in self.nodes:
-                exec_node = ExecutionNode(
-                    execution_id=self.execution_id,
-                    node_id=node["id"],
-                    agent=node.get("agent", ""),
-                    status="pending",
-                    input=self.params,
-                )
-                db.add(exec_node)
-            db.commit()
 
             execution_order = topological_sort(self.nodes, self.edges)
             if not execution_order:
@@ -98,11 +98,49 @@ class WorkflowEngine:
                 execution_order, parallel_branches, predecessors
             )
 
+            # Update execution final status
+            if self.execution_id:
+                db.commit()  # end any open transaction
+                execution = (
+                    db.query(WorkflowExecution)
+                    .filter(WorkflowExecution.id == self.execution_id)
+                    .first()
+                )
+                if execution:
+                    final_status = "failed" if self._failed_nodes else "completed"
+                    execution.status = final_status
+                    db.commit()
+
+            completed_count = total_nodes - len(self._failed_nodes) - len(self._skipped_nodes)
             final_status = "failed" if self._failed_nodes else "completed"
-            execution.status = final_status
-            db.commit()
+
+            summary = (
+                f"Workflow finished: {completed_count}/{total_nodes} nodes completed"
+            )
+            if self._failed_nodes:
+                summary += f", {len(self._failed_nodes)} failed"
+            if self._skipped_nodes:
+                summary += f", {len(self._skipped_nodes)} skipped"
+            await self._status_callback(final_status, summary, "")
 
             return self.collect_results()
+        except Exception as e:
+            # Update execution status on error
+            if self.execution_id:
+                try:
+                    db.commit()  # end any open transaction
+                    execution = (
+                        db.query(WorkflowExecution)
+                        .filter(WorkflowExecution.id == self.execution_id)
+                        .first()
+                    )
+                    if execution:
+                        execution.status = "failed"
+                        db.commit()
+                except Exception:
+                    pass
+            await self._status_callback("failed", f"Workflow error: {str(e)}", "")
+            raise
         finally:
             await self._cleanup_sessions()
             db.close()
@@ -220,6 +258,7 @@ class WorkflowEngine:
             await self.handle_failure(node_id, ValueError(f"Node {node_id} not found"))
             return
 
+        agent = self._get_agent_name(node)
         try:
             await self.execute_node(node_id)
             self._results[node_id] = self._results.get(node_id, {})
@@ -228,11 +267,17 @@ class WorkflowEngine:
                 "no_retry", False
             )
             if has_retry and hasattr(self, "_retry_handler") and self.execution_id:
+                await self._status_callback(
+                    "running", f"[Node] {agent} failed, retrying...", agent
+                )
                 retry_result = await self._retry_handler.retry_node(
                     node_id, self.execution_id
                 )
                 if retry_result.get("success"):
                     self._results[node_id] = retry_result.get("result", {})
+                    await self._status_callback(
+                        "completed", f"[Node] {agent} retry succeeded", agent
+                    )
                     return
             await self.handle_failure(node_id, e)
 
@@ -256,7 +301,7 @@ class WorkflowEngine:
                 exec_node = ExecutionNode(
                     execution_id=self.execution_id,
                     node_id=node_id,
-                    agent=node.get("agent", ""),
+                    agent=self._get_agent_name(node),
                     status="pending",
                 )
                 db.add(exec_node)
@@ -264,6 +309,54 @@ class WorkflowEngine:
             predecessor_ids = [
                 e["source"] for e in self.edges if e.get("target") == node_id
             ]
+
+            # Handle input nodes — pass through trigger params as output
+            if node.get("type") == "input":
+                self._results[node_id] = self.params
+                exec_node.status = "completed"
+                exec_node.output = self.params
+                exec_node.completed_at = datetime.utcnow()
+                db.commit()
+                return self.params
+
+            # Handle output nodes — collect upstream outputs as final result
+            if node.get("type") == "output":
+                upstream_outputs = []
+                for pred_id in predecessor_ids:
+                    if pred_id in self._results:
+                        pred_result = self._results[pred_id]
+                        output = (
+                            pred_result.get("result", str(pred_result))
+                            if isinstance(pred_result, dict)
+                            else str(pred_result)
+                        )
+                        upstream_outputs.append(
+                            {"agent_name": pred_id, "output": output}
+                        )
+
+                if upstream_outputs:
+                    from main.framework.core.input_merger import merge_inputs
+                    merged = merge_inputs(upstream_outputs)
+                    result = {"result": merged}
+                else:
+                    result = {"result": ""}
+
+                # If outputKey is specified, extract that key from merged upstream
+                output_key = node.get("outputKey", "")
+                if output_key and upstream_outputs:
+                    for pred_id in predecessor_ids:
+                        if pred_id in self._results:
+                            pred_result = self._results[pred_id]
+                            if isinstance(pred_result, dict) and output_key in pred_result:
+                                result = {output_key: pred_result[output_key]}
+                                break
+
+                self._results[node_id] = result
+                exec_node.status = "completed"
+                exec_node.output = result
+                exec_node.completed_at = datetime.utcnow()
+                db.commit()
+                return result
 
             # Handle debate nodes
             if node.get("type") == "debate":
@@ -281,7 +374,7 @@ class WorkflowEngine:
                 return result
 
             # Regular agent node
-            agent = node.get("agent", "")
+            agent = self._get_agent_name(node)
             prompt_template = node.get("prompt", "")
             prompt = self._build_prompt(prompt_template, node, predecessor_ids, node_id)
 
@@ -307,11 +400,13 @@ class WorkflowEngine:
             # Leaf nodes don't need to keep sessions alive for downstream
             is_leaf = self._is_leaf(node_id)
 
-            exec_node.hapi_session_id = session_id or ""
+            exec_node.session_id = session_id or ""
             exec_node.status = "running"
             db.commit()
 
-            await self._status_callback("running", f"{agent} is working...", agent)
+            await self._status_callback(
+                "running", f"[Node] {agent} is working on: {prompt[:100]}...", agent
+            )
 
             resp = await self._dispatcher.dispatch(
                 agent,
@@ -325,14 +420,18 @@ class WorkflowEngine:
 
             # Track session for chain reuse
             self._chain_sessions[node_id] = new_session_id
-            exec_node.hapi_session_id = new_session_id
+            exec_node.session_id = new_session_id
 
             exec_node.status = "completed"
             exec_node.output = {"result": result}
             exec_node.completed_at = datetime.utcnow()
             db.commit()
 
-            await self._status_callback("completed", f"{agent} completed", agent)
+            # Truncate result preview for status message
+            result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
+            await self._status_callback(
+                "completed", f"[Node] {agent} completed: {result_preview}", agent
+            )
 
             self._results[node_id] = {"result": result}
             return {"result": result}
@@ -353,6 +452,9 @@ class WorkflowEngine:
     async def handle_failure(self, node_id: str, error: Exception) -> None:
         db = SessionLocal()
         try:
+            node = self._find_node(node_id)
+            agent = self._get_agent_name(node) if node else node_id
+
             exec_node = (
                 db.query(ExecutionNode)
                 .filter(
@@ -367,8 +469,19 @@ class WorkflowEngine:
                 db.commit()
 
             self._failed_nodes.add(node_id)
+            await self._status_callback(
+                "failed", f"[Node] {agent} failed: {str(error)}", agent
+            )
 
-            for downstream_id in self._find_downstream(node_id):
+            downstream_ids = self._find_downstream(node_id)
+            if downstream_ids:
+                await self._status_callback(
+                    "running",
+                    f"[Node] Skipping {len(downstream_ids)} downstream node(s) due to {agent} failure",
+                    "",
+                )
+
+            for downstream_id in downstream_ids:
                 if downstream_id not in self._failed_nodes:
                     self._skipped_nodes.add(downstream_id)
                     dn = (
@@ -388,6 +501,17 @@ class WorkflowEngine:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _get_agent_name(node: dict) -> str:
+        """Get agent name from node, with fallback to data.agentType / data.label."""
+        agent = node.get("agent", "")
+        if agent:
+            return agent
+        data = node.get("data", {})
+        if isinstance(data, dict):
+            return data.get("agentType", "") or data.get("label", "")
+        return ""
 
     def collect_results(self) -> dict[str, Any]:
         return {

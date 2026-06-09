@@ -31,7 +31,7 @@ class ExecutionNode(Base):
     node_id = Column(String, nullable=False)
     agent = Column(String, nullable=False)
     status = Column(String, default="pending")
-    hapi_session_id = Column(String, nullable=True)
+    session_id = Column("hapi_session_id", String, nullable=True)
     input = Column(JSON, default=dict)
     output = Column(JSON, default=dict)
     error = Column(String, nullable=True)

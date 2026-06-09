@@ -1,13 +1,13 @@
 """Application entry point — wires up all dependencies via Container."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from main.framework.config import Settings
+from main.framework.config import settings as settings
 from main.framework.core.auth import APIKeyMiddleware
 from main.framework.core.container import Container
 from main.framework.api.agents import router as agents_router
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------
 # DI container — single source of truth
 # ------------------------------------------------------------------
-settings = Settings()
 container = Container(settings)
 
 app = FastAPI(title="fin-agent-framework")
@@ -86,7 +85,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 async def health_check():
     return {
         "status": "ok",
-        "timestamp": datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 

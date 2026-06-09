@@ -73,18 +73,21 @@ export function registerNewsSentiment(
         const toDate = now.toISOString().slice(0, 10);
         const fromDate = new Date(now.getTime() - hours * 3600000).toISOString().slice(0, 10);
 
-        const [quoteResult, fgResult, newsResult] = await Promise.allSettled([
+        const [quoteResult, fgResult, newsResult, marketNewsResult] = await Promise.allSettled([
           mcpManager.callTool("stock-scanner", "finnhub_quote", { symbol: ticker }, 15000),
           mcpManager.callTool("stock-scanner", "sentiment_fear_greed", {}, 15000),
           mcpManager.callTool("stock-scanner", "finnhub_company_news", { symbol: ticker, from: fromDate, to: toDate }, 20000),
+          mcpManager.callTool("stock-scanner", "finnhub_market_news", { category: "general", minId: 0 }, 20000),
         ]);
 
         const quoteResultRaw = quoteResult.status === "fulfilled" ? quoteResult.value : null;
         const fgResultRaw = fgResult.status === "fulfilled" ? fgResult.value : null;
         const newsResultRaw = newsResult.status === "fulfilled" ? newsResult.value : null;
+        const marketNewsResultRaw = marketNewsResult.status === "fulfilled" ? marketNewsResult.value : null;
         const quoteItems = extractData(quoteResultRaw);
         const fgItems = extractData(fgResultRaw);
         const newsItemsRaw = extractData(newsResultRaw);
+        const marketNewsItemsRaw = extractData(marketNewsResultRaw);
         const quoteData = quoteItems[0]?.data || quoteItems[0] || null;
         const fg = fgItems[0] || null;
         const rawNews = newsItemsRaw;
@@ -146,7 +149,41 @@ export function registerNewsSentiment(
         const extremeDampening = extremeFlag ? 0.5 : 1.0;
         const adjustedSentiment = rawSentiment * extremeDampening;
 
-        const sentimentDirection = rawSentiment > 0.1 ? "bullish" : rawSentiment < -0.1 ? "bearish" : "neutral";
+        // ── 市场新闻情绪计算 ─────────────────────────────────
+        let marketSentiment = 0;
+        let marketNewsCount = 0;
+
+        if (Array.isArray(marketNewsItemsRaw) && marketNewsItemsRaw.length > 0) {
+          let marketWeightedSum = 0;
+          let marketTotalWeight = 0;
+
+          for (const n of marketNewsItemsRaw) {
+            const headline = n.headline || n.title || "";
+            if (!headline) continue;
+
+            const sentiment = analyzeSentimentSimple(headline);
+            const pubTime = n.datetime
+              ? new Date(n.datetime * 1000).getTime()
+              : n.publishedAt ? new Date(n.publishedAt).getTime() : 0;
+            const age = pubTime > 0 ? (Date.now() - pubTime) / 3600000 : 48;
+            const timeDecay = Math.exp(-0.693 * age / 24);
+            const source = (n.source || n.publisher || "").toLowerCase();
+            const sourceWeight = SOURCE_CREDIBILITY[source] ?? 0.5;
+            const weight = timeDecay * sourceWeight;
+
+            marketWeightedSum += sentiment.score * weight;
+            marketTotalWeight += weight;
+            marketNewsCount++;
+          }
+
+          marketSentiment = marketTotalWeight > 0 ? marketWeightedSum / marketTotalWeight : 0;
+        }
+
+        // ── 加权情绪融合 ─────────────────────────────────────
+        const stockSentiment = adjustedSentiment;
+        const finalSentiment = 0.7 * stockSentiment + 0.3 * marketSentiment;
+
+        const sentimentDirection = finalSentiment > 0.1 ? "bullish" : finalSentiment < -0.1 ? "bearish" : "neutral";
         const priceDirection = priceChange > 0.5 ? "bullish" : priceChange < -0.5 ? "bearish" : "neutral";
         const divergenceFlag = sentimentDirection !== "neutral" && sentimentDirection !== priceDirection;
 
@@ -156,14 +193,16 @@ export function registerNewsSentiment(
           current_price: currentPrice,
           price_change_pct: priceChange,
           raw_sentiment: Math.round(rawSentiment * 1000) / 1000,
-          adjusted_sentiment: Math.round(adjustedSentiment * 1000) / 1000,
+          adjusted_sentiment: Math.round(finalSentiment * 1000) / 1000,
+          market_sentiment: Math.round(marketSentiment * 1000) / 1000,
           news_count: newsItems.length,
+          market_news_count: marketNewsCount,
           top_positive: newsItems.filter((n) => n.sentimentScore > 0.3).slice(0, 3),
           top_negative: newsItems.filter((n) => n.sentimentScore < -0.3).slice(0, 3),
           max_weight_in_fusion: 0.15,
         };
 
-        // 市场情绪上下�?
+        // 市场情绪上下文
         if (fg) {
           result.market_fear_greed = {
             score: fg.score,
@@ -176,7 +215,7 @@ export function registerNewsSentiment(
         }
 
         if (newsItems.length === 0) {
-          result._note = "未获取到实时新闻。设�?FINNHUB_API_KEY 环境变量可启用新闻情绪分析。当前仅提供基础市场情绪参考�?;
+          result._note = "未获取到实时新闻。设置 FINNHUB_API_KEY 环境变量可启用新闻情绪分析。当前仅提供基础市场情绪参考。";
           result.recommendation_signal = priceDirection;
         }
 

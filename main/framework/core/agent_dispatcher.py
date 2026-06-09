@@ -1,7 +1,7 @@
 """Unified agent dispatch — single point of agent session management.
 
 All agent execution (WorkflowEngine, JobExecutor, DebateExecutor) goes
-through this dispatcher instead of directly calling HAPIBridge.
+through this dispatcher.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ class AgentDispatcher:
     """Unified agent session dispatcher.
 
     Accepts an AgentBackend (protocol) so the concrete implementation
-    (HAPIBridge, mock, etc.) is injected rather than imported.
+    (OpenCodeBackend, mock, etc.) is injected rather than imported.
     """
 
     def __init__(self, backend: AgentBackend):
@@ -65,6 +65,7 @@ class AgentDispatcher:
             # Reuse existing session (e.g. serial chain)
             await self._backend.send_message(session_id, prompt)
         else:
+            # Create session with target agent — direct routing via --agent flag
             session_id = await self._backend.create_session(agent=agent)
             await self._backend.send_message(session_id, prompt)
             created_new = True

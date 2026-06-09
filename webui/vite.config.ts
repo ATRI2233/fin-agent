@@ -11,12 +11,6 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
-      // HAPI Hub
-      '/hapi-api': {
-        target: 'http://localhost:3006',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/hapi-api/, ''),
-      },
       // OpenCode API (agents/)
       '/api': {
         target: 'http://localhost:9876',

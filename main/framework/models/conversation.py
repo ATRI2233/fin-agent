@@ -7,13 +7,13 @@ from main.framework.models.database import Base
 
 
 class Conversation(Base):
-    """User conversation with persistent HAPI session."""
+    """User conversation with persistent agent session."""
 
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True)
     title = Column(String, default="New Conversation")
-    hapi_session_id = Column(String, nullable=True)  # Persistent HAPI session
+    session_id = Column("hapi_session_id", String, nullable=True)  # Agent session ID
     current_agent = Column(String, default="fin-orchestrator")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

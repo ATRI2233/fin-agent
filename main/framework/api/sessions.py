@@ -1,4 +1,4 @@
-"""Session management API — view and cleanup HAPI sessions."""
+"""Session management API — view and cleanup agent sessions."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ class CleanupResponse(BaseModel):
 
 @router.get("", response_model=SessionListResponse)
 async def list_sessions(request: Request):
-    """List all known HAPI sessions from workflow executions and conversations."""
+    """List all known sessions from workflow executions and conversations."""
     db = SessionLocal()
     try:
         sessions: list[SessionInfo] = []
@@ -60,13 +60,13 @@ async def list_sessions(request: Request):
         # Sessions from workflow execution nodes
         nodes = (
             db.query(ExecutionNode)
-            .filter(ExecutionNode.hapi_session_id.isnot(None))
-            .filter(ExecutionNode.hapi_session_id != "")
+            .filter(ExecutionNode.session_id.isnot(None))
+            .filter(ExecutionNode.session_id != "")
             .all()
         )
         for n in nodes:
             sessions.append(SessionInfo(
-                session_id=n.hapi_session_id,
+                session_id=n.session_id,
                 source="workflow",
                 execution_id=n.execution_id,
                 node_id=n.node_id,
@@ -78,13 +78,13 @@ async def list_sessions(request: Request):
         # Sessions from conversations
         convos = (
             db.query(Conversation)
-            .filter(Conversation.hapi_session_id.isnot(None))
-            .filter(Conversation.hapi_session_id != "")
+            .filter(Conversation.session_id.isnot(None))
+            .filter(Conversation.session_id != "")
             .all()
         )
         for c in convos:
             sessions.append(SessionInfo(
-                session_id=c.hapi_session_id,
+                session_id=c.session_id,
                 source="conversation",
                 execution_id=None,
                 node_id=None,
@@ -111,7 +111,7 @@ async def get_session(session_id: str, request: Request):
         # Check execution nodes
         node = (
             db.query(ExecutionNode)
-            .filter(ExecutionNode.hapi_session_id == session_id)
+            .filter(ExecutionNode.session_id == session_id)
             .first()
         )
         if node:
@@ -128,7 +128,7 @@ async def get_session(session_id: str, request: Request):
         # Check conversations
         convo = (
             db.query(Conversation)
-            .filter(Conversation.hapi_session_id == session_id)
+            .filter(Conversation.session_id == session_id)
             .first()
         )
         if convo:
@@ -147,7 +147,7 @@ async def get_session(session_id: str, request: Request):
 
 @router.delete("/{session_id}")
 async def cleanup_session(session_id: str, request: Request):
-    """Cleanup a specific HAPI session."""
+    """Cleanup a specific session."""
     container = request.app.state.container
     backend = container.backend
 
@@ -162,7 +162,7 @@ async def cleanup_session(session_id: str, request: Request):
         try:
             nodes = (
                 db.query(ExecutionNode)
-                .filter(ExecutionNode.hapi_session_id == session_id)
+                .filter(ExecutionNode.session_id == session_id)
                 .all()
             )
             for n in nodes:
@@ -209,12 +209,12 @@ async def bulk_cleanup(payload: CleanupRequest, request: Request):
         try:
             nodes = (
                 db.query(ExecutionNode)
-                .filter(ExecutionNode.hapi_session_id.isnot(None))
-                .filter(ExecutionNode.hapi_session_id != "")
+                .filter(ExecutionNode.session_id.isnot(None))
+                .filter(ExecutionNode.session_id != "")
                 .filter(ExecutionNode.status.notin_(["cleaned_up", "pending", "running"]))
                 .all()
             )
-            session_ids = list({n.hapi_session_id for n in nodes})
+            session_ids = list({n.session_id for n in nodes})
             if session_ids:
                 result = await backend.cleanup_sessions(session_ids)
                 for sid, status in result.items():
@@ -223,7 +223,7 @@ async def bulk_cleanup(payload: CleanupRequest, request: Request):
                         cleaned += 1
                         # Mark nodes
                         for n in nodes:
-                            if n.hapi_session_id == sid:
+                            if n.session_id == sid:
                                 n.status = "cleaned_up"
                     else:
                         failed += 1

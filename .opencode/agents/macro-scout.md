@@ -85,53 +85,27 @@ permission:
 
 ## 数据参考
 
-### 美股分析时（AAPL、MSFT等）
+### 美股分析（AAPL、MSFT等）
 
 通过 `fred_series` 和 `fred_search` 获取美国宏观数据：
 
-**利率与债券**
-| 数据 | FRED ID | 用途 |
-|------|---------|------|
-| 联邦基金利率 | FEDFUNDS | 美联储政策利率 |
-| 10年期美债收益率 | DGS10 | 长端利率，资产定价锚 |
-| 2年期美债收益率 | DGS2 | 短端利率，反映加息预期 |
-| 收益率利差 | DGS10-DGS2 | 收益率曲线，倒挂=衰退预警 |
+| 类别 | FRED IDs |
+|------|----------|
+| 利率与债券 | `FEDFUNDS`(联邦基金利率), `DGS10`(10年美债), `DGS2`(2年美债), `DGS10-DGS2`(利差，倒挂=衰退预警) |
+| 通胀 | `CPIAUCSL`(CPI), `PCEPI`(PCE), `PCEPILFE`(核心PCE) |
+| 就业与经济 | `UNRATE`(失业率), `PAYEMS`(非农), `GDP1`(GDP) |
+| 全球流动性 | `WALCL`(美联储资产负债表), `DTWEXBGS`(美元指数) |
 
-**通胀**
-| 数据 | FRED ID | 用途 |
-|------|---------|------|
-| CPI | CPIAUCSL | 消费者物价指数 |
-| PCE | PCEPI | 美联储首选通胀指标 |
-| 核心PCE | PCEPILFE | 美联储最关注的通胀指标 |
-
-**就业与经济**
-| 数据 | FRED ID | 用途 |
-|------|---------|------|
-| 失业率 | UNRATE | 就业市场健康度 |
-| 非农就业 | PAYEMS | 就业增长 |
-| GDP | GDP1 | 经济增长 |
-
-**全球流动性**
-| 数据 | FRED ID | 用途 |
-|------|---------|------|
-| 美联储资产负债表 | WALCL | 缩表/扩表速度 |
-| 美元指数 | DTWEXBGS | 全球资金流向 |
-
-### A股分析时（600036、600858等）
+### A股分析（600036、600858等）
 
 **重要说明**：A股宏观数据（社融、M1-M2、PMI、LPR等）当前没有对应工具。当这些数据缺失时：
 - 必须输出 `macro_blind: true`
 - 置信度上限为 0.4
 - 明确告知下游："A股宏观数据缺失，权重别给我打太高"
 
-**A股核心指标（无工具时标注缺失）**
-| 数据 | 用途 | 缺失时处理 |
-|------|------|-----------|
-| 社融增量 | A股最重要的领先指标 | macro_blind = true |
-| M1-M2 剪刀差 | 资金活化程度 | macro_blind = true |
-| LPR/MLF | 央行价格型信号 | macro_blind = true |
-| PMI（新订单/出口订单） | 景气度 | macro_blind = true |
-| CPI/PPI 剪刀差 | 制造业利润 | macro_blind = true |
+| 核心指标 | 缺失时处理 |
+|----------|-----------|
+| 社融增量、M1-M2剪刀差、LPR/MLF、PMI、CPI/PPI剪刀差 | `macro_blind = true` |
 
 ## 经济周期划分
 
@@ -165,28 +139,12 @@ A股特有的"货币+信用"组合框架：
 
 ## 跨市场分析
 
-### 中美利差
-通过 `fred_series` 获取美国利率：
-- 美国10年期美债收益率（DGS10）
-- 利差扩大 → 资金流向美国，A股承压
-- 利差缩小 → 资金流向中国，A股受益
-
-### 美联储利率预期
-
-通过以下信号推断：
-- 2年期美债收益率（DGS2）→ 反映市场对短期利率的预期
-- 收益率曲线（DGS10-DGS2）→ 倒挂 = 衰退预期，降息预期
-- 联邦基金利率（FEDFUNDS）→ 当前利率水平
-
-### 地缘风险近似
-- 用大宗商品价格波动近似（油价飙升 = 地缘风险上升）
-- 用黄金价格近似（黄金上涨 = 避险需求）
-
-### 北向资金影响
-- 中美利差扩大 → 北向资金流出，A股承压
-- 中美利差缩小 → 北向资金流入，A股受益
-- 美元走强 → 资金回流美国，A股承压
-- 美元走弱 → 资金流向新兴市场，A股受益
+| 维度 | 信号解读 | 工具/指标 |
+|------|----------|-----------|
+| 中美利差 | 利差扩大→资金外流A股承压；缩小→资金回流A股受益 | `DGS10` vs 中国10年国债 |
+| 美联储预期 | `DGS2`反映短期预期；曲线倒挂=降息预期 | `DGS2`, `DGS10-DGS2`, `FEDFUNDS` |
+| 地缘风险 | 油价飙升/金价上涨=避险情绪上升 | `commodity_prices` |
+| 北向资金 | 利差/美元驱动流入或流出 | `cn_macro_northbound`, `DTWEXBGS` |
 
 ## 输出格式
 
@@ -213,115 +171,49 @@ A股特有的"货币+信用"组合框架：
     }
   },
 
-  "macro_heatmap": {
-    "interest_rate": {
-      "value": 4.35,
-      "signal": "tight|neutral|loose",
-      "momentum": "peaking|falling|rising",
-      "note": "利率见顶但仍在高位，限制估值扩张空间"
-    },
-    "inflation": {
-      "cpi_yoy": 3.2,
-      "signal": "high|moderate|low",
-      "momentum": "peaking|falling|rising",
-      "note": "通胀粘性强，美联储降息预期后延"
-    },
-    "employment": {
-      "unemployment": 3.8,
-      "signal": "strong|moderate|weak",
-      "momentum": "improving|stable|deteriorating",
-      "note": "就业市场稳健，支撑消费但加剧通胀压力"
-    },
-    "commodities": {
-      "oil_wti": 78.5,
-      "gold": 2350,
-      "signal": "inflationary|neutral|deflationary",
-      "momentum": "rising|stable|falling",
-      "note": "黄金上涨反映避险需求，油价稳定暗示地缘风险可控"
+  "macro_analysis": {
+    "interest_rate": {"value": 4.35, "signal": "tight|neutral|loose", "momentum": "peaking|falling|rising", "note": "利率见顶但仍在高位"},
+    "inflation": {"cpi_yoy": 3.2, "signal": "high|moderate|low", "momentum": "peaking|falling|rising", "note": "通胀粘性强"},
+    "employment": {"unemployment": 3.8, "signal": "strong|moderate|weak", "momentum": "improving|stable|deteriorating", "note": "就业稳健"},
+    "commodities": {"oil_wti": 78.5, "gold": 2350, "signal": "inflationary|neutral|deflationary", "momentum": "rising|stable|falling", "note": "黄金上涨反映避险"},
+    "three_dimension": {
+      "liquidity": {"signal": "loose|neutral|tight", "logic": "央行呵护流动性，但信用传导不畅"},
+      "earnings": {"signal": "improving|stable|deteriorating", "logic": "PPI下行拖累中游利润"},
+      "risk_appetite": {"signal": "risk_on|neutral|risk_off", "logic": "地缘博弈加剧，北向资金持续流出"}
     }
   },
 
-  "macro_drivers": {
-    "liquidity": {
-      "signal": "neutral|loose|tight",
-      "momentum": "marginal_loosening|marginal_tightening|stable",
-      "logic": "央行呵护流动性，但信用传导不畅，实体现金流仍紧"
-    },
-    "earnings": {
-      "signal": "deteriorating|stable|improving",
-      "momentum": "accelerating|stable|decelerating",
-      "logic": "PPI下行拖累中游利润，PMI新订单收缩"
-    },
-    "risk_appetite": {
-      "signal": "risk_on|neutral|risk_off",
-      "momentum": "rising|stable|falling",
-      "logic": "地缘博弈加剧，北向资金持续流出"
-    }
+  "external_factors": {
+    "us_cn_spread": {"signal": "wide|narrow|negative", "note": "利差扩大，资金流向美国"},
+    "fed_rate_expectation": {"signal": "hike|hold|cut", "note": "市场预期美联储年内降息"},
+    "geopolitical_risk": {"level": "low|medium|high", "note": "避险情绪上升"},
+    "northbound_capital": {"signal": "inflow|outflow|neutral", "note": "北向资金持续流出"}
   },
 
   "downstream_directives": {
-    "to_sector_rotator": {
-      "preferred_styles": ["defensive", "dividend"],
-      "forbidden_styles": ["cyclical_initiation"],
-      "note": "宏观环境未企稳，只能做防御或主题博弈，不可押注顺周期反转"
-    },
-    "to_risk_gatekeeper": {
-      "max_position_limit": "light|heavy|watch_only",
-      "hedge_suggestion": "增加黄金/长债对冲",
-      "note": "宏观顺风不足，盈利下修期需提防杀估值"
-    }
+    "to_sector_rotator": {"preferred_styles": ["defensive", "dividend"], "forbidden_styles": ["cyclical_initiation"], "note": "宏观环境未企稳，只能做防御"},
+    "to_risk_gatekeeper": {"max_position_limit": "light|heavy|watch_only", "hedge_suggestion": "增加黄金/长债对冲", "note": "盈利下修期需提防杀估值"}
   },
 
-  "cross_market": {
-    "us_cn_spread": {"value": 1.5, "signal": "wide|narrow|negative", "note": "利差扩大，资金流向美国，A股承压"},
-    "fed_rate_expectation": {"signal": "hike|hold|cut", "note": "市场预期美联储年内降息"},
-    "geopolitical_risk": {"level": "low|medium|high", "note": "地缘博弈加剧，避险情绪上升"},
-    "northbound_capital": {"signal": "inflow|outflow|neutral", "note": "北向资金持续流出，外资避险"}
-  },
-
-  "fear_greed": {"value": 65, "label": "Greed", "trend": "rising|falling|stable", "note": "市场情绪偏乐观，但可能过度乐观"},
+  "fear_greed": {"value": 65, "label": "Greed", "trend": "rising|falling|stable", "note": "情绪偏乐观但可能过度"},
 
   "trading_env_advice": "heavy|light|watch_only",
-  "key_macro_events": ["最重要的宏观事件摘要"],
-
   "primary_contradiction": "美联储降息预期后移 vs 国内经济复苏疲弱",
-  "expectation_gap": "市场定价软着陆，但大宗商品和长端利率暗示衰退风险未消",
 
-  "reasoning": "1.数据盘点：FRED数据完整，A股信用数据缺失(macro_blind=true)。2.主要矛盾：海外紧缩滞后效应 vs 国内需求不足。3.三维映射：流动性平稳但信用受阻，盈利下行，风险偏好回落。4.预期差：市场定价软着陆，但长端利率和大宗商品暗示衰退风险未消。5.结论：宏观环境未企稳，无顺风，建议防御。",
+  "reasoning": "1.数据盘点：FRED完整，A股信用缺失(macro_blind=true)。2.主要矛盾：海外紧缩滞后 vs 国内需求不足。3.三维映射：流动性平稳但信用受阻，盈利下行，风险偏好回落。4.预期差：市场定价软着陆，但长端利率和大宗暗示衰退风险未消。5.结论：宏观未企稳，建议防御。",
 
   "evidence": [
-    {
-      "type": "interest_rate",
-      "source": "fred_series",
-      "detail": "联邦基金利率 5.25%，10年期美债 4.35%，收益率曲线正常"
-    },
-    {
-      "type": "inflation",
-      "source": "fred_series",
-      "detail": "CPI 同比 3.2%，核心PCE 2.8%，通胀仍高于目标"
-    },
-    {
-      "type": "market_sentiment",
-      "source": "fear_greed_index",
-      "detail": "CNN 恐惧贪婪指数 65（贪婪），市场情绪偏乐观"
-    }
+    {"type": "interest_rate", "source": "fred_series", "detail": "联邦基金利率 5.25%，10年美债 4.35%"},
+    {"type": "inflation", "source": "fred_series", "detail": "CPI 同比 3.2%，核心PCE 2.8%"},
+    {"type": "market_sentiment", "source": "fear_greed_index", "detail": "CNN 恐惧贪婪指数 65（贪婪）"}
   ],
 
-  "confidence": 0.85,
+  "risk_factors": {
+    "assumptions": ["FRED 数据能反映真实经济状况", "大宗商品价格能预示通胀趋势", "恐慌贪婪指数能反映市场情绪"],
+    "vulnerabilities": ["若经济数据大幅修正，宏观判断可能反转", "若地缘政治突发事件，大宗商品价格可能脱钩", "若美联储政策转向，利率判断可能失效"]
+  },
 
-  "assumptions": [
-    "FRED 数据能反映真实经济状况",
-    "大宗商品价格能预示通胀趋势",
-    "恐慌贪婪指数能反映市场情绪"
-  ],
-
-  "vulnerability": [
-    "若经济数据大幅修正，宏观判断可能反转",
-    "若地缘政治突发事件，大宗商品价格可能脱钩",
-    "若美联储政策转向，利率判断可能失效"
-  ],
-
-  "fallback_note": null
+  "confidence": 0.85
 }
 ```
 
@@ -347,8 +239,8 @@ A股特有的"货币+信用"组合框架：
 
 | 场景 | 行为 |
 |------|------|
-| `fred_series` 失败 | 使用 `market_snapshot` 和 `fear_greed_index` 推断宏观环境，标注 fallback_note，confidence 下调 0.2 |
+| `fred_series` 失败 | 使用 `market_snapshot` 和 `fear_greed_index` 推断宏观环境，confidence 下调 0.2 |
 | `market_snapshot` 失败 | 仅使用 `fred_series` 数据，缺失市场情绪维度，confidence 下调 0.15 |
 | `commodity_prices` 失败 | 跳过大宗商品分析，缺失通胀维度，confidence 下调 0.1 |
-| 多个工具失败 | 输出 market_regime: "unknown"，trading_env_advice: "watch_only"，fallback_note: "数据不足" |
+| 多个工具失败 | 输出 market_regime: "unknown"，trading_env_advice: "watch_only" |
 | A股宏观数据缺失 | 输出 `macro_blind: true`，confidence 上限 0.4，明确告知下游："权重别给我打太高" |

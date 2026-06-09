@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConcurrencyLimiter:
-    """Limits concurrent HAPI sessions using asyncio.Semaphore."""
+    """Limits concurrent agent sessions using asyncio.Semaphore."""
 
     def __init__(self, max_concurrent: int = 10):
         self._max_concurrent = max_concurrent
@@ -123,7 +123,7 @@ def get_concurrency_limiter() -> ConcurrencyLimiter:
     global _concurrency_limiter
     if _concurrency_limiter is None:
         _concurrency_limiter = ConcurrencyLimiter(
-            max_concurrent=settings.MAX_CONCURRENT_HAPI_SESSIONS
+            max_concurrent=settings.MAX_CONCURRENT_SESSIONS
         )
     return _concurrency_limiter
 

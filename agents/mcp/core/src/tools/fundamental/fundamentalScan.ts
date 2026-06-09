@@ -97,6 +97,12 @@ export function registerFundamentalScan(
               "market_cap_basic", "return_on_equity_fq", "total_revenue_fq",
               "net_income_fq", "total_assets_fq", "total_debt_fq",
               "dividend_yield_recent", "sector", "number_of_employees",
+              // ── 新增列：填补 8 个 null 字段 ──
+              "gross_margin_fq", "operating_margin_fq",
+              "current_ratio_fq", "enterprise_value_ebitda_ttm",
+              "total_revenue_growth_fq_yoy", "earnings_per_share_growth_fq_yoy",
+              "operating_cash_flow_fq", "free_cash_flow_fq",
+              "price_earnings_to_growth_ttm",
             ],
             limit: 1,
           }, 25000),
@@ -127,47 +133,57 @@ export function registerFundamentalScan(
         const totalAssets = data.total_assets_fq || null;
         const totalDebt = data.total_debt_fq || null;
         const dividendYield = data.dividend_yield_recent != null ? data.dividend_yield_recent / 100 : null;
+        const grossMargin = data.gross_margin_fq != null ? data.gross_margin_fq / 100 : null;
+        const operatingMargin = data.operating_margin_fq != null ? data.operating_margin_fq / 100 : null;
+        const currentRatio = data.current_ratio_fq || null;
+        const evEbitda = data.enterprise_value_ebitda_ttm || null;
+        const peg = data.price_earnings_to_growth_ttm || null;
+        const revenueGrowthYoy = data.total_revenue_growth_fq_yoy != null ? data.total_revenue_growth_fq_yoy / 100 : null;
+        const earningsGrowthYoy = data.earnings_per_share_growth_fq_yoy != null ? data.earnings_per_share_growth_fq_yoy / 100 : null;
+        const operatingCashFlow = data.operating_cash_flow_fq || null;
 
-        // ── 估值指�?─────────────────────────────────────────
+        // ── 估值指标 ──────────────────────────────────────────
         const valuation = {
           pe_trailing: pe,
           pe_forward: null,
           pb: marketCap && totalAssets ? marketCap / totalAssets : null,
           ps: marketCap && revenueFq ? (marketCap / (revenueFq * 4)) : null,
-          ev_ebitda: null,
-          peg: null,
+          ev_ebitda: evEbitda != null ? Math.round(evEbitda * 100) / 100 : "N/A",
+          peg: peg != null ? Math.round(peg * 100) / 100 : "N/A",
         };
 
         // ── 盈利质量 ─────────────────────────────────────────
         const netMargin = revenueFq && netIncomeFq ? netIncomeFq / revenueFq : null;
         const profitability = {
-          gross_margin: null,
-          operating_margin: null,
+          gross_margin: grossMargin != null ? Math.round(grossMargin * 10000) / 10000 : "N/A",
+          operating_margin: operatingMargin != null ? Math.round(operatingMargin * 10000) / 10000 : "N/A",
           net_margin: netMargin,
           roe,
           roa: netIncomeFq && totalAssets ? netIncomeFq / totalAssets : null,
         };
 
-        // ── 成长�?───────────────────────────────────────────
+        // ── 成长性 ────────────────────────────────────────────
         const growth = {
-          revenue_yoy: null,
-          earnings_yoy: null,
+          revenue_yoy: revenueGrowthYoy != null ? Math.round(revenueGrowthYoy * 10000) / 10000 : "N/A",
+          earnings_yoy: earningsGrowthYoy != null ? Math.round(earningsGrowthYoy * 10000) / 10000 : "N/A",
           revenue_qoq: null,
         };
 
         // ── 财务健康 ─────────────────────────────────────────
         const debtToEquity = totalDebt && totalAssets ? totalDebt / (totalAssets - totalDebt) : null;
-        const ocfToNI = null;
+        const ocfToNI = operatingCashFlow && netIncomeFq && netIncomeFq !== 0
+          ? operatingCashFlow / netIncomeFq : null;
 
         const earningsQuality: "high" | "medium" | "low" =
-          roe != null && roe > 0.15 ? "high"
+          ocfToNI != null && ocfToNI > 1 && roe != null && roe > 0.15 ? "high"
+          : roe != null && roe > 0.15 ? "high"
           : roe != null && roe > 0.05 ? "medium"
           : "low";
 
         const quality = {
-          ocf_to_net_income: ocfToNI,
+          ocf_to_net_income: ocfToNI != null ? Math.round(ocfToNI * 100) / 100 : "N/A",
           debt_to_equity: debtToEquity ? Math.round(debtToEquity * 100) / 100 : null,
-          current_ratio: null,
+          current_ratio: currentRatio != null ? Math.round(currentRatio * 100) / 100 : "N/A",
           earnings_quality: earningsQuality,
         };
 

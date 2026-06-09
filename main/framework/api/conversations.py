@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
 
-# ���� Request/Response Models ������������������������������������������������������������������������������������
+# ---- Request/Response Models ----
 
 
 class ConversationCreate(BaseModel):
@@ -53,48 +53,54 @@ class MessageResponse(BaseModel):
 class ConversationResponse(BaseModel):
     id: str
     title: str
-    hapi_session_id: Optional[str] = None
     current_agent: str
     created_at: str
     updated_at: str
     message_count: int = 0
 
 
-# ---- HAPI Session Manager ----
+# ---- Session Manager ----
 
 
-class HAPISessionManager:
-    """Manages the mapping between conversations and HAPI sessions."""
+class ConvSessionManager:
+    """Manages the mapping between conversations and agent sessions."""
 
     def __init__(self, backend: AgentBackend):
         self._backend = backend
-        self._session_ids: dict[str, str] = {}  # conversation_id -> hapi_session_id
+        self._session_ids: dict[str, str] = {}  # conversation_id -> session_id
 
     async def get_or_create_session(
-        self, conversation_id: str, db
+        self, conversation_id: str, agent: str = "opencode", db=None
     ) -> tuple[str, AgentBackend]:
-        """Get or create HAPI session for a conversation."""
+        """Get or create a session for a conversation."""
         if conversation_id in self._session_ids:
             return self._session_ids[conversation_id], self._backend
 
-        conversation = (
-            db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        )
-        if conversation and conversation.hapi_session_id:
-            self._session_ids[conversation_id] = conversation.hapi_session_id
-            return conversation.hapi_session_id, self._backend
+        # Check DB for persisted session
+        if db is not None:
+            conversation = (
+                db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            )
+            if conversation and conversation.session_id:
+                self._session_ids[conversation_id] = conversation.session_id
+                return conversation.session_id, self._backend
 
-        session_id = await self._backend.create_session(agent="opencode")
+        # Create new session with the target agent
+        session_id = await self._backend.create_session(agent=agent)
 
-        if conversation:
-            conversation.hapi_session_id = session_id
-            db.commit()
+        if db is not None:
+            conversation = (
+                db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            )
+            if conversation:
+                conversation.session_id = session_id
+                db.commit()
 
         self._session_ids[conversation_id] = session_id
         return session_id, self._backend
 
     async def cleanup_session(self, conversation_id: str, db=None) -> Optional[str]:
-        """Delete HAPI session for a conversation."""
+        """Delete session for a conversation."""
         session_id = self._session_ids.pop(conversation_id, None)
 
         if not session_id and db is not None:
@@ -104,7 +110,7 @@ class HAPISessionManager:
                 .first()
             )
             if conversation:
-                session_id = conversation.hapi_session_id
+                session_id = conversation.session_id
 
         if not session_id:
             return None
@@ -112,7 +118,7 @@ class HAPISessionManager:
         try:
             await self._backend.cleanup_sessions([session_id])
         except Exception as e:
-            logger.warning(f"Failed to delete HAPI session {session_id}: {e}")
+            logger.warning(f"Failed to cleanup session {session_id}: {e}")
 
         return session_id
 
@@ -121,12 +127,12 @@ class HAPISessionManager:
 
 
 # Will be initialised in startup via configure_session_manager()
-session_manager: HAPISessionManager = None  # type: ignore[assignment]
+session_manager: ConvSessionManager = None  # type: ignore[assignment]
 
 
 def configure_session_manager(backend: AgentBackend) -> None:
     global session_manager
-    session_manager = HAPISessionManager(backend)
+    session_manager = ConvSessionManager(backend)
 
 
 def _save_workflow_status(
@@ -153,7 +159,7 @@ def _save_workflow_status(
     db.commit()
 
 
-# ���� Helper Functions ��������������������������������������������������������������������������������������������������
+# ---- Helper Functions ----
 
 
 async def _process_agent_message(
@@ -162,35 +168,30 @@ async def _process_agent_message(
     """Process agent message in background."""
     db = SessionLocal()
     try:
-        session_id, _ = await session_manager.get_or_create_session(
-            conversation_id, db
-        )
-
         conversation = (
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
-        if conversation and conversation.current_agent != agent:
-            await session_manager.cleanup_session(conversation_id, db=db)
-            conversation.hapi_session_id = None
-            db.commit()
 
-        session_id, _ = await session_manager.get_or_create_session(
-            conversation_id, db
-        )
+        # If agent changed, cleanup old session to create fresh one
+        if conversation and conversation.current_agent and conversation.current_agent != agent:
+            await session_manager.cleanup_session(conversation_id, db=db)
+            conversation.session_id = None
+            db.commit()
 
         if conversation:
             conversation.current_agent = agent
             db.commit()
 
-        if agent and agent != "fin-orchestrator":
-            prompt = f"@{agent} {content}"
-        else:
-            prompt = content
+        # Create session with the target agent (direct routing, no @prefix)
+        session_id, _ = await session_manager.get_or_create_session(
+            conversation_id, agent=agent, db=db
+        )
 
-        msg_count = await backend.get_message_count(session_id)
+        # Send message directly — opencode --agent handles routing
+        await backend.send_message(session_id, content)
 
-        await backend.send_message(session_id, prompt)
-        result = await backend.wait_for_completion(session_id, after_count=msg_count)
+        # Get response (send_message already waits for completion)
+        result = await backend.wait_for_completion(session_id)
 
         try:
             import json
@@ -205,7 +206,7 @@ async def _process_agent_message(
             role="assistant",
             content=response_content,
             agent=agent,
-            extra_data={"hapi_session_id": session_id, "in_reply_to": message_id},
+            extra_data={"session_id": session_id, "in_reply_to": message_id},
         )
         db.add(assistant_msg)
 
@@ -238,6 +239,44 @@ async def _execute_workflow_async(
     """Execute workflow in background and save results to conversation."""
     db = SessionLocal()
     try:
+        from main.framework.models.workflow import Workflow
+        from main.framework.models.workflow_execution import ExecutionNode
+        from main.framework.core.workflow_engine import WorkflowEngine
+
+        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+        if not workflow:
+            logger.error(f"Workflow {workflow_id} not found")
+            return
+
+        execution = (
+            db.query(WorkflowExecution)
+            .filter(WorkflowExecution.id == execution_id)
+            .first()
+        )
+        if not execution:
+            logger.error(f"Execution {execution_id} not found")
+            return
+        execution.status = "running"
+        db.commit()
+
+        # Create all ExecutionNode records
+        nodes = workflow.nodes or []
+        for node in nodes:
+            agent = node.get("agent", "")
+            if not agent:
+                data = node.get("data", {})
+                if isinstance(data, dict):
+                    agent = data.get("agentType", "") or data.get("label", "")
+            exec_node = ExecutionNode(
+                execution_id=execution_id,
+                node_id=node["id"],
+                agent=agent,
+                status="pending",
+                input=params,
+            )
+            db.add(exec_node)
+        db.commit()
+
         async def status_callback(st: str, detail: str, agent: str = ""):
             db2 = SessionLocal()
             try:
@@ -248,12 +287,13 @@ async def _execute_workflow_async(
                 db2.close()
 
         engine = container.create_workflow_engine(
-            workflow_id, params, status_callback=status_callback
+            workflow_id, params, status_callback=status_callback, execution_id=execution_id
         )
-        engine.execution_id = execution_id
         await engine.execute()
 
-        # Get execution result
+        # Expire cached objects so we read fresh data from DB (engine updated them in its own session)
+        db.expire_all()
+
         execution = (
             db.query(WorkflowExecution)
             .filter(WorkflowExecution.id == execution_id)
@@ -262,7 +302,6 @@ async def _execute_workflow_async(
         if not execution:
             return
 
-        # Collect results from all nodes
         from main.framework.models.workflow_execution import ExecutionNode
 
         nodes = (
@@ -284,7 +323,6 @@ async def _execute_workflow_async(
             else "Workflow completed with no output."
         )
 
-        # Save workflow result message
         result_msg = Message(
             id=str(uuid4()),
             conversation_id=conversation_id,
@@ -296,7 +334,6 @@ async def _execute_workflow_async(
         )
         db.add(result_msg)
 
-        # Update conversation
         conversation = (
             db.query(Conversation).filter(Conversation.id == conversation_id).first()
         )
@@ -306,7 +343,7 @@ async def _execute_workflow_async(
         db.commit()
 
     except Exception as e:
-        # Save error message
+        logger.error(f"Workflow {workflow_id} execution failed: {e}", exc_info=True)
         error_msg = Message(
             id=str(uuid4()),
             conversation_id=conversation_id,
@@ -318,39 +355,15 @@ async def _execute_workflow_async(
         db.commit()
 
     finally:
-        # Cleanup execution sessions (not the main conversation session)
-        try:
-            execution = (
-                db.query(WorkflowExecution)
-                .filter(WorkflowExecution.id == execution_id)
-                .first()
-            )
-            if execution:
-                from main.framework.models.workflow_execution import ExecutionNode
-
-                nodes = (
-                    db.query(ExecutionNode)
-                    .filter(ExecutionNode.execution_id == execution_id)
-                    .all()
-                )
-                for node in nodes:
-                    if node.hapi_session_id:
-                        try:
-                            await container.backend.abort_session(node.hapi_session_id)
-                        except Exception:
-                            pass
-        except Exception:
-            pass
-
         db.close()
 
 
-# ���� API Endpoints ��������������������������������������������������������������������������������������������������������
+# ---- API Endpoints ----
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_conversation(payload: ConversationCreate, db=Depends(get_db)):
-    """Create a new conversation with HAPI session."""
+    """Create a new conversation."""
     conversation = Conversation(
         id=str(uuid4()),
         title=payload.title,
@@ -359,13 +372,9 @@ async def create_conversation(payload: ConversationCreate, db=Depends(get_db)):
     db.commit()
     db.refresh(conversation)
 
-    # Don't create HAPI session immediately - wait until first message
-    # This avoids spawning a terminal window when just creating a conversation
-
     return ConversationResponse(
         id=conversation.id,
         title=conversation.title,
-        hapi_session_id=conversation.hapi_session_id,
         current_agent=conversation.current_agent,
         created_at=conversation.created_at.isoformat(),
         updated_at=conversation.updated_at.isoformat(),
@@ -387,7 +396,6 @@ async def list_conversations(db=Depends(get_db)):
             ConversationResponse(
                 id=conv.id,
                 title=conv.title,
-                hapi_session_id=conv.hapi_session_id,
                 current_agent=conv.current_agent,
                 created_at=conv.created_at.isoformat(),
                 updated_at=conv.updated_at.isoformat(),
@@ -414,7 +422,6 @@ async def get_conversation(conversation_id: str, db=Depends(get_db)):
     return ConversationResponse(
         id=conversation.id,
         title=conversation.title,
-        hapi_session_id=conversation.hapi_session_id,
         current_agent=conversation.current_agent,
         created_at=conversation.created_at.isoformat(),
         updated_at=conversation.updated_at.isoformat(),
@@ -446,7 +453,7 @@ async def update_conversation(
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(conversation_id: str, db=Depends(get_db)):
-    """Delete a conversation and cleanup HAPI session."""
+    """Delete a conversation and cleanup session."""
     conversation = (
         db.query(Conversation).filter(Conversation.id == conversation_id).first()
     )
@@ -454,15 +461,12 @@ async def delete_conversation(conversation_id: str, db=Depends(get_db)):
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     try:
-        # Cleanup HAPI session
         await session_manager.cleanup_session(conversation_id, db=db)
     except Exception as e:
-        logger.warning(f"Failed to cleanup HAPI session: {e}")
+        logger.warning(f"Failed to cleanup session: {e}")
 
     try:
-        # Delete related messages first
         db.query(Message).filter(Message.conversation_id == conversation_id).delete()
-        # Delete conversation
         db.delete(conversation)
         db.commit()
     except Exception as e:
@@ -541,7 +545,6 @@ async def send_message(
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        # Create execution
         execution = WorkflowExecution(
             workflow_id=payload.workflow_id,
             conversation_id=conversation_id,
@@ -551,7 +554,6 @@ async def send_message(
         db.commit()
         db.refresh(execution)
 
-        # Save workflow status message
         status_msg = Message(
             id=str(uuid4()),
             conversation_id=conversation_id,
@@ -585,7 +587,7 @@ async def send_message(
         }
 
     else:
-        # Agent mode - async processing
+        # Agent mode — direct routing via --agent flag
         agent = payload.agent or conversation.current_agent or "fin-orchestrator"
 
         background_tasks.add_task(

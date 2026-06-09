@@ -31,16 +31,9 @@ def configure(backend: AgentBackend) -> None:
 
 
 def _get_backend() -> AgentBackend:
-    """Get or lazily create the backend."""
-    global _backend
+    """Get the configured backend. Must call configure() first."""
     if _backend is None:
-        from main.framework.core.hapi_bridge import HAPIBridge
-        from main.framework.config import settings
-
-        _backend = HAPIBridge(
-            hub_url=settings.HAPI_HUB_URL,
-            api_token=settings.HAPI_API_TOKEN,
-        )
+        raise RuntimeError("Backend not configured — call configure(backend) at startup")
     return _backend
 
 
@@ -71,7 +64,7 @@ def cleanup_workflow_sessions(
 
         session_ids: list[str] = []
         for node in exec_nodes:
-            sid = str(node.hapi_session_id) if node.hapi_session_id else None
+            sid = str(node.session_id) if node.session_id else None
             if sid and sid.strip():
                 session_ids.append(sid)
 
@@ -82,7 +75,7 @@ def cleanup_workflow_sessions(
         results = _run_async(be.cleanup_sessions(session_ids))
 
         for node in exec_nodes:
-            if node.hapi_session_id:
+            if node.session_id:
                 node.status = "cleaned_up"
         db.commit()
 
@@ -122,6 +115,9 @@ def register_cleanup_hook(execution_id: str) -> None:
 
 def cleanup_on_shutdown() -> None:
     """Cleanup all active sessions on application shutdown."""
+    if _backend is None:
+        return
+
     db = SessionLocal()
     try:
         active_nodes = (
@@ -132,18 +128,17 @@ def cleanup_on_shutdown() -> None:
 
         all_session_ids: list[str] = []
         for node in active_nodes:
-            sid = str(node.hapi_session_id) if node.hapi_session_id else None
+            sid = str(node.session_id) if node.session_id else None
             if sid and sid.strip():
                 all_session_ids.append(sid)
 
         if not all_session_ids:
             return
 
-        be = _get_backend()
-        _run_async(be.cleanup_sessions(all_session_ids))
+        _run_async(_backend.cleanup_sessions(all_session_ids))
 
         for node in active_nodes:
-            if node.hapi_session_id:
+            if node.session_id:
                 node.status = "cleaned_up"
         db.commit()
 

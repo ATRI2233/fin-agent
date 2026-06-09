@@ -6,27 +6,16 @@ import {
   ToolOutlined,
   DashboardOutlined,
   CloudServerOutlined,
-  CheckCircleOutlined,
   SyncOutlined,
-  CloseCircleOutlined,
-  PercentageOutlined,
-  BarChartOutlined,
   DatabaseOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
 
 /* ═══════════════════════════════════════════════════════════════════
-   CONSTANTS & API — only real endpoints
+   CONSTANTS & API
    ═══════════════════════════════════════════════════════════════════ */
 
 const API_V1 = '/api/v1';
-
-const STATUS_COLORS: Record<string, string> = {
-  completed: '#5A9E7B',
-  running: '#6B8EC4',
-  pending: '#D4A85A',
-  failed: '#D47070',
-};
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
@@ -52,15 +41,6 @@ interface WorkflowStats {
   successRate: string;
 }
 
-interface Job {
-  id: string;
-  agent: string;
-  prompt: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  created_at: string;
-  result: unknown | null;
-}
-
 interface AgentInfo {
   name: string;
   description: string;
@@ -84,18 +64,6 @@ interface SkillInfo {
 interface ServerGroup {
   name: string;
   tools: ToolInfo[];
-}
-
-interface JobStats {
-  total: number;
-  by_status: {
-    pending: number;
-    running: number;
-    completed: number;
-    failed: number;
-  };
-  by_agent: Record<string, number>;
-  success_rate: string | null;
 }
 
 interface AgentStatItem {
@@ -129,22 +97,6 @@ interface CacheStats {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   HELPERS
-   ═══════════════════════════════════════════════════════════════════ */
-
-const timeAgo = (dateStr: string) => {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-};
-
-const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max) + '...' : s);
-
-/* ═══════════════════════════════════════════════════════════════════
    DASHBOARD COMPONENT
    ═══════════════════════════════════════════════════════════════════ */
 
@@ -153,11 +105,9 @@ export default function Dashboard() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [workflowStats, setWorkflowStats] = useState<WorkflowStats | null>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [tools, setTools] = useState<ToolInfo[]>([]);
   const [skills, setSkills] = useState<SkillInfo[]>([]);
-  const [jobStats, setJobStats] = useState<JobStats | null>(null);
   const [agentStats, setAgentStats] = useState<AgentStatItem[]>([]);
   const [logStats, setLogStats] = useState<LogStats | null>(null);
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
@@ -166,42 +116,46 @@ export default function Dashboard() {
 
   /* ─── Fetch all data once ─── */
   const fetchAll = useCallback(async () => {
-    const results = await Promise.allSettled([
-      fetch(`${API_V1}/health`).then((r) => r.json()),
-      fetch(`${API_V1}/system/status`).then((r) => r.json()),
-      fetch(`${API_V1}/workflows/stats`).then((r) => r.json()),
-      fetch(`${API_V1}/jobs`).then((r) => r.json()),
-      fetch(`${API_V1}/agents`).then((r) => r.json()),
-      fetch(`${API_V1}/tools`).then((r) => r.json()),
-      fetch(`${API_V1}/skills`).then((r) => r.json()),
-      fetch(`${API_V1}/jobs/stats`).then((r) => r.json()),
-      fetch(`${API_V1}/agents/stats`).then((r) => r.json()),
-      fetch(`${API_V1}/system/logs/stats`).then((r) => r.json()),
-      fetch(`${API_V1}/system/cache`).then((r) => r.json()),
-    ]);
+    try {
+      const fetchJson = async (url: string) => {
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        return r.json();
+      };
 
-    if (results[0].status === 'fulfilled') setHealth(results[0].value);
-    if (results[1].status === 'fulfilled') setSystemStatus(results[1].value);
-    if (results[2].status === 'fulfilled') setWorkflowStats(results[2].value);
-    if (results[3].status === 'fulfilled') setJobs(results[3].value);
-    if (results[4].status === 'fulfilled') setAgents(results[4].value);
-    if (results[5].status === 'fulfilled') setTools(results[5].value);
-    if (results[6].status === 'fulfilled') setSkills(results[6].value);
-    if (results[7].status === 'fulfilled') setJobStats(results[7].value);
-    if (results[8].status === 'fulfilled') setAgentStats(results[8].value);
-    if (results[9].status === 'fulfilled') setLogStats(results[9].value);
-    if (results[10].status === 'fulfilled') setCacheStats(results[10].value);
-    setLoading(false);
+      const results = await Promise.allSettled([
+        fetchJson(`${API_V1}/health`),           // 0
+        fetchJson(`${API_V1}/system/status`),     // 1
+        fetchJson(`${API_V1}/workflows/stats`),   // 2
+        fetchJson(`${API_V1}/agents`),            // 3
+        fetchJson(`${API_V1}/tools`),             // 4
+        fetchJson(`${API_V1}/skills`),            // 5
+        fetchJson(`${API_V1}/agents/stats`),      // 6
+        fetchJson(`${API_V1}/system/logs/stats`), // 7
+        fetchJson(`${API_V1}/system/cache`),      // 8
+      ]);
+
+      const val = (r: PromiseSettledResult<unknown>) =>
+        r.status === 'fulfilled' && r.value != null ? r.value : undefined;
+
+      const v = results.map(val);
+      if (v[0]) setHealth(v[0] as HealthStatus);
+      if (v[1]) setSystemStatus(v[1] as SystemStatus);
+      if (v[2]) setWorkflowStats(v[2] as WorkflowStats);
+      if (Array.isArray(v[3])) setAgents(v[3] as AgentInfo[]);
+      if (Array.isArray(v[4])) setTools(v[4] as ToolInfo[]);
+      if (Array.isArray(v[5])) setSkills(v[5] as SkillInfo[]);
+      if (Array.isArray(v[6])) setAgentStats(v[6] as AgentStatItem[]);
+      if (v[7]) setLogStats(v[7] as LogStats);
+      if (v[8]) setCacheStats(v[8] as CacheStats);
+    } catch (err) {
+      console.error('[Dashboard] fetchAll failed:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   /* ─── Polling helpers ─── */
-  const fetchJobs = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_V1}/jobs`);
-      if (res.ok) setJobs(await res.json());
-    } catch { /* keep last good data */ }
-  }, []);
-
   const fetchSystemStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API_V1}/system/status`);
@@ -213,13 +167,6 @@ export default function Dashboard() {
     try {
       const res = await fetch(`${API_V1}/workflows/stats`);
       if (res.ok) setWorkflowStats(await res.json());
-    } catch { /* keep last good data */ }
-  }, []);
-
-  const fetchJobStats = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_V1}/jobs/stats`);
-      if (res.ok) setJobStats(await res.json());
     } catch { /* keep last good data */ }
   }, []);
 
@@ -247,33 +194,21 @@ export default function Dashboard() {
   /* ─── Init + polling ─── */
   useEffect(() => {
     fetchAll();
-    const jobsInterval = setInterval(fetchJobs, 5000);
     const statusInterval = setInterval(fetchSystemStatus, 10000);
     const workflowsInterval = setInterval(fetchWorkflowStats, 10000);
-    const jobStatsInterval = setInterval(fetchJobStats, 10000);
     const cacheStatsInterval = setInterval(fetchCacheStats, 10000);
     const agentStatsInterval = setInterval(fetchAgentStats, 30000);
     const logStatsInterval = setInterval(fetchLogStats, 30000);
     return () => {
-      clearInterval(jobsInterval);
       clearInterval(statusInterval);
       clearInterval(workflowsInterval);
-      clearInterval(jobStatsInterval);
       clearInterval(cacheStatsInterval);
       clearInterval(agentStatsInterval);
       clearInterval(logStatsInterval);
     };
-  }, [fetchAll, fetchJobs, fetchSystemStatus, fetchWorkflowStats, fetchJobStats, fetchCacheStats, fetchAgentStats, fetchLogStats]);
+  }, [fetchAll, fetchSystemStatus, fetchWorkflowStats, fetchCacheStats, fetchAgentStats, fetchLogStats]);
 
   /* ─── Derived data ─── */
-  const recentJobs = useMemo(
-    () =>
-      [...jobs]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 20),
-    [jobs],
-  );
-
   const serverGroups = useMemo(() => {
     const map: Record<string, ServerGroup> = {};
     for (const tool of tools) {
@@ -384,229 +319,9 @@ export default function Dashboard() {
       </Row>
 
       {/* ═══════════════════════════════════════════════════════════
-          MIDDLE ROW — Job Statistics + Recent Activity
+          MIDDLE ROW — Agent Performance + MCP Servers
           ═══════════════════════════════════════════════════════════ */}
       <Row gutter={[20, 20]} style={{ marginBottom: 28 }}>
-        {/* Job Statistics */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-primary)' }}>
-                <BarChartOutlined style={{ marginRight: 10, color: 'var(--accent)', opacity: 0.65 }} />
-                Job Statistics
-              </span>
-            }
-            className="card-spacious fade-in fade-in-2"
-          >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 24,
-              }}
-            >
-              {/* Total */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--accent-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <BarChartOutlined style={{ color: 'var(--accent)', fontSize: 18 }} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-2xl)',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-display)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {jobStats?.total ?? 0}
-                  </div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Total
-                  </div>
-                </div>
-              </div>
-
-              {/* Completed */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--accent-muted-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <CheckCircleOutlined style={{ color: 'var(--accent-muted)', fontSize: 18 }} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-2xl)',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-display)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {jobStats?.by_status?.completed ?? 0}
-                  </div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Completed
-                  </div>
-                </div>
-              </div>
-
-              {/* Failed */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--accent-danger-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <CloseCircleOutlined style={{ color: 'var(--accent-danger)', fontSize: 18 }} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-2xl)',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-display)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {jobStats?.by_status?.failed ?? 0}
-                  </div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Failed
-                  </div>
-                </div>
-              </div>
-
-              {/* Success Rate */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--accent-warm-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <PercentageOutlined style={{ color: 'var(--accent-warm)', fontSize: 18 }} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-2xl)',
-                      fontWeight: 700,
-                      color: 'var(--text-primary)',
-                      fontFamily: 'var(--font-display)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {jobStats?.success_rate ?? '--'}
-                  </div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Success Rate
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Per-agent breakdown */}
-            {jobStats?.by_agent && Object.keys(jobStats.by_agent).length > 0 && (
-              <div
-                style={{
-                  marginTop: 20,
-                  paddingTop: 16,
-                  borderTop: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  gap: 16,
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-tertiary)',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                }}
-              >
-                <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: 'var(--text-xs)' }}>
-                  By Agent:
-                </span>
-                {Object.entries(jobStats.by_agent).map(([agent, count]) => (
-                  <span key={agent}>
-                    <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{agent}</span>
-                    <span style={{ color: 'var(--text-tertiary)', margin: '0 4px' }}>({count})</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </Card>
-        </Col>
-
-        {/* Recent Activity */}
-        <Col xs={24} lg={12}>
-          <Card
-            title={
-              <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-primary)' }}>
-                <DashboardOutlined style={{ marginRight: 10, color: 'var(--accent-warm)', opacity: 0.65 }} />
-                Recent Activity
-              </span>
-            }
-            className="card-spacious fade-in fade-in-3"
-          >
-            {recentJobs.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-tertiary)', fontSize: 15 }}>
-                暂无任务记录
-              </div>
-            ) : (
-              <div className="scroll-container">
-                {recentJobs.map((job) => (
-                  <div key={job.id} className="activity-feed-item">
-                    <span
-                      className="activity-feed-dot"
-                      style={{ background: STATUS_COLORS[job.status] || 'var(--text-tertiary)' }}
-                    />
-                    <div className="activity-feed-body">
-                      <div className="activity-feed-agent">{job.agent}</div>
-                      <div className="activity-feed-action">{truncate(job.prompt, 50)}</div>
-                    </div>
-                    <div className="activity-feed-time">{timeAgo(job.created_at)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
-
-      {/* ═══════════════════════════════════════════════════════════
-          BOTTOM ROW — Agent Performance + MCP Servers
-          ═══════════════════════════════════════════════════════════ */}
-      <Row gutter={[20, 20]}>
         {/* Agent Performance */}
         <Col xs={24} lg={12}>
           <Card
@@ -616,7 +331,7 @@ export default function Dashboard() {
                 Agent Performance
               </span>
             }
-            className="card-spacious fade-in fade-in-3"
+            className="card-spacious fade-in fade-in-2"
           >
             {agents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-tertiary)', fontSize: 15 }}>
@@ -655,7 +370,6 @@ export default function Dashboard() {
                             marginLeft: 16,
                           }}
                         >
-                          {/* Performance stats (from agents/stats API) */}
                           {stats && (
                             <div
                               style={{
@@ -689,7 +403,6 @@ export default function Dashboard() {
                             </div>
                           )}
 
-                          {/* Capability tags */}
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             {agent.capabilities.map((cap) => (
                               <span
@@ -708,7 +421,6 @@ export default function Dashboard() {
                             ))}
                           </div>
 
-                          {/* Tools count */}
                           <div
                             style={{
                               display: 'flex',
@@ -725,7 +437,6 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Expanded tools list */}
                       {isExpanded && (
                         <div
                           style={{
@@ -785,7 +496,7 @@ export default function Dashboard() {
                 MCP Servers
               </span>
             }
-            className="card-spacious fade-in fade-in-4"
+            className="card-spacious fade-in fade-in-3"
           >
             {serverGroups.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-tertiary)', fontSize: 15 }}>
@@ -849,7 +560,7 @@ export default function Dashboard() {
       {/* ═══════════════════════════════════════════════════════════
           SYSTEM RESOURCES ROW — Cache / Concurrency / Logs
           ═══════════════════════════════════════════════════════════ */}
-      <Row gutter={[20, 20]} style={{ marginTop: 0 }}>
+      <Row gutter={[20, 20]}>
         <Col xs={24}>
           <Card
             title={
@@ -858,7 +569,7 @@ export default function Dashboard() {
                 System Resources
               </span>
             }
-            className="card-spacious fade-in fade-in-5"
+            className="card-spacious fade-in fade-in-4"
           >
             <div
               style={{

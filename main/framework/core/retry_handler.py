@@ -172,7 +172,7 @@ class WorkflowRetryHandler:
                 exec_node.status = "completed"
                 exec_node.output = {"result": result}
                 exec_node.completed_at = datetime.utcnow()
-                exec_node.hapi_session_id = session_id
+                exec_node.session_id = session_id
                 exec_node.retry_count = retry_count
                 db.commit()
 

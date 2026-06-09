@@ -3,6 +3,7 @@
 
 import json, sys, os, re, subprocess
 import logging
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -521,7 +522,7 @@ def get_fundamental_scan(symbol):
                 logger.debug("safe_float parsing error: %s", e, exc_info=True)
                 return None
 
-        return {
+        base_result = {
             "symbol": symbol,
             "name": parts[1] if len(parts) > 1 else "",
             "pe_ttm": safe_float(parts[52]) if len(parts) > 52 else None,
@@ -529,6 +530,178 @@ def get_fundamental_scan(symbol):
             "roe": safe_float(parts[49]) if len(parts) > 49 else None,
             "market_cap_total": safe_float(parts[44]) if len(parts) > 44 else None,
         }
+
+        # ── 使用 AKShare 补充财务数据 ──
+        extra = {}
+        if HAS_DEPS:
+            try:
+                # 个股信息（含 EPS、每股净资产、总市值、流通市值等）
+                df_info = ak.stock_individual_info_em(symbol=code)
+                if df_info is not None and not df_info.empty:
+                    info_dict = {}
+                    for _, row in df_info.iterrows():
+                        key = str(row.iloc[0]).strip() if len(row) > 0 else ""
+                        val = row.iloc[1] if len(row) > 1 else None
+                        info_dict[key] = val
+
+                    def safe_info_float(d, *keys):
+                        for k in keys:
+                            if k in d and d[k] is not None:
+                                try:
+                                    return float(d[k])
+                                except (ValueError, TypeError):
+                                    continue
+                        return None
+
+                    extra["eps"] = safe_info_float(
+                        info_dict, "每股收益", "每股收益(元)"
+                    )
+                    extra["bvps"] = safe_info_float(
+                        info_dict, "每股净资产", "每股净资产(元)"
+                    )
+                    extra["total_shares"] = safe_info_float(
+                        info_dict, "总股本", "总股本(股)"
+                    )
+                    extra["float_shares"] = safe_info_float(
+                        info_dict, "流通股", "流通股(股)"
+                    )
+            except Exception as e:
+                logger.debug("stock_individual_info_em failed: %s", e)
+
+            try:
+                # 财务摘要（含营收、净利润、毛利率等）
+                df_fin = ak.stock_financial_abstract_ths(
+                    symbol=code, indicator="按年度"
+                )
+                if df_fin is not None and not df_fin.empty:
+                    latest = df_fin.iloc[0]
+                    cols = df_fin.columns.tolist()
+
+                    def find_col(*names):
+                        for n in names:
+                            for c in cols:
+                                if n in c:
+                                    return c
+                        return None
+
+                    rev_col = find_col("营业总收入", "营业收入")
+                    ni_col = find_col("净利润", "归母净利润")
+                    gm_col = find_col("毛利率", "销售毛利率")
+                    om_col = find_col("营业利润率", "营业利润")
+                    debt_col = find_col("资产负债率")
+                    cur_col = find_col("流动比率")
+                    eps_col = find_col("基本每股收益", "每股收益")
+
+                    def safe_series_float(col_name):
+                        if col_name and col_name in cols:
+                            val = latest.get(col_name)
+                            if val is not None:
+                                try:
+                                    return float(val)
+                                except (ValueError, TypeError):
+                                    pass
+                        return None
+
+                    rev = safe_series_float(rev_col)
+                    ni = safe_series_float(ni_col)
+                    gm = safe_series_float(gm_col)
+                    om = safe_series_float(om_col)
+                    dr = safe_series_float(debt_col)
+                    cr = safe_series_float(cur_col)
+                    eps_from_fin = safe_series_float(eps_col)
+
+                    if rev is not None:
+                        extra["revenue"] = rev
+                    if ni is not None:
+                        extra["net_income"] = ni
+                    if gm is not None:
+                        extra["gross_margin_pct"] = gm
+                    if om is not None:
+                        extra["operating_margin_pct"] = om
+                    if dr is not None:
+                        extra["debt_ratio_pct"] = dr
+                    if cr is not None:
+                        extra["current_ratio"] = cr
+                    if eps_from_fin is not None and "eps" not in extra:
+                        extra["eps"] = eps_from_fin
+
+                    # YoY growth
+                    if len(df_fin) >= 2:
+                        prev = df_fin.iloc[1]
+                        if rev_col and rev is not None:
+                            try:
+                                prev_rev = float(prev.get(rev_col, 0))
+                                if prev_rev and prev_rev != 0:
+                                    extra["revenue_yoy_pct"] = round(
+                                        (rev - prev_rev) / abs(prev_rev) * 100, 2
+                                    )
+                            except (ValueError, TypeError):
+                                pass
+                        if ni_col and ni is not None:
+                            try:
+                                prev_ni = float(prev.get(ni_col, 0))
+                                if prev_ni and prev_ni != 0:
+                                    extra["net_income_yoy_pct"] = round(
+                                        (ni - prev_ni) / abs(prev_ni) * 100, 2
+                                    )
+                            except (ValueError, TypeError):
+                                pass
+            except Exception as e:
+                logger.debug("stock_financial_abstract_ths failed: %s", e)
+
+            try:
+                # 股息率
+                df_div = ak.stock_fhps_em(symbol=code)
+                if df_div is not None and not df_div.empty:
+                    for _, row in df_div.head(3).iterrows():
+                        div_cols = df_div.columns.tolist()
+                        div_col = None
+                        for c in div_cols:
+                            if "股息" in c or "每股派" in c:
+                                div_col = c
+                                break
+                        if div_col:
+                            div_val = row.get(div_col)
+                            if div_val is not None:
+                                try:
+                                    dv = float(div_val)
+                                    if dv > 0:
+                                        extra["dividend_per_share"] = dv
+                                        # 计算股息率
+                                        cur_price = (
+                                            safe_float(parts[3])
+                                            if len(parts) > 3
+                                            else None
+                                        )
+                                        if cur_price and cur_price > 0:
+                                            extra["dividend_yield_pct"] = round(
+                                                dv / cur_price * 100, 2
+                                            )
+                                        break
+                                except (ValueError, TypeError):
+                                    continue
+            except Exception as e:
+                logger.debug("stock_fhps_em failed: %s", e)
+
+        # 标记未能获取的字段为 N/A
+        for field in [
+            "revenue",
+            "net_income",
+            "eps",
+            "dividend_yield_pct",
+            "debt_ratio_pct",
+            "current_ratio",
+            "gross_margin_pct",
+            "operating_margin_pct",
+            "revenue_yoy_pct",
+            "net_income_yoy_pct",
+        ]:
+            if field not in extra:
+                extra[field] = "N/A"
+
+        base_result.update(extra)
+        return base_result
+
     except Exception as e:
         return {"error": f"基本面获取失败: {str(e)}"}
 
@@ -538,96 +711,161 @@ def get_fundamental_scan(symbol):
 # ═══════════════════════════════════════════════════
 
 
+def _calc_sentiment_score(text):
+    """基于关键词匹配计算情绪评分 (0-100)，50 为中性"""
+    pos_keywords = [
+        "涨",
+        "增长",
+        "突破",
+        "利好",
+        "盈利",
+        "超预期",
+        "买入",
+        "增持",
+        "提升",
+        "分红",
+        "送股",
+        "大涨",
+        "涨停",
+        "创新高",
+        "强势",
+        "回暖",
+        "复苏",
+        "翻倍",
+    ]
+    neg_keywords = [
+        "跌",
+        "下降",
+        "风险",
+        "利空",
+        "亏损",
+        "不及预期",
+        "减持",
+        "下调",
+        "警告",
+        "处罚",
+        "大跌",
+        "跌停",
+        "爆雷",
+        "退市",
+        "违规",
+        "暴跌",
+        "崩盘",
+        "清仓",
+    ]
+    pos_count = sum(1 for kw in pos_keywords if kw in text)
+    neg_count = sum(1 for kw in neg_keywords if kw in text)
+    total = pos_count + neg_count
+    if total == 0:
+        return 50
+    return min(100, max(0, 50 + (pos_count - neg_count) * 10))
+
+
 def get_news_sentiment(symbol):
-    """获取个股公告/新闻及情绪评分"""
+    """获取个股新闻及情绪评分（含市场整体情绪加权）"""
     if not is_ashare(symbol):
         return {"error": f"{symbol} 不是 A 股代码"}
 
     try:
         stock_code = symbol[:6]
-        market = (
-            "SHA"
-            if symbol.startswith("6")
-            else ("SZ" if symbol.startswith(("0", "3")) else "SH")
-        )
 
-        url = (
-            f"https://np-anotice-stock.eastmoney.com/api/security/ann"
-            f"?sr=-1&page_size=10&page_index=1"
-            f"&ann_type={market}"
-            f"&stock_list={stock_code}"
-        )
-        text = _http_get(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://data.eastmoney.com/",
-            },
-            encoding="utf-8",
-        )
-        if not text:
-            return {"error": "无法获取新闻（网络问题）"}
-
-        import json
-
-        data = json.loads(text)
-        if data.get("data", {}).get("list") is None:
-            return {"error": "新闻接口返回错误"}
+        # ── 个股新闻: ak.stock_news_em ──
+        try:
+            df_news = ak.stock_news_em(symbol=stock_code)
+        except Exception:
+            df_news = pd.DataFrame()
 
         news_list = []
-        for item in data["data"]["list"][:10]:
-            news_list.append(
-                {
-                    "title": item.get("title_ch", ""),
-                    "datetime": item.get("notice_date", "")[:19]
-                    if item.get("notice_date")
-                    else None,
-                }
+        if not df_news.empty:
+            cols = df_news.columns.tolist()
+            title_col = (
+                "新闻标题"
+                if "新闻标题" in cols
+                else cols[1]
+                if len(cols) > 1
+                else cols[0]
+            )
+            time_col = (
+                "发布时间" if "发布时间" in cols else cols[2] if len(cols) > 2 else None
+            )
+            source_col = (
+                "文章来源" if "文章来源" in cols else cols[3] if len(cols) > 3 else None
+            )
+            content_col = (
+                "新闻内容" if "新闻内容" in cols else cols[4] if len(cols) > 4 else None
             )
 
-        sentiment_score = 50
-        if news_list:
-            pos_keywords = [
-                "涨",
-                "增长",
-                "突破",
-                "利好",
-                "盈利",
-                "超预期",
-                "买入",
-                "增持",
-                "提升",
-                "分红",
-                "送股",
-            ]
-            neg_keywords = [
-                "跌",
-                "下降",
-                "风险",
-                "利空",
-                "亏损",
-                "不及预期",
-                "减持",
-                "下调",
-                "警告",
-                "处罚",
-            ]
-            title_text = " ".join([n["title"] for n in news_list])
-            pos_count = sum(1 for kw in pos_keywords if kw in title_text)
-            neg_count = sum(1 for kw in neg_keywords if kw in title_text)
-            total = pos_count + neg_count
-            if total > 0:
-                sentiment_score = min(100, max(0, 50 + (pos_count - neg_count) * 10))
+            for _, row in df_news.head(20).iterrows():
+                item = {
+                    "title": str(row.get(title_col, "")),
+                    "datetime": str(row[time_col])[:19]
+                    if time_col and pd.notna(row.get(time_col))
+                    else None,
+                    "source": str(row[source_col])
+                    if source_col and pd.notna(row.get(source_col))
+                    else None,
+                }
+                if content_col and pd.notna(row.get(content_col)):
+                    item["summary"] = str(row[content_col])[:200]
+                news_list.append(item)
+
+        # ── 个股情绪 ──
+        stock_title_text = " ".join([n["title"] for n in news_list])
+        stock_sentiment = _calc_sentiment_score(stock_title_text)
+
+        # ── 市场全局新闻: ak.stock_info_global_em ──
+        market_sentiment = 50
+        market_news_count = 0
+        try:
+            df_global = ak.stock_info_global_em()
+            if not df_global.empty:
+                gcols = df_global.columns.tolist()
+                g_title_col = (
+                    "标题"
+                    if "标题" in gcols
+                    else gcols[1]
+                    if len(gcols) > 1
+                    else gcols[0]
+                )
+                g_summary_col = (
+                    "摘要" if "摘要" in gcols else gcols[2] if len(gcols) > 2 else None
+                )
+                g_time_col = (
+                    "发布时间"
+                    if "发布时间" in gcols
+                    else gcols[3]
+                    if len(gcols) > 3
+                    else None
+                )
+
+                market_headlines = []
+                for _, row in df_global.head(30).iterrows():
+                    headline = str(row.get(g_title_col, ""))
+                    if g_summary_col and pd.notna(row.get(g_summary_col)):
+                        headline += " " + str(row[g_summary_col])[:100]
+                    market_headlines.append(headline)
+
+                market_news_count = len(market_headlines)
+                market_text = " ".join(market_headlines)
+                market_sentiment = _calc_sentiment_score(market_text)
+        except Exception as e:
+            logger.debug(f"市场全局新闻获取失败: {e}")
+
+        # ── 加权情绪 ──
+        final_sentiment = round(0.7 * stock_sentiment + 0.3 * market_sentiment, 1)
 
         return {
             "symbol": symbol,
             "news_count": len(news_list),
             "news": news_list,
-            "sentiment_score": sentiment_score,
+            "stock_sentiment": stock_sentiment,
+            "market_sentiment": market_sentiment,
+            "market_news_count": market_news_count,
+            "sentiment_score": final_sentiment,
             "sentiment_label": "正面"
-            if sentiment_score > 60
+            if final_sentiment > 60
             else "负面"
-            if sentiment_score < 40
+            if final_sentiment < 40
             else "中性",
         }
     except Exception as e:
@@ -701,10 +939,9 @@ def get_market_snapshot():
 
 
 def get_fund_flow(symbol):
-    """获取个股资金流向（超大单/大单/中单/小单）
+    """获取个股资金流向（超大单/大单/中单/小单净流入）
 
-    数据来源：腾讯证券 qt.gtimg.cn
-    注意：资金流向数据在部分网络环境下可能不可用。
+    数据来源：东方财富（push2his.eastmoney.com）
     """
     if not is_ashare(symbol):
         return {"error": f"{symbol} 不是 A 股代码"}
@@ -714,36 +951,72 @@ def get_fund_flow(symbol):
         if not market:
             return {"error": f"无法识别的代码: {symbol}"}
 
-        url = f"https://qt.gtimg.cn/q={market}{code}"
+        market_map = {"sh": 1, "sz": 0, "bj": 0}
+        market_id = market_map.get(market)
+        if market_id is None:
+            return {"error": f"不支持的市场: {market}"}
+
+        import time
+
+        url = (
+            f"https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"
+            f"?lmt=0&klt=101&secid={market_id}.{code}"
+            f"&fields1=f1,f2,f3,f7"
+            f"&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65"
+            f"&ut=b2884a393a59ad64002292a3e90d46a5&_={int(time.time() * 1000)}"
+        )
         text = _http_get(
             url,
             headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer": "https://finance.qq.com/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer": "https://data.eastmoney.com/",
             },
-            encoding="gbk",
+            encoding="utf-8",
         )
         if not text:
             return {"error": "无法获取资金流向数据（网络问题）"}
 
-        parts = text.split("~")
-        if len(parts) < 50:
-            return {"error": f"数据字段不足: {len(parts)}"}
+        data = json.loads(text)
+        klines = data.get("data", {}).get("klines", [])
+        if not klines:
+            return {"error": "资金流向数据为空"}
 
-        def safe_float(v, default=0):
-            try:
-                return float(v) if v and v.strip() and v != "-" else default
-            except Exception as e:
-                logger.debug("safe_float parsing error in get_fund_flow: %s", e, exc_info=True)
-                return default
+        columns = [
+            "日期",
+            "主力净流入-净额",
+            "小单净流入-净额",
+            "中单净流入-净额",
+            "大单净流入-净额",
+            "超大单净流入-净额",
+            "主力净流入-净占比",
+            "小单净流入-净占比",
+            "中单净流入-净占比",
+            "大单净流入-净占比",
+            "超大单净流入-净占比",
+            "收盘价",
+            "涨跌幅",
+        ]
+
+        records = []
+        for line in klines[-10:]:
+            fields = line.split(",")
+            record = {}
+            for i, col in enumerate(columns):
+                if i < len(fields):
+                    val = fields[i]
+                    try:
+                        record[col] = round(float(val), 2)
+                    except (ValueError, TypeError):
+                        record[col] = val
+                else:
+                    record[col] = None
+            records.append(record)
 
         return {
             "symbol": symbol,
-            "note": "腾讯证券数据，该接口暂不包含详细资金流向字段",
-            "price": safe_float(parts[3]) if len(parts) > 3 else None,
-            "close": safe_float(parts[4]) if len(parts) > 4 else None,
-            "volume": safe_float(parts[36]) if len(parts) > 36 else None,
-            "turnover_rate": safe_float(parts[38]) if len(parts) > 38 else None,
+            "records": records,
+            "count": len(records),
+            "source": "eastmoney",
         }
     except Exception as e:
         return {"error": f"资金流向获取失败: {str(e)}"}
@@ -763,7 +1036,9 @@ def get_lhb(date=None):
         if date:
             df = ak.stock_lhb_detail_em(start_date=date, end_date=date)
         else:
-            df = ak.stock_lhb_detail_em(start_date="20250101", end_date="20250125")
+            end_date = datetime.now().strftime("%Y%m%d")
+            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+            df = ak.stock_lhb_detail_em(start_date=start_date, end_date=end_date)
 
         if df is None or df.empty:
             return {"error": "无法获取龙虎榜数据"}
@@ -792,6 +1067,350 @@ def get_lhb(date=None):
         return {"records": records, "count": len(records)}
     except Exception as e:
         return {"error": f"龙虎榜获取失败: {str(e)}"}
+
+
+# ═══════════════════════════════════════════════════
+# Tool 8: ashare_sector_rotation — 板块轮动分析
+# ═══════════════════════════════════════════════════
+
+
+def get_sector_rotation(period="近5日"):
+    """获取 A 股板块轮动分析（行业板块涨跌幅排名 + 轮动信号）
+
+    Args:
+        period: 分析周期，可选 "近1日"/"近5日"/"近10日"/"近20日"
+    """
+    if not HAS_DEPS:
+        return {"error": "akshare 未安装"}
+
+    try:
+        # 获取行业板块列表
+        df_industries = ak.stock_board_industry_name_em()
+        if df_industries is None or df_industries.empty:
+            return {"error": "无法获取行业板块列表"}
+
+        cols = df_industries.columns.tolist()
+        name_col = None
+        for c in cols:
+            if "板块名称" in c or "名称" in c:
+                name_col = c
+                break
+        if not name_col:
+            name_col = cols[0]
+
+        # 收集各板块近期涨跌幅
+        sector_data = []
+        for _, row in df_industries.head(30).iterrows():
+            sector_name = str(row[name_col])
+            try:
+                df_hist = ak.stock_board_industry_hist_em(
+                    symbol=sector_name,
+                    period="日k",
+                    start_date="20200101",
+                    end_date="20991231",
+                )
+                if df_hist is None or df_hist.empty:
+                    continue
+
+                hcols = df_hist.columns.tolist()
+                pct_col = None
+                for c in hcols:
+                    if "涨跌幅" in c or "涨幅" in c:
+                        pct_col = c
+                        break
+                if not pct_col:
+                    continue
+
+                # 计算不同周期涨跌幅
+                pcts = df_hist[pct_col].dropna()
+                if len(pcts) < 1:
+                    continue
+
+                pct_1d = float(pcts.iloc[-1])
+                pct_5d = float(pcts.tail(5).sum()) if len(pcts) >= 5 else pct_1d
+                pct_10d = float(pcts.tail(10).sum()) if len(pcts) >= 10 else pct_5d
+                pct_20d = float(pcts.tail(20).sum()) if len(pcts) >= 20 else pct_10d
+
+                # 动量信号：近期加速 vs 减速
+                recent_5 = float(pcts.tail(5).sum()) if len(pcts) >= 5 else 0
+                prev_5 = float(pcts.iloc[-10:-5].sum()) if len(pcts) >= 10 else 0
+                momentum = recent_5 - prev_5
+
+                sector_data.append(
+                    {
+                        "name": sector_name,
+                        "pct_1d": round(pct_1d, 2),
+                        "pct_5d": round(pct_5d, 2),
+                        "pct_10d": round(pct_10d, 2),
+                        "pct_20d": round(pct_20d, 2),
+                        "momentum": round(momentum, 2),
+                    }
+                )
+            except Exception:
+                continue
+
+        if not sector_data:
+            return {"error": "无法获取板块数据"}
+
+        # 按指定周期排序
+        period_key = {
+            "近1日": "pct_1d",
+            "近5日": "pct_5d",
+            "近10日": "pct_10d",
+            "近20日": "pct_20d",
+        }.get(period, "pct_5d")
+
+        sector_data.sort(key=lambda x: x[period_key], reverse=True)
+
+        top_sectors = sector_data[:5]
+        bottom_sectors = sector_data[-5:]
+
+        # 轮动信号：按动量排序
+        sector_data.sort(key=lambda x: x["momentum"], reverse=True)
+        gaining_momentum = [s for s in sector_data[:5]]
+        losing_momentum = [s for s in sector_data[-5:]]
+
+        return {
+            "period": period,
+            "top_sectors": top_sectors,
+            "bottom_sectors": bottom_sectors,
+            "rotation_signal": {
+                "gaining_momentum": gaining_momentum,
+                "losing_momentum": losing_momentum,
+            },
+            "total_sectors_analyzed": len(sector_data),
+        }
+    except Exception as e:
+        return {"error": f"板块轮动分析失败: {str(e)}"}
+
+
+# ═══════════════════════════════════════════════════
+# Tool 9: ashare_fund_flow_real — 实时资金流向
+# ═══════════════════════════════════════════════════
+
+
+def get_fund_flow_real(symbol):
+    """获取个股实时资金流向（主力/超大单/大单/中单/小单 净流入与净占比）
+
+    数据来源：AKShare stock_individual_fund_flow
+    """
+    if not is_ashare(symbol):
+        return {"error": f"{symbol} 不是 A 股代码"}
+
+    try:
+        market, code = parse_ashare_code(symbol)
+        if not market:
+            return {"error": f"无法识别的代码: {symbol}"}
+
+        df = ak.stock_individual_fund_flow(stock=code, market=market)
+        if df is None or df.empty:
+            return {"error": f"无法获取 {symbol} 资金流向数据"}
+
+        cols = df.columns.tolist()
+
+        def find_col(*names):
+            for n in names:
+                for c in cols:
+                    if n in c:
+                        return c
+            return None
+
+        date_col = find_col("日期", "时间")
+        main_net_col = find_col("主力净流入-净额", "主力净流入")
+        main_pct_col = find_col("主力净流入-净占比", "主力净占比")
+        large_net_col = find_col("超大单净流入-净额", "超大单净流入")
+        large_pct_col = find_col("超大单净流入-净占比", "超大单净占比")
+        big_net_col = find_col("大单净流入-净额", "大单净流入")
+        big_pct_col = find_col("大单净流入-净占比", "大单净占比")
+        mid_net_col = find_col("中单净流入-净额", "中单净流入")
+        mid_pct_col = find_col("中单净流入-净占比", "中单净占比")
+        small_net_col = find_col("小单净流入-净额", "小单净流入")
+        small_pct_col = find_col("小单净流入-净占比", "小单净占比")
+        close_col = find_col("收盘价")
+        change_col = find_col("涨跌幅")
+
+        def safe_float(val):
+            try:
+                return (
+                    round(float(val), 2) if val is not None and pd.notna(val) else None
+                )
+            except (ValueError, TypeError):
+                return None
+
+        records = []
+        for _, row in df.tail(10).iterrows():
+            record = {
+                "date": str(row[date_col])[:10]
+                if date_col and pd.notna(row.get(date_col))
+                else None,
+                "close": safe_float(row.get(close_col)) if close_col else None,
+                "change_pct": safe_float(row.get(change_col)) if change_col else None,
+                "主力净流入": safe_float(row.get(main_net_col))
+                if main_net_col
+                else None,
+                "主力净占比": safe_float(row.get(main_pct_col))
+                if main_pct_col
+                else None,
+                "超大单净流入": safe_float(row.get(large_net_col))
+                if large_net_col
+                else None,
+                "超大单净占比": safe_float(row.get(large_pct_col))
+                if large_pct_col
+                else None,
+                "大单净流入": safe_float(row.get(big_net_col)) if big_net_col else None,
+                "大单净占比": safe_float(row.get(big_pct_col)) if big_pct_col else None,
+                "中单净流入": safe_float(row.get(mid_net_col)) if mid_net_col else None,
+                "中单净占比": safe_float(row.get(mid_pct_col)) if mid_pct_col else None,
+                "小单净流入": safe_float(row.get(small_net_col))
+                if small_net_col
+                else None,
+                "小单净占比": safe_float(row.get(small_pct_col))
+                if small_pct_col
+                else None,
+            }
+            records.append(record)
+
+        return {
+            "symbol": symbol,
+            "records": records,
+            "count": len(records),
+            "source": "akshare",
+        }
+    except Exception as e:
+        return {"error": f"资金流向获取失败: {str(e)}"}
+
+
+# ═══════════════════════════════════════════════════
+# Tool 10: ashare_market_breadth — 市场广度
+# ═══════════════════════════════════════════════════
+
+
+def get_market_breadth():
+    """获取 A 股市场广度：涨跌家数、涨停跌停、市场情绪
+
+    使用 AKShare:
+    - stock_market_activity_legu: 涨跌家数
+    - stock_zt_pool_em: 涨停池
+    - stock_dt_pool_em: 跌停池
+    """
+    if not HAS_DEPS:
+        return {"error": "akshare 未安装"}
+
+    try:
+        today = datetime.now().strftime("%Y%m%d")
+
+        # 涨跌家数
+        advance_count = 0
+        decline_count = 0
+        flat_count = 0
+        try:
+            df_activity = ak.stock_market_activity_legu()
+            if df_activity is not None and not df_activity.empty:
+                acols = df_activity.columns.tolist()
+                for c in acols:
+                    if "上涨" in c and "家" in c:
+                        vals = df_activity[c].dropna()
+                        if len(vals) > 0:
+                            advance_count = int(float(vals.iloc[-1]))
+                    elif "下跌" in c and "家" in c:
+                        vals = df_activity[c].dropna()
+                        if len(vals) > 0:
+                            decline_count = int(float(vals.iloc[-1]))
+                    elif "平盘" in c:
+                        vals = df_activity[c].dropna()
+                        if len(vals) > 0:
+                            flat_count = int(float(vals.iloc[-1]))
+        except Exception:
+            pass
+
+        # 涨停家数
+        limit_up_count = 0
+        limit_up_list = []
+        try:
+            df_zt = ak.stock_zt_pool_em(date=today)
+            if df_zt is not None and not df_zt.empty:
+                limit_up_count = len(df_zt)
+                zcols = df_zt.columns.tolist()
+                name_col = (
+                    "名称"
+                    if "名称" in zcols
+                    else (zcols[1] if len(zcols) > 1 else zcols[0])
+                )
+                code_col = (
+                    "代码"
+                    if "代码" in zcols
+                    else (zcols[0] if len(zcols) > 0 else None)
+                )
+                for _, row in df_zt.head(10).iterrows():
+                    item = {"name": str(row.get(name_col, ""))}
+                    if code_col:
+                        item["code"] = str(row.get(code_col, ""))
+                    limit_up_list.append(item)
+        except Exception:
+            pass
+
+        # 跌停家数
+        limit_down_count = 0
+        limit_down_list = []
+        try:
+            df_dt = ak.stock_dt_pool_em(date=today)
+            if df_dt is not None and not df_dt.empty:
+                limit_down_count = len(df_dt)
+                dcols = df_dt.columns.tolist()
+                name_col = (
+                    "名称"
+                    if "名称" in dcols
+                    else (dcols[1] if len(dcols) > 1 else dcols[0])
+                )
+                code_col = (
+                    "代码"
+                    if "代码" in dcols
+                    else (dcols[0] if len(dcols) > 0 else None)
+                )
+                for _, row in df_dt.head(10).iterrows():
+                    item = {"name": str(row.get(name_col, ""))}
+                    if code_col:
+                        item["code"] = str(row.get(code_col, ""))
+                    limit_down_list.append(item)
+        except Exception:
+            pass
+
+        # 计算指标
+        total = advance_count + decline_count + flat_count
+        ad_ratio = (
+            round(advance_count / decline_count, 2) if decline_count > 0 else None
+        )
+
+        # 市场情绪判定
+        if ad_ratio is not None:
+            if ad_ratio > 2:
+                sentiment = "强势"
+            elif ad_ratio > 1.2:
+                sentiment = "偏多"
+            elif ad_ratio > 0.8:
+                sentiment = "中性"
+            elif ad_ratio > 0.5:
+                sentiment = "偏空"
+            else:
+                sentiment = "弱势"
+        else:
+            sentiment = "未知"
+
+        return {
+            "advance_count": advance_count,
+            "decline_count": decline_count,
+            "flat_count": flat_count,
+            "total": total,
+            "advance_decline_ratio": ad_ratio,
+            "limit_up_count": limit_up_count,
+            "limit_up_list": limit_up_list,
+            "limit_down_count": limit_down_count,
+            "limit_down_list": limit_down_list,
+            "market_sentiment": sentiment,
+            "date": today,
+        }
+    except Exception as e:
+        return {"error": f"市场广度获取失败: {str(e)}"}
 
 
 # ═══════════════════════════════════════════════════
@@ -829,7 +1448,7 @@ TOOLS = [
     },
     {
         "name": "ashare_fundamental_scan",
-        "description": "获取 A 股基本面：ROE/净利润/营收/PE/PB/每股收益",
+        "description": "获取 A 股基本面：ROE/净利润/营收/PE/PB/每股收益/股息率/资产负债率/流动比率/毛利率/营业利润率/同比增速",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -890,6 +1509,43 @@ TOOLS = [
             },
         },
     },
+    {
+        "name": "ashare_sector_rotation",
+        "description": "获取 A 股板块轮动分析：行业板块涨跌幅排名、动量信号、轮入/轮出板块",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": "string",
+                    "description": "分析周期：近1日/近5日/近10日/近20日",
+                    "enum": ["近1日", "近5日", "近10日", "近20日"],
+                    "default": "近5日",
+                },
+            },
+        },
+    },
+    {
+        "name": "ashare_fund_flow_real",
+        "description": "获取 A 股个股实时资金流向：主力/超大单/大单/中单/小单 净流入与净占比",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "A 股代码，如 600318 或 603318",
+                },
+            },
+            "required": ["symbol"],
+        },
+    },
+    {
+        "name": "ashare_market_breadth",
+        "description": "获取 A 股市场广度：涨跌家数、涨停/跌停家数、涨跌家数比、市场情绪",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
 ]
 
 
@@ -928,6 +1584,7 @@ def handle_request(req):
             "ashare_fundamental_scan",
             "ashare_news_sentiment",
             "ashare_fund_flow",
+            "ashare_fund_flow_real",
         ):
             if not symbol:
                 return {
@@ -950,6 +1607,12 @@ def handle_request(req):
             result = get_fund_flow(symbol)
         elif name == "ashare_lhb":
             result = get_lhb(args.get("date"))
+        elif name == "ashare_sector_rotation":
+            result = get_sector_rotation(args.get("period", "近5日"))
+        elif name == "ashare_fund_flow_real":
+            result = get_fund_flow_real(symbol)
+        elif name == "ashare_market_breadth":
+            result = get_market_breadth()
         else:
             return {
                 "jsonrpc": "2.0",

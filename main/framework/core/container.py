@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from main.framework.config import Settings
 from main.framework.core.agent_dispatcher import AgentDispatcher
-from main.framework.core.hapi_bridge import HAPIBridge
 from main.framework.core.protocols import AgentBackend
 from main.framework.repositories.execution_repo import ExecutionRepository
 
@@ -32,9 +31,13 @@ class Container:
     @property
     def backend(self) -> AgentBackend:
         if "backend" not in self._instances:
-            self._instances["backend"] = HAPIBridge(
-                hub_url=self._settings.HAPI_HUB_URL,
-                api_token=self._settings.HAPI_API_TOKEN,
+            from main.session.opencode_backend import OpenCodeBackend
+
+            self._instances["backend"] = OpenCodeBackend(
+                opencode_bin=self._settings.OPENCODE_BIN,
+                max_concurrent=self._settings.MAX_CONCURRENT_SESSIONS,
+                cwd=".",
+                default_timeout=self._settings.NODE_TIMEOUT_SECONDS,
             )
         return self._instances["backend"]  # type: ignore[return-value]
 
@@ -59,7 +62,7 @@ class Container:
     # ------------------------------------------------------------------
 
     def create_workflow_engine(
-        self, workflow_id: str, params: dict, status_callback=None
+        self, workflow_id: str, params: dict, status_callback=None, execution_id=None
     ):
         """Create a fresh WorkflowEngine with injected dependencies."""
         from main.framework.core.workflow_engine import WorkflowEngine
@@ -69,6 +72,7 @@ class Container:
             params=params,
             dispatcher=self.dispatcher,
             status_callback=status_callback,
+            execution_id=execution_id,
         )
 
     def create_scheduler(self):

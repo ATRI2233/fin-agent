@@ -35,9 +35,11 @@ const DebateNode = memo(({ data, selected }: NodeProps) => {
             id={`agent-${i}`}
             style={{
               background: '#B8A0CC',
-              width: 8,
-              height: 8,
-              left: -4,
+              width: 18,
+              height: 18,
+              left: -9,
+              border: '3px solid #1A1A1A',
+              borderRadius: '50%',
               top: `${40 + i * 20}%`,
             }}
           />
@@ -47,9 +49,11 @@ const DebateNode = memo(({ data, selected }: NodeProps) => {
           position={Position.Right}
           style={{
             background: '#B8A0CC',
-            width: 10,
-            height: 10,
-            right: -5,
+            width: 20,
+            height: 20,
+            right: -10,
+            border: '3px solid #1A1A1A',
+            borderRadius: '50%',
           }}
         />
       </div>

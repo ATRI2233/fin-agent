@@ -1,10 +1,11 @@
 from typing import Optional
-from .hapi_bridge import HAPIBridge
+
+from main.framework.core.protocols import AgentBackend
 
 
 class SessionManager:
-    def __init__(self, hapi_bridge: HAPIBridge):
-        self._hapi = hapi_bridge
+    def __init__(self, backend: AgentBackend):
+        self._backend = backend
         self._boundaries: dict[str, set[str]] = {}
         self._node_to_boundary: dict[str, str] = {}
 
@@ -25,13 +26,13 @@ class SessionManager:
         return None
 
     async def cleanup_session(self, session_id: str) -> dict:
-        return await self._hapi.cleanup_sessions([session_id])
+        return await self._backend.cleanup_sessions([session_id])
 
     async def cleanup_all_sessions(self) -> dict:
         all_boundary_ids = list(self._boundaries.keys())
         results = {}
         if all_boundary_ids:
-            results = await self._hapi.cleanup_sessions(all_boundary_ids)
+            results = await self._backend.cleanup_sessions(all_boundary_ids)
         self._boundaries.clear()
         self._node_to_boundary.clear()
         return results

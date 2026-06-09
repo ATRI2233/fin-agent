@@ -4,7 +4,7 @@
    Apple Pro depth + Claude AI warmth.
    ═══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.loli.net/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
   /* ─── Background Layers — deep charcoal, never pure black ─── */
@@ -727,9 +727,34 @@ html, body {
 }
 .react-flow__node {
   color: var(--text-primary) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .react-flow__edge-path {
   stroke: var(--text-tertiary) !important;
+  stroke-width: 2 !important;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--accent) !important;
+  stroke-width: 2.5 !important;
+}
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 6 4 !important;
+  animation: edge-dash 0.8s linear infinite !important;
+}
+@keyframes edge-dash {
+  to { stroke-dashoffset: -10; }
+}
+.react-flow__connection-path {
+  stroke: var(--accent) !important;
+  stroke-width: 2 !important;
+}
+.react-flow__handle.connecting {
+  background: var(--accent-warm) !important;
+}
+.react-flow__handle-valid {
+  background: var(--accent-muted) !important;
 }
 .react-flow__controls {
   background: var(--bg-surface) !important;

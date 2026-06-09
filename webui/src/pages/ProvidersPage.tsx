@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Alert, Spin, message, Popconfirm } from 'antd';
-import { ReloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Alert, Spin, message, Popconfirm, Select, Card, Radio } from 'antd';
+import { ReloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined, CheckCircleFilled } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Text } = Typography;
@@ -13,6 +13,9 @@ export default function ProvidersPage() {
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [activeProvider, setActiveProvider] = useState('');
+  const [activeModel, setActiveModel] = useState('');
 
   const [editVisible, setEditVisible] = useState(false);
   const [editTarget, setEditTarget] = useState<ProviderRow | null>(null);
@@ -29,8 +32,13 @@ export default function ProvidersPage() {
     try {
       const res = await fetch('/api/providers');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: Record<string, ProviderConfig> = await res.json();
-      setProviders(Object.entries(data).map(([k, c]) => ({ ...c, key: k })));
+      const data = await res.json();
+      const provMap: Record<string, ProviderConfig> = data.providers || data;
+      setProviders(Object.entries(provMap).map(([k, c]) => ({ ...(c as ProviderConfig), key: k })));
+      if (data.active) {
+        setActiveProvider(data.active.provider || '');
+        setActiveModel(data.active.model || '');
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '加载失败');
       setProviders([]);
@@ -38,6 +46,22 @@ export default function ProvidersPage() {
   }, []);
 
   useEffect(() => { fetchProviders(); }, [fetchProviders]);
+
+  const handleSetActive = async (provider: string, model: string) => {
+    try {
+      const res = await fetch('/api/providers/active', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, model }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setActiveProvider(provider);
+      setActiveModel(model);
+      message.success(`已切换到 ${provider}${model ? ` / ${model}` : ''}`);
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : '切换失败');
+    }
+  };
 
   const handleEdit = (r: ProviderRow) => {
     setEditTarget(r);
@@ -64,6 +88,10 @@ export default function ProvidersPage() {
     try {
       const res = await fetch(`/api/providers/${name}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (activeProvider === name) {
+        setActiveProvider('');
+        setActiveModel('');
+      }
       message.success(`${name} 已删除`);
       fetchProviders();
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
@@ -83,16 +111,45 @@ export default function ProvidersPage() {
     } finally { setAddSaving(false); }
   };
 
+  // Get models for the currently active provider
+  const activeProviderRow = providers.find((p) => p.key === activeProvider);
+  const activeModels = activeProviderRow?.models ? Object.keys(activeProviderRow.models) : [];
+
   const columns: ColumnsType<ProviderRow> = [
-    { title: '标识', dataIndex: 'key', key: 'key', sorter: (a, b) => a.key.localeCompare(b.key), render: (k: string) => <Text strong>{k}</Text> },
+    {
+      title: '状态', key: 'status', width: 60, align: 'center',
+      render: (_, r) => r.key === activeProvider
+        ? <CheckCircleFilled style={{ color: '#5A9E7B', fontSize: 18 }} />
+        : <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.15)' }} />,
+    },
+    { title: '标识', dataIndex: 'key', key: 'key', sorter: (a, b) => a.key.localeCompare(b.key), render: (k: string) => <Text strong style={{ color: k === activeProvider ? '#5A9E7B' : undefined }}>{k}</Text> },
     { title: '显示名称', dataIndex: 'name', key: 'name', render: (n: string) => <Text>{n}</Text> },
     { title: 'NPM 包', dataIndex: 'npm', key: 'npm', ellipsis: true, render: (n: string) => <Text code>{n}</Text> },
-    { title: '模型', key: 'models', width: 200, render: (_, r) => {
-      const ms = r.models ? Object.keys(r.models) : [];
-      return <Space wrap size={[0, 4]}>{ms.length > 0 ? ms.map((m) => <Tag key={m} color="blue">{m}</Tag>) : <Text type="secondary">-</Text>}</Space>;
-    }},
-    { title: '操作', key: 'actions', width: 150, render: (_, r) => (
+    {
+      title: '模型', key: 'models', width: 220,
+      render: (_, r) => {
+        const ms = r.models ? Object.keys(r.models) : [];
+        return (
+          <Space wrap size={[0, 4]}>
+            {ms.length > 0 ? ms.map((m) => (
+              <Tag
+                key={m}
+                color={r.key === activeProvider && m === activeModel ? 'green' : 'blue'}
+                style={{ cursor: 'pointer' }}
+                onClick={() => handleSetActive(r.key, m)}
+              >
+                {m}
+              </Tag>
+            )) : <Text type="secondary">-</Text>}
+          </Space>
+        );
+      },
+    },
+    { title: '操作', key: 'actions', width: 200, render: (_, r) => (
       <Space>
+        <Button type="link" size="small" onClick={() => handleSetActive(r.key, '')} disabled={r.key === activeProvider && !activeModel}>
+          {r.key === activeProvider && !activeModel ? '已激活' : '设为激活'}
+        </Button>
         <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(r)}>编辑</Button>
         <Popconfirm title={`删除 "${r.key}"？`} onConfirm={() => handleDelete(r.key)} okText="删除" cancelText="取消" okButtonProps={{ danger: true }}><Button type="link" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>
       </Space>
@@ -104,13 +161,50 @@ export default function ProvidersPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
           <Title level={4} style={{ margin: 0 }}>提供商</Title>
-          <Text type="secondary">管理 AI 模型提供商配置</Text>
+          <Text type="secondary">管理 AI 模型提供商，设置当前启用的 LLM</Text>
         </div>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddVisible(true)}>添加提供商</Button>
           <Button icon={<ReloadOutlined />} onClick={fetchProviders} loading={loading}>刷新</Button>
         </Space>
       </div>
+
+      {/* Active provider card */}
+      <Card
+        style={{ marginBottom: 20, background: 'rgba(90, 158, 123, 0.06)', border: '1px solid rgba(90, 158, 123, 0.2)' }}
+        bodyStyle={{ padding: '16px 20px' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CheckCircleFilled style={{ color: '#5A9E7B', fontSize: 20 }} />
+            <Text strong style={{ fontSize: 15, color: '#E5E5E5' }}>当前激活</Text>
+          </div>
+          <Select
+            value={activeProvider || undefined}
+            onChange={(val) => handleSetActive(val, '')}
+            placeholder="选择提供商"
+            style={{ width: 180 }}
+            allowClear
+            options={providers.map((p) => ({ label: `${p.name} (${p.key})`, value: p.key }))}
+          />
+          {activeModels.length > 0 && (
+            <Select
+              value={activeModel || undefined}
+              onChange={(val) => handleSetActive(activeProvider, val)}
+              placeholder="选择模型（可选）"
+              style={{ width: 200 }}
+              allowClear
+              options={activeModels.map((m) => ({ label: m, value: m }))}
+            />
+          )}
+          {activeProvider && (
+            <Tag color="green" style={{ fontSize: 13, padding: '2px 12px' }}>
+              {activeProvider}{activeModel ? ` / ${activeModel}` : ''}
+            </Tag>
+          )}
+        </div>
+      </Card>
+
       {error && <Alert type="error" message="加载提供商失败" description={error} showIcon closable onClose={() => setError(null)} style={{ marginBottom: 16 }} />}
       <Table<ProviderRow> columns={columns} dataSource={providers} rowKey="key" loading={loading} pagination={{ pageSize: 10 }} />
       <Modal title={editTarget ? `编辑: ${editTarget.key}` : '编辑提供商'} open={editVisible} onCancel={() => { setEditVisible(false); setEditTarget(null); form.resetFields(); }} footer={<Space><Button onClick={() => setEditVisible(false)}>取消</Button><Button type="primary" icon={<EditOutlined />} onClick={handleSave} loading={saving}>保存</Button></Space>} width={600} destroyOnClose>
