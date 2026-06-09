@@ -106,6 +106,15 @@ class Container:
             self._instances["maintenance_repo"] = MaintenanceRepository()
         return self._instances["maintenance_repo"]  # type: ignore[return-value]
 
+    @property
+    def session_manager(self):
+        """Conversation ↔ session mapping (lazy, needs backend)."""
+        if "session_manager" not in self._instances:
+            from main.framework.api.conversations import ConvSessionManager
+
+            self._instances["session_manager"] = ConvSessionManager(self.backend)
+        return self._instances["session_manager"]
+
     # ------------------------------------------------------------------
     # Factory methods — create per-request / per-execution instances
     # ------------------------------------------------------------------

@@ -9,7 +9,7 @@ from typing import Optional, List
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from main.framework.models.database import get_db, SessionLocal
+from main.framework.models.database import get_db, get_session
 from main.framework.models.conversation import Conversation, Message
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
@@ -78,9 +78,7 @@ class ConvSessionManager:
 
         # Check DB for persisted session
         if db is not None:
-            conversation = (
-                db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            )
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conversation and conversation.session_id:
                 self._session_ids[conversation_id] = conversation.session_id
                 return conversation.session_id, self._backend
@@ -89,9 +87,7 @@ class ConvSessionManager:
         session_id = await self._backend.create_session(agent=agent)
 
         if db is not None:
-            conversation = (
-                db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            )
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conversation:
                 conversation.session_id = session_id
                 db.commit()
@@ -104,11 +100,7 @@ class ConvSessionManager:
         session_id = self._session_ids.pop(conversation_id, None)
 
         if not session_id and db is not None:
-            conversation = (
-                db.query(Conversation)
-                .filter(Conversation.id == conversation_id)
-                .first()
-            )
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conversation:
                 session_id = conversation.session_id
 
@@ -124,15 +116,6 @@ class ConvSessionManager:
 
     def get_session_id(self, conversation_id: str) -> Optional[str]:
         return self._session_ids.get(conversation_id)
-
-
-# Will be initialised in startup via configure_session_manager()
-session_manager: ConvSessionManager = None  # type: ignore[assignment]
-
-
-def configure_session_manager(backend: AgentBackend) -> None:
-    global session_manager
-    session_manager = ConvSessionManager(backend)
 
 
 def _save_workflow_status(
@@ -163,199 +146,174 @@ def _save_workflow_status(
 
 
 async def _process_agent_message(
-    conversation_id: str, message_id: str, content: str, agent: str, backend: AgentBackend
+    conversation_id: str,
+    message_id: str,
+    content: str,
+    agent: str,
+    backend: AgentBackend,
+    session_manager: ConvSessionManager,
 ):
     """Process agent message in background."""
-    db = SessionLocal()
-    try:
-        conversation = (
-            db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        )
-
-        # If agent changed, cleanup old session to create fresh one
-        if conversation and conversation.current_agent and conversation.current_agent != agent:
-            await session_manager.cleanup_session(conversation_id, db=db)
-            conversation.session_id = None
-            db.commit()
-
-        if conversation:
-            conversation.current_agent = agent
-            db.commit()
-
-        # Create session with the target agent (direct routing, no @prefix)
-        session_id, _ = await session_manager.get_or_create_session(
-            conversation_id, agent=agent, db=db
-        )
-
-        # Send message directly — opencode --agent handles routing
-        await backend.send_message(session_id, content)
-
-        # Get response (send_message already waits for completion)
-        result = await backend.wait_for_completion(session_id)
-
+    with get_session() as db:
         try:
-            import json
-            parsed = json.loads(result)
-            response_content = parsed.get("result", result)
-        except Exception:
-            response_content = result
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
 
-        assistant_msg = Message(
-            id=str(uuid4()),
-            conversation_id=conversation_id,
-            role="assistant",
-            content=response_content,
-            agent=agent,
-            extra_data={"session_id": session_id, "in_reply_to": message_id},
-        )
-        db.add(assistant_msg)
+            # If agent changed, cleanup old session to create fresh one
+            if conversation and conversation.current_agent and conversation.current_agent != agent:
+                await session_manager.cleanup_session(conversation_id, db=db)
+                conversation.session_id = None
+                db.commit()
 
-        conversation = (
-            db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        )
-        if conversation:
-            conversation.updated_at = datetime.now(timezone.utc)
+            if conversation:
+                conversation.current_agent = agent
+                db.commit()
 
-        db.commit()
+            # Create session with the target agent (direct routing, no @prefix)
+            session_id, _ = await session_manager.get_or_create_session(conversation_id, agent=agent, db=db)
 
-    except Exception as e:
-        error_msg = Message(
-            id=str(uuid4()),
-            conversation_id=conversation_id,
-            role="system",
-            content=f"Error: {str(e)}",
-            extra_data={"type": "error", "in_reply_to": message_id},
-        )
-        db.add(error_msg)
-        db.commit()
+            # Send message directly — opencode --agent handles routing
+            await backend.send_message(session_id, content)
 
-    finally:
-        db.close()
+            # Get response (send_message already waits for completion)
+            result = await backend.wait_for_completion(session_id)
 
-
-async def _execute_workflow_async(
-    conversation_id: str, execution_id: str, workflow_id: str, params: dict, container
-):
-    """Execute workflow in background and save results to conversation."""
-    db = SessionLocal()
-    try:
-        from main.framework.models.workflow import Workflow
-        from main.framework.models.workflow_execution import ExecutionNode
-        from main.framework.core.workflow_engine import WorkflowEngine
-
-        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-        if not workflow:
-            logger.error(f"Workflow {workflow_id} not found")
-            return
-
-        execution = (
-            db.query(WorkflowExecution)
-            .filter(WorkflowExecution.id == execution_id)
-            .first()
-        )
-        if not execution:
-            logger.error(f"Execution {execution_id} not found")
-            return
-        execution.status = "running"
-        db.commit()
-
-        # Create all ExecutionNode records
-        nodes = workflow.nodes or []
-        for node in nodes:
-            agent = node.get("agent", "")
-            if not agent:
-                data = node.get("data", {})
-                if isinstance(data, dict):
-                    agent = data.get("agentType", "") or data.get("label", "")
-            exec_node = ExecutionNode(
-                execution_id=execution_id,
-                node_id=node["id"],
-                agent=agent,
-                status="pending",
-                input=params,
-            )
-            db.add(exec_node)
-        db.commit()
-
-        async def status_callback(st: str, detail: str, agent: str = ""):
-            db2 = SessionLocal()
             try:
-                _save_workflow_status(
-                    db2, conversation_id, execution_id, workflow_id, st, detail, agent,
+                import json
+
+                parsed = json.loads(result)
+                response_content = parsed.get("result", result)
+            except Exception:
+                response_content = result
+
+            assistant_msg = Message(
+                id=str(uuid4()),
+                conversation_id=conversation_id,
+                role="assistant",
+                content=response_content,
+                agent=agent,
+                extra_data={"session_id": session_id, "in_reply_to": message_id},
+            )
+            db.add(assistant_msg)
+
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if conversation:
+                conversation.updated_at = datetime.now(timezone.utc)
+
+            db.commit()
+
+        except Exception as e:
+            error_msg = Message(
+                id=str(uuid4()),
+                conversation_id=conversation_id,
+                role="system",
+                content=f"Error: {str(e)}",
+                extra_data={"type": "error", "in_reply_to": message_id},
+            )
+            db.add(error_msg)
+            db.commit()
+
+
+async def _execute_workflow_async(conversation_id: str, execution_id: str, workflow_id: str, params: dict, container):
+    """Execute workflow in background and save results to conversation."""
+    with get_session() as db:
+        try:
+            from main.framework.models.workflow import Workflow
+            from main.framework.models.workflow_execution import ExecutionNode
+            from main.framework.core.workflow_engine import WorkflowEngine
+
+            workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+            if not workflow:
+                logger.error(f"Workflow {workflow_id} not found")
+                return
+
+            execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == execution_id).first()
+            if not execution:
+                logger.error(f"Execution {execution_id} not found")
+                return
+            execution.status = "running"
+            db.commit()
+
+            # Create all ExecutionNode records
+            nodes = workflow.nodes or []
+            for node in nodes:
+                agent = node.get("agent", "")
+                if not agent:
+                    data = node.get("data", {})
+                    if isinstance(data, dict):
+                        agent = data.get("agentType", "") or data.get("label", "")
+                exec_node = ExecutionNode(
+                    execution_id=execution_id,
+                    node_id=node["id"],
+                    agent=agent,
+                    status="pending",
+                    input=params,
                 )
-            finally:
-                db2.close()
+                db.add(exec_node)
+            db.commit()
 
-        engine = container.create_workflow_engine(
-            workflow_id, params, status_callback=status_callback, execution_id=execution_id
-        )
-        await engine.execute()
+            def status_callback(st: str, detail: str, agent: str = ""):
+                with get_session() as db2:
+                    _save_workflow_status(
+                        db2,
+                        conversation_id,
+                        execution_id,
+                        workflow_id,
+                        st,
+                        detail,
+                        agent,
+                    )
 
-        # Expire cached objects so we read fresh data from DB (engine updated them in its own session)
-        db.expire_all()
+            engine = container.create_workflow_engine(
+                workflow_id, params, status_callback=status_callback, execution_id=execution_id
+            )
+            await engine.execute()
 
-        execution = (
-            db.query(WorkflowExecution)
-            .filter(WorkflowExecution.id == execution_id)
-            .first()
-        )
-        if not execution:
-            return
+            # Expire cached objects so we read fresh data from DB (engine updated them in its own session)
+            db.expire_all()
 
-        from main.framework.models.workflow_execution import ExecutionNode
+            execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == execution_id).first()
+            if not execution:
+                return
 
-        nodes = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.execution_id == execution_id)
-            .all()
-        )
+            from main.framework.models.workflow_execution import ExecutionNode
 
-        result_parts = []
-        for node in nodes:
-            if node.output:
-                result_parts.append(
-                    f"**{node.agent}**:\n{node.output.get('result', '')}"
-                )
+            nodes = db.query(ExecutionNode).filter(ExecutionNode.execution_id == execution_id).all()
 
-        result_content = (
-            "\n\n".join(result_parts)
-            if result_parts
-            else "Workflow completed with no output."
-        )
+            result_parts = []
+            for node in nodes:
+                if node.output:
+                    result_parts.append(f"**{node.agent}**:\n{node.output.get('result', '')}")
 
-        result_msg = Message(
-            id=str(uuid4()),
-            conversation_id=conversation_id,
-            role="assistant",
-            content=result_content,
-            workflow_id=workflow_id,
-            execution_id=execution_id,
-            extra_data={"type": "workflow_result"},
-        )
-        db.add(result_msg)
+            result_content = "\n\n".join(result_parts) if result_parts else "Workflow completed with no output."
 
-        conversation = (
-            db.query(Conversation).filter(Conversation.id == conversation_id).first()
-        )
-        if conversation:
-            conversation.updated_at = datetime.now(timezone.utc)
+            result_msg = Message(
+                id=str(uuid4()),
+                conversation_id=conversation_id,
+                role="assistant",
+                content=result_content,
+                workflow_id=workflow_id,
+                execution_id=execution_id,
+                extra_data={"type": "workflow_result"},
+            )
+            db.add(result_msg)
 
-        db.commit()
+            conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if conversation:
+                conversation.updated_at = datetime.now(timezone.utc)
 
-    except Exception as e:
-        logger.error(f"Workflow {workflow_id} execution failed: {e}", exc_info=True)
-        error_msg = Message(
-            id=str(uuid4()),
-            conversation_id=conversation_id,
-            role="system",
-            content=f"Workflow error: {str(e)}",
-            extra_data={"type": "workflow_error"},
-        )
-        db.add(error_msg)
-        db.commit()
+            db.commit()
 
-    finally:
-        db.close()
+        except Exception as e:
+            logger.error(f"Workflow {workflow_id} execution failed: {e}", exc_info=True)
+            error_msg = Message(
+                id=str(uuid4()),
+                conversation_id=conversation_id,
+                role="system",
+                content=f"Workflow error: {str(e)}",
+                extra_data={"type": "workflow_error"},
+            )
+            db.add(error_msg)
+            db.commit()
 
 
 # ---- API Endpoints ----
@@ -385,9 +343,7 @@ async def create_conversation(payload: ConversationCreate, db=Depends(get_db)):
 @router.get("")
 async def list_conversations(db=Depends(get_db)):
     """List all conversations."""
-    conversations = (
-        db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
-    )
+    conversations = db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
 
     result = []
     for conv in conversations:
@@ -409,15 +365,11 @@ async def list_conversations(db=Depends(get_db)):
 @router.get("/{conversation_id}")
 async def get_conversation(conversation_id: str, db=Depends(get_db)):
     """Get a conversation by ID."""
-    conversation = (
-        db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    )
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    msg_count = (
-        db.query(Message).filter(Message.conversation_id == conversation.id).count()
-    )
+    msg_count = db.query(Message).filter(Message.conversation_id == conversation.id).count()
 
     return ConversationResponse(
         id=conversation.id,
@@ -430,13 +382,9 @@ async def get_conversation(conversation_id: str, db=Depends(get_db)):
 
 
 @router.put("/{conversation_id}")
-async def update_conversation(
-    conversation_id: str, payload: ConversationUpdate, db=Depends(get_db)
-):
+async def update_conversation(conversation_id: str, payload: ConversationUpdate, db=Depends(get_db)):
     """Update a conversation."""
-    conversation = (
-        db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    )
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -452,16 +400,15 @@ async def update_conversation(
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_conversation(conversation_id: str, db=Depends(get_db)):
+async def delete_conversation(conversation_id: str, request: Request, db=Depends(get_db)):
     """Delete a conversation and cleanup session."""
-    conversation = (
-        db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    )
+    container = request.app.state.container
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     try:
-        await session_manager.cleanup_session(conversation_id, db=db)
+        await container.session_manager.cleanup_session(conversation_id, db=db)
     except Exception as e:
         logger.warning(f"Failed to cleanup session: {e}")
 
@@ -477,17 +424,12 @@ async def delete_conversation(conversation_id: str, db=Depends(get_db)):
 @router.get("/{conversation_id}/messages")
 async def list_messages(conversation_id: str, db=Depends(get_db)):
     """List all messages in a conversation."""
-    conversation = (
-        db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    )
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     messages = (
-        db.query(Message)
-        .filter(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at.asc())
-        .all()
+        db.query(Message).filter(Message.conversation_id == conversation_id).order_by(Message.created_at.asc()).all()
     )
 
     return [
@@ -515,9 +457,7 @@ async def send_message(
 ):
     """Send a message (async processing)."""
     container = request.app.state.container
-    conversation = (
-        db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    )
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -597,6 +537,7 @@ async def send_message(
             content=payload.content,
             agent=agent,
             backend=container.backend,
+            session_manager=container.session_manager,
         )
 
         return {

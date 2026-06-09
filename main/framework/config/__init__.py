@@ -14,7 +14,7 @@ from main.framework.config.constants import (
     SCHEDULER_MAX_INSTANCES,
     MAINTENANCE_RETENTION_DAYS,
 )
-from main.framework.config.database import engine, SessionLocal, Base, get_db, init_db
+from main.framework.config.database import engine, SessionLocal, Base, get_db, get_session, init_db
 
 __all__ = [
     "Settings",
@@ -29,5 +29,6 @@ __all__ = [
     "SessionLocal",
     "Base",
     "get_db",
+    "get_session",
     "init_db",
 ]

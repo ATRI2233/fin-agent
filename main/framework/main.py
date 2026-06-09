@@ -108,10 +108,6 @@ async def startup():
 
     session_cleanup.configure(container.backend)
 
-    from main.framework.api.conversations import configure_session_manager
-
-    configure_session_manager(container.backend)
-
     # Initialize data maintenance
     from main.data_maintenance.models.maintenance_db import init_maintenance_db
     from main.data_maintenance.core.data_maintenance import DataMaintenanceService, configure as configure_maintenance

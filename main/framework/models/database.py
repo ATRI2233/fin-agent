@@ -1,5 +1,5 @@
 # Re-export from new location for backward compat
-from main.framework.config.database import engine, SessionLocal, Base, get_db, init_db  # noqa: F401
+from main.framework.config.database import engine, SessionLocal, Base, get_db, get_session, init_db  # noqa: F401
 
 from sqlalchemy import create_engine, event, Table, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base

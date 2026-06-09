@@ -1,7 +1,10 @@
 """Database configuration - migrated from main.framework.models.database."""
 
+from contextlib import contextmanager
+from typing import Iterator
+
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
 
 from main.framework.config.settings import Settings
 
@@ -26,6 +29,20 @@ Base = declarative_base()
 
 
 def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def get_session() -> Iterator[Session]:
+    """Context manager for standalone DB sessions (background tasks, scripts).
+
+    Use ``get_db()`` (FastAPI Depends) in request handlers;
+    use ``get_session()`` everywhere else.
+    """
     db = SessionLocal()
     try:
         yield db
