@@ -1506,7 +1506,7 @@ Wave FINAL (4 review tasks, parallel):
 > **关键**: Wave 4 任务**必须按顺序**执行。每个迁移可能暴露跨文件问题。
 > 每个任务完成后必须通过 `pytest tests/integration/` 验证无 regression。
 
-- [ ] 20. **迁移 agents.py (1 处 SessionLocal)**
+- [x] 20. **迁移 agents.py (1 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/api/agents.py`:
@@ -1565,7 +1565,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/api/agents.py`
   - Pre-commit: `pytest tests/integration/`
 
-- [ ] 21. **迁移 system.py (1 处 SessionLocal)**
+- [x] 21. **迁移 system.py (1 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/api/system.py`:
@@ -1606,7 +1606,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(api): migrate system.py to Repository pattern`
   - Files: `main/framework/api/system.py`
 
-- [ ] 22. **迁移 performance.py (2 处 SessionLocal)**
+- [x] 22. **迁移 performance.py (2 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/core/performance.py`:
@@ -1646,7 +1646,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(core): migrate performance.py to Depends`
   - Files: `main/framework/core/performance.py`
 
-- [ ] 23. **迁移 sessions.py (4 处 SessionLocal)**
+- [x] 23. **迁移 sessions.py (4 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/api/sessions.py`:
@@ -1688,7 +1688,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(api): migrate sessions.py to ExecutionRepository + ConversationRepository`
   - Files: `main/framework/api/sessions.py`
 
-- [ ] 24. **迁移 triggers.py (6 处 SessionLocal)**
+- [x] 24. **迁移 triggers.py (6 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/api/triggers.py`:
@@ -1734,7 +1734,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(api): migrate triggers.py to WorkflowRepository`
   - Files: `main/framework/api/triggers.py`
 
-- [ ] 25. **迁移 executions.py (6 处 SessionLocal) - 移除模块级 repo**
+- [x] 25. **迁移 executions.py (6 处 SessionLocal) - 移除模块级 repo**
 
   **What to do**:
   - 修改 `main/framework/api/executions.py`:
@@ -1790,7 +1790,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(api): migrate executions.py to ExecutionRepository (remove module-level repo)`
   - Files: `main/framework/api/executions.py`
 
-- [ ] 26. **迁移 retry_handler.py (2 处 SessionLocal)**
+- [x] 26. **迁移 retry_handler.py (2 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/core/retry_handler.py`:
@@ -1826,7 +1826,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(core): migrate retry_handler.py to ExecutionRepository`
   - Files: `main/framework/core/retry_handler.py`
 
-- [ ] 27. **迁移 session_cleanup.py (2 处 SessionLocal)**
+- [x] 27. **迁移 session_cleanup.py (2 处 SessionLocal)**
 
   **What to do**:
   - 修改 `main/framework/core/session_cleanup.py`:
@@ -1865,7 +1865,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(core): migrate session_cleanup.py (remove configure global)`
   - Files: `main/framework/core/session_cleanup.py`
 
-- [ ] 28. **迁移 scheduler.py (4 处 SessionLocal) - 移除 _engine_factory 全局**
+- [x] 28. **迁移 scheduler.py (4 处 SessionLocal) - 移除 _engine_factory 全局**
 
   **What to do**:
   - 修改 `main/framework/core/scheduler.py`:
@@ -1924,7 +1924,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `refactor(core): migrate scheduler.py (remove _engine_factory global)`
   - Files: `main/framework/core/scheduler.py`
 
-- [ ] 29. **迁移 workflow_engine.py (3 处 SessionLocal) - engine session lifecycle**
+- [x] 29. **迁移 workflow_engine.py (3 处 SessionLocal) - engine session lifecycle**
 
   **What to do**:
   - 修改 `main/framework/core/workflow_engine.py`:
@@ -1985,7 +1985,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/core/workflow_engine.py`
   - Pre-commit: `pytest tests/integration/ && python scripts/check_lines.py`
 
-- [ ] 30. **迁移 conversations.py (3+1 嵌套 SessionLocal) - 移除 session_manager + 嵌套 db2**
+- [x] 30. **迁移 conversations.py (3+1 嵌套 SessionLocal) - 移除 session_manager + 嵌套 db2**
 
   **What to do**:
   - 修改 `main/framework/api/conversations.py`:
@@ -2056,7 +2056,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/api/conversations.py`
   - Pre-commit: `pytest tests/integration/ && python scripts/check_lines.py`
 
-- [ ] 31. **迁移 maintenance_db.py (2 处 SessionLocal) - 独立 DB**
+- [x] 31. **迁移 maintenance_db.py (2 处 SessionLocal) - 独立 DB**
 
   **What to do**:
   - 修改 `main/data_maintenance/models/maintenance_db.py`:
