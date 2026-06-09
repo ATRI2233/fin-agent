@@ -9,8 +9,6 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from main.framework.repositories.execution_repo import ExecutionRepository
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/executions", tags=["executions"])
@@ -75,7 +73,8 @@ async def list_executions(
     offset: int = 0,
 ):
     """List all execution records with optional filters."""
-    repo = ExecutionRepository()
+    container = request.app.state.container
+    repo = container.execution_repo
     items, total = repo.list_executions(
         workflow_id=workflow_id,
         status=status,
@@ -101,7 +100,8 @@ async def list_executions(
 @router.get("/{execution_id}")
 async def get_execution(execution_id: str, request: Request):
     """Get execution detail with all node statuses."""
-    repo = ExecutionRepository()
+    container = request.app.state.container
+    repo = container.execution_repo
     execution, nodes, workflow = repo.get_execution_detail(execution_id)
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -131,7 +131,8 @@ async def get_execution(execution_id: str, request: Request):
 @router.get("/{execution_id}/timeline", response_model=TimelineResponse)
 async def get_execution_timeline(execution_id: str, request: Request):
     """Get node-level execution timeline."""
-    repo = ExecutionRepository()
+    container = request.app.state.container
+    repo = container.execution_repo
     execution, _, workflow = repo.get_execution_detail(execution_id)
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -155,7 +156,7 @@ async def get_execution_timeline(execution_id: str, request: Request):
 async def retry_execution(execution_id: str, request: Request):
     """Retry a failed execution. Creates a new execution for the same workflow."""
     container = request.app.state.container
-    repo = ExecutionRepository()
+    repo = container.execution_repo
 
     execution = repo.get_execution(execution_id)
     if not execution:
@@ -198,7 +199,8 @@ async def retry_execution(execution_id: str, request: Request):
 @router.delete("/{execution_id}")
 async def abort_execution(execution_id: str, request: Request):
     """Abort a running execution and cleanup its sessions."""
-    repo = ExecutionRepository()
+    container = request.app.state.container
+    repo = container.execution_repo
 
     execution = repo.get_execution(execution_id)
     if not execution:
