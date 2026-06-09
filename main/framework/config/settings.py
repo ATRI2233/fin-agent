@@ -1,5 +1,4 @@
-# DEPRECATED: Use main.framework.config.settings instead. Kept for backward compat.
-from main.framework.config.settings import Settings, _find_opencode_bin, settings  # noqa: F401
+"""Application settings - migrated from main.framework.config."""
 
 import os
 from pathlib import Path

@@ -1,10 +1,9 @@
-# Re-export from new location for backward compat
-from main.framework.config.database import engine, SessionLocal, Base, get_db, init_db  # noqa: F401
+"""Database configuration - migrated from main.framework.models.database."""
 
-from sqlalchemy import create_engine, event, Table, ForeignKey
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-from main.framework.config import Settings
+from main.framework.config.settings import Settings
 
 settings = Settings()
 
@@ -13,11 +12,7 @@ engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread":
 
 @event.listens_for(engine, "connect")
 def _set_sqlite_pragma(dbapi_connection, connection_record):
-    """Enable WAL mode + busy_timeout + NORMAL synchronous on every new connection.
-
-    PRAGMA journal_mode=WAL is a persistent property of the database file,
-    but it must be issued per-connection for SQLAlchemy connection pools.
-    """
+    """Enable WAL mode + busy_timeout + NORMAL synchronous on every new connection."""
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA busy_timeout=5000")

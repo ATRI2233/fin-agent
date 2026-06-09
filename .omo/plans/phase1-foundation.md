@@ -1124,7 +1124,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/config/__init__.py`, `main/framework/config/settings.py`, `main/framework/config/constants.py`, `main/framework/config/database.py`
   - Pre-commit: `python scripts/check_lines.py && ruff check main/framework/config/`
 
-- [ ] 13. **AgentRepository 实现**
+- [x] 13. **AgentRepository 实现**
 
   **What to do**:
   - 创建 `main/framework/repositories/agent_repo.py`
@@ -1177,7 +1177,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/repositories/agent_repo.py`, `tests/unit/test_agent_repository.py`
   - Pre-commit: `python scripts/check_lines.py`
 
-- [ ] 14. **WorkflowRepository 实现**
+- [x] 14. **WorkflowRepository 实现**
 
   **What to do**:
   - 创建 `main/framework/repositories/workflow_repo.py`
@@ -1222,7 +1222,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `feat(data): add WorkflowRepository with unit tests`
   - Files: `main/framework/repositories/workflow_repo.py`, `tests/unit/test_workflow_repository.py`
 
-- [ ] 15. **ConversationRepository 实现**
+- [x] 15. **ConversationRepository 实现**
 
   **What to do**:
   - 创建 `main/framework/repositories/conversation_repo.py`
@@ -1268,7 +1268,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `feat(data): add ConversationRepository with unit tests`
   - Files: `main/framework/repositories/conversation_repo.py`, `tests/unit/test_conversation_repository.py`
 
-- [ ] 16. **MaintenanceRepository 实现（独立 DB）**
+- [x] 16. **MaintenanceRepository 实现（独立 DB）**
 
   **What to do**:
   - 创建 `main/data_maintenance/repositories/maintenance_repo.py`（注意：在 data_maintenance 子系统下）
@@ -1317,7 +1317,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `feat(data): add MaintenanceRepository for data_maintenance subsystem`
   - Files: `main/data_maintenance/repositories/__init__.py`, `main/data_maintenance/repositories/maintenance_repo.py`, `tests/unit/test_maintenance_repository.py`
 
-- [ ] 17. **重构 execution_repo.py 继承 BaseRepository[T]（向后兼容）**
+- [x] 17. **重构 execution_repo.py 继承 BaseRepository[T]（向后兼容）**
 
   **What to do**:
   - 修改 `main/framework/repositories/execution_repo.py`:
@@ -1381,7 +1381,7 @@ Wave FINAL (4 review tasks, parallel):
   - Files: `main/framework/repositories/execution_repo.py`
   - Pre-commit: `pytest tests/integration/`
 
-- [ ] 18. **Container 注册所有 5 个 Repository**
+- [x] 18. **Container 注册所有 5 个 Repository**
 
   **What to do**:
   - 修改 `main/framework/core/container.py`:
