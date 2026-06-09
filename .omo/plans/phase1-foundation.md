@@ -2261,19 +2261,19 @@ Wave FINAL (4 review tasks, parallel):
 ## Final Verification Wave (MANDATORY)
 
 - [ ] F1. **Plan Compliance Audit** — `oracle`
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
 - [ ] F3. **Real Manual QA** — `unspecified-high`
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
 
 ### Discovered Issues (Wave 1-2) — Deferred to Final Wave
 
 > **用户指示**: "把每个wave发现的问题处理都放到final里面处理"
 
-- [ ] F5. **修复 Scheduler 路由 bug**: `GET /api/v1/workflows/scheduled` 被 `/{workflow_id}` 影子覆盖 — 改 router 注册顺序或加 explicit path
-- [ ] F6. **修复 workflow_parser.validate_dag() 循环检测 bug**: `defaultdict(str)` 默认是 `""` 不是 `"white"` — cyclic DAG 静默通过
-- [ ] F7. **修复 API 路径不一致**: `/api/v1/workflows/` (POST) vs `/api/workflows/{id}/trigger` (无 /v1/) — 统一前缀
-- [ ] F8. **更新 pyproject.toml ruff rules**: Wave 1 限制为 `["E","W","F"]` (215 legacy issues) — Wave 4 完成后加回 UP, I, B, SIM
-- [ ] F9. **更新 check_dependencies.py expected_violations**: 添加 `api/workflows.py` (Wave 2 Task 9 发现 2 violations)
+- [x] F5. **修复 Scheduler 路由 bug**: `GET /api/v1/workflows/scheduled` 被 `/{workflow_id}` 影子覆盖 — 改 router 注册顺序或加 explicit path
+- [x] F6. **修复 workflow_parser.validate_dag() 循环检测 bug**: `defaultdict(str)` 默认是 `""` 不是 `"white"` — cyclic DAG 静默通过
+- [x] F7. **修复 API 路径不一致**: `/api/v1/workflows/` (POST) vs `/api/workflows/{id}/trigger` (无 /v1/) — 统一前缀
+- [x] F8. **更新 pyproject.toml ruff rules**: Wave 1 限制为 `["E","W","F"]` (215 legacy issues) — Wave 4 完成后加回 UP, I, B, SIM
+- [x] F9. **更新 check_dependencies.py expected_violations**: 添加 `api/workflows.py` (Wave 2 Task 9 发现 2 violations)
 
 ---
 
