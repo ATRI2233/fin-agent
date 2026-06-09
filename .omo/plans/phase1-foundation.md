@@ -769,7 +769,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `chore(webui): add ESLint config with size restrictions`
   - Files: `webui/.eslintrc.json` (and webui/package.json if eslint added)
 
-- [ ] 7. **BaseRepository[T] 泛型基类**
+- [x] 7. **BaseRepository[T] 泛型基类**
 
   **What to do**:
   - 创建 `main/framework/repositories/base.py`，实现：
