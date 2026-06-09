@@ -245,7 +245,7 @@ Wave FINAL (4 review tasks, parallel):
 
 ### Wave 0: Pre-Flight (1个任务 - 阻塞所有其他 Waves)
 
-- [ ] 0. **Git 基线设置（PATH、分支、.gitignore、uncommitted docs）**
+- [x] 0. **Git 基线设置（PATH、分支、.gitignore、uncommitted docs）**
 
   **What to do**:
   - **步骤 A - 验证/修复 git PATH**:
