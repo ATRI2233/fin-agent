@@ -1,1 +1,1 @@
-﻿On branch phase1-foundationUntracked files:  (use "git add <file>..." to include in what will be committed)	.omo/evidence/nothing added to commit but untracked files present (use "git add" to track)
+﻿On branch phase1-foundationChanges not staged for commit:  (use "git add <file>..." to update what will be committed)  (use "git restore <file>..." to discard changes in working directory)	modified:   .omo/evidence/task-0-dirty-tree.txtno changes added to commit (use "git add" and/or "git commit -a")
