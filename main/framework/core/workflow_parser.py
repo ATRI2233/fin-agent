@@ -35,7 +35,7 @@ def validate_dag(nodes: list[Node], edges: list[Edge]) -> bool:
         adj[edge["source"]].append(edge["target"])
 
     # DFS-based cycle detection
-    state: dict[NodeId, str] = defaultdict(str)  # "white", "gray", "black"
+    state: dict[NodeId, str] = defaultdict(lambda: "white")  # "white", "gray", "black"
 
     def dfs(node_id: NodeId) -> bool:
         """Returns True if cycle detected."""
