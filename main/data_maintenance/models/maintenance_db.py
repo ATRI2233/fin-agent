@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Integer, Float, Text, DateTime, create_engine
+from sqlalchemy import Column, String, Integer, Float, Text, DateTime, create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 MaintenanceBase = declarative_base()
@@ -23,6 +23,19 @@ _engine = None
 _SessionLocal = None
 
 
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    """Enable WAL mode + busy_timeout + NORMAL synchronous on every new connection.
+
+    PRAGMA journal_mode=WAL is persistent on the file, but must be issued
+    per-connection when using SQLAlchemy connection pools.
+    """
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
+
+
 def _get_engine():
     global _engine
     if _engine is None:
@@ -31,6 +44,7 @@ def _get_engine():
             f"sqlite:///{_DB_PATH}",
             connect_args={"check_same_thread": False},
         )
+        event.listen(_engine, "connect", _set_sqlite_pragma)
     return _engine
 
 
