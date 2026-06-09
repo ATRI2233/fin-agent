@@ -1,16 +1,18 @@
-"""Session management API — view and cleanup agent sessions."""
+﻿"""Session management API — view and cleanup agent sessions."""
 
 from __future__ import annotations
 
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from main.framework.models.database import SessionLocal
+from main.framework.core.container import get_service
 from main.framework.models.workflow_execution import ExecutionNode
 from main.framework.models.conversation import Conversation
+from main.framework.repositories.execution_repo import ExecutionRepository
+from main.framework.repositories.conversation_repo import ConversationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +53,16 @@ class CleanupResponse(BaseModel):
 
 
 @router.get("", response_model=SessionListResponse)
-async def list_sessions(request: Request):
+async def list_sessions(
+    request: Request,
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
+):
     """List all known sessions from workflow executions and conversations."""
-    db = SessionLocal()
-    try:
-        sessions: list[SessionInfo] = []
+    sessions: list[SessionInfo] = []
 
-        # Sessions from workflow execution nodes
+    # Sessions from workflow execution nodes
+    with exec_repo._session() as db:
         nodes = (
             db.query(ExecutionNode)
             .filter(ExecutionNode.session_id.isnot(None))
@@ -77,7 +82,8 @@ async def list_sessions(request: Request):
                 )
             )
 
-        # Sessions from conversations
+    # Sessions from conversations
+    with conv_repo._session() as db:
         convos = (
             db.query(Conversation)
             .filter(Conversation.session_id.isnot(None))
@@ -97,22 +103,24 @@ async def list_sessions(request: Request):
                 )
             )
 
-        active_count = sum(1 for s in sessions if s.status == "active")
-        return SessionListResponse(
-            sessions=sessions,
-            total=len(sessions),
-            active_count=active_count,
-        )
-    finally:
-        db.close()
+    active_count = sum(1 for s in sessions if s.status == "active")
+    return SessionListResponse(
+        sessions=sessions,
+        total=len(sessions),
+        active_count=active_count,
+    )
 
 
 @router.get("/{session_id}", response_model=SessionInfo)
-async def get_session(session_id: str, request: Request):
+async def get_session(
+    session_id: str,
+    request: Request,
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
+):
     """Get details for a specific session."""
-    db = SessionLocal()
-    try:
-        # Check execution nodes
+    # Check execution nodes
+    with exec_repo._session() as db:
         node = db.query(ExecutionNode).filter(ExecutionNode.session_id == session_id).first()
         if node:
             return SessionInfo(
@@ -125,7 +133,8 @@ async def get_session(session_id: str, request: Request):
                 created_at=node.started_at.isoformat() if node.started_at else None,
             )
 
-        # Check conversations
+    # Check conversations
+    with conv_repo._session() as db:
         convo = db.query(Conversation).filter(Conversation.session_id == session_id).first()
         if convo:
             return SessionInfo(
@@ -136,13 +145,15 @@ async def get_session(session_id: str, request: Request):
                 created_at=convo.created_at.isoformat() if convo.created_at else None,
             )
 
-        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
-    finally:
-        db.close()
+    raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
 
 @router.delete("/{session_id}")
-async def cleanup_session(session_id: str, request: Request):
+async def cleanup_session(
+    session_id: str,
+    request: Request,
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+):
     """Cleanup a specific session."""
     container = request.app.state.container
     backend = container.backend
@@ -154,14 +165,11 @@ async def cleanup_session(session_id: str, request: Request):
             raise HTTPException(status_code=500, detail=status)
 
         # Mark nodes as cleaned up
-        db = SessionLocal()
-        try:
+        with exec_repo._session() as db:
             nodes = db.query(ExecutionNode).filter(ExecutionNode.session_id == session_id).all()
             for n in nodes:
                 n.status = "cleaned_up"
             db.commit()
-        finally:
-            db.close()
 
         return {"session_id": session_id, "status": "cleaned"}
     except HTTPException:
@@ -171,7 +179,11 @@ async def cleanup_session(session_id: str, request: Request):
 
 
 @router.post("/cleanup", response_model=CleanupResponse)
-async def bulk_cleanup(payload: CleanupRequest, request: Request):
+async def bulk_cleanup(
+    payload: CleanupRequest,
+    request: Request,
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+):
     """Bulk cleanup sessions by execution_id or all expired."""
     from main.framework.core.session_cleanup import cleanup_workflow_sessions
 
@@ -198,8 +210,7 @@ async def bulk_cleanup(payload: CleanupRequest, request: Request):
     elif payload.all_expired:
         container = request.app.state.container
         backend = container.backend
-        db = SessionLocal()
-        try:
+        with exec_repo._session() as db:
             nodes = (
                 db.query(ExecutionNode)
                 .filter(ExecutionNode.session_id.isnot(None))
@@ -221,8 +232,6 @@ async def bulk_cleanup(payload: CleanupRequest, request: Request):
                     else:
                         failed += 1
                 db.commit()
-        finally:
-            db.close()
 
     return CleanupResponse(cleaned=cleaned, failed=failed, details=details)
 
