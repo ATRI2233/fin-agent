@@ -111,7 +111,7 @@ class Container:
     def session_manager(self):
         """Conversation —?session mapping (lazy, needs backend)."""
         if "session_manager" not in self._instances:
-            from main.framework.api.conversations import ConvSessionManager
+            from main.framework.core.session_manager import ConvSessionManager
 
             self._instances["session_manager"] = ConvSessionManager(self.backend)
         return self._instances["session_manager"]

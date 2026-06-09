@@ -67,8 +67,8 @@ def db_session(test_engine, test_session_factory):
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
-    """FastAPI async test client with overridden DB dependency."""
+def client(db_session, test_session_factory):
+    """FastAPI async test client with overridden DB dependency and configured Container."""
     try:
         from httpx import ASGITransport, AsyncClient
 
@@ -82,6 +82,30 @@ def client(db_session):
                 pass  # session cleanup in db_session fixture
 
         app.dependency_overrides[get_db] = override_get_db
+
+        # Configure the DI container for tests that need it (e.g. triggers)
+        try:
+            from main.framework.config import Settings
+            from main.framework.core.container import Container, configure
+            from main.framework.repositories.agent_repo import AgentRepository
+            from main.framework.repositories.conversation_repo import ConversationRepository
+            from main.framework.repositories.execution_repo import ExecutionRepository
+            from main.framework.repositories.workflow_repo import WorkflowRepository
+
+            test_settings = Settings()
+            test_container = Container(test_settings)
+
+            # Override repositories to use test session factory
+            test_container._instances["execution_repo"] = ExecutionRepository(session_factory=test_session_factory)
+            test_container._instances["agent_repo"] = AgentRepository(session_factory=test_session_factory)
+            test_container._instances["workflow_repo"] = WorkflowRepository(session_factory=test_session_factory)
+            test_container._instances["conversation_repo"] = ConversationRepository(session_factory=test_session_factory)
+
+            configure(test_container)
+            app.state.container = test_container
+        except Exception:
+            pass  # Some tests don't need the container
+
         transport = ASGITransport(app=app)
         return AsyncClient(transport=transport, base_url="http://test")
     except ImportError as e:

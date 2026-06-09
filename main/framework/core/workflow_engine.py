@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Any, Callable, Awaitable
+from typing import Any
 
 from main.framework.core.agent_dispatcher import AgentDispatcher
 from main.framework.core.debate_executor import DebateExecutor
 from main.framework.core.retry_handler import WorkflowRetryHandler
 from main.framework.core.workflow_parser import (
-    topological_sort,
     identify_parallel_branches,
+    topological_sort,
 )
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 
@@ -168,7 +169,7 @@ class WorkflowEngine:
     def _is_only_successor(self, node_id: str, pred_id: str) -> bool:
         """Check if node_id is the sole successor of pred_id.
 
-        This prevents parallel branches from sharing a session â€?        if a predecessor has multiple successors, each gets its own session.
+        This prevents parallel branches from sharing a session â€”         if a predecessor has multiple successors, each gets its own session.
         """
         successors = [e["target"] for e in self.edges if e.get("source") == pred_id]
         return len(successors) == 1
@@ -286,7 +287,7 @@ class WorkflowEngine:
 
             predecessor_ids = [e["source"] for e in self.edges if e.get("target") == node_id]
 
-            # Handle input nodes â€?pass through trigger params as output
+            # Handle input nodes â€” pass through trigger params as output
             if node.get("type") == "input":
                 self._results[node_id] = self.params
                 exec_node.status = "completed"
@@ -295,7 +296,7 @@ class WorkflowEngine:
                 db.commit()
                 return self.params
 
-            # Handle output nodes â€?collect upstream outputs as final result
+            # Handle output nodes â€” collect upstream outputs as final result
             if node.get("type") == "output":
                 upstream_outputs = []
                 for pred_id in predecessor_ids:
