@@ -9,32 +9,19 @@ import signal
 import sys
 from typing import TYPE_CHECKING
 
-from main.framework.models.database import SessionLocal
 from main.framework.models.workflow_execution import ExecutionNode
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
+
     from main.framework.core.protocols import AgentBackend
 
 logger = logging.getLogger(__name__)
 
 # Global registry for active execution sessions
 _active_sessions: dict[str, list[str]] = {}  # execution_id -> session_ids
-
-# Module-level backend reference (set via configure() or passed per-call)
-_backend: AgentBackend | None = None
-
-
-def configure(backend: AgentBackend) -> None:
-    """Set the global backend used by cleanup functions."""
-    global _backend
-    _backend = backend
-
-
-def _get_backend() -> AgentBackend:
-    """Get the configured backend. Must call configure() first."""
-    if _backend is None:
-        raise RuntimeError("Backend not configured — call configure(backend) at startup")
-    return _backend
 
 
 def _run_async(coro):
@@ -43,6 +30,7 @@ def _run_async(coro):
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 return pool.submit(asyncio.run, coro).result()
         return loop.run_until_complete(coro)
@@ -51,16 +39,17 @@ def _run_async(coro):
 
 
 def cleanup_workflow_sessions(
-    execution_id: str, backend: AgentBackend | None = None
+    execution_id: str,
+    backend: AgentBackend,
+    session_factory: Callable[[], Session] | None = None,
 ) -> dict:
     """Cleanup all sessions for a workflow execution."""
-    db = SessionLocal()
+    from main.framework.models.database import SessionLocal
+
+    factory = session_factory or SessionLocal
+    db = factory()
     try:
-        exec_nodes = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.execution_id == execution_id)
-            .all()
-        )
+        exec_nodes = db.query(ExecutionNode).filter(ExecutionNode.execution_id == execution_id).all()
 
         session_ids: list[str] = []
         for node in exec_nodes:
@@ -71,8 +60,7 @@ def cleanup_workflow_sessions(
         if not session_ids:
             return {}
 
-        be = backend or _get_backend()
-        results = _run_async(be.cleanup_sessions(session_ids))
+        results = _run_async(backend.cleanup_sessions(session_ids))
 
         for node in exec_nodes:
             if node.session_id:
@@ -89,12 +77,16 @@ def cleanup_workflow_sessions(
         db.close()
 
 
-def register_cleanup_hook(execution_id: str) -> None:
+def register_cleanup_hook(
+    execution_id: str,
+    backend: AgentBackend,
+    session_factory: Callable[[], Session] | None = None,
+) -> None:
     """Register atexit/signal cleanup for an execution."""
 
     def _cleanup():
         try:
-            cleanup_workflow_sessions(execution_id)
+            cleanup_workflow_sessions(execution_id, backend=backend, session_factory=session_factory)
             _active_sessions.pop(execution_id, None)
         except Exception as e:
             logger.error(f"Cleanup hook failed for {execution_id}: {e}")
@@ -113,17 +105,18 @@ def register_cleanup_hook(execution_id: str) -> None:
         pass
 
 
-def cleanup_on_shutdown() -> None:
+def cleanup_on_shutdown(
+    backend: AgentBackend,
+    session_factory: Callable[[], Session] | None = None,
+) -> None:
     """Cleanup all active sessions on application shutdown."""
-    if _backend is None:
-        return
+    from main.framework.models.database import SessionLocal
 
-    db = SessionLocal()
+    factory = session_factory or SessionLocal
+    db = factory()
     try:
         active_nodes = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.status.notin_(["cleaned_up", "failed", "skipped"]))
-            .all()
+            db.query(ExecutionNode).filter(ExecutionNode.status.notin_(["cleaned_up", "failed", "skipped"])).all()
         )
 
         all_session_ids: list[str] = []
@@ -135,7 +128,7 @@ def cleanup_on_shutdown() -> None:
         if not all_session_ids:
             return
 
-        _run_async(_backend.cleanup_sessions(all_session_ids))
+        _run_async(backend.cleanup_sessions(all_session_ids))
 
         for node in active_nodes:
             if node.session_id:

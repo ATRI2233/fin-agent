@@ -10,26 +10,26 @@ from typing import Any, Callable, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from main.framework.models.database import SessionLocal
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
 
 logger = __import__("logging").getLogger(__name__)
 
-# Factory function set at startup via configure()
-_engine_factory: Callable[..., Any] | None = None
-
-
-def configure(engine_factory: Callable[..., Any]) -> None:
-    """Set the factory used to create WorkflowEngine instances."""
-    global _engine_factory
-    _engine_factory = engine_factory
-
 
 class WorkflowScheduler:
     """Manages workflow scheduling with cron expressions."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        session_factory: Callable[..., Any] | None = None,
+        engine_factory: Callable[..., Any] | None = None,
+    ):
+        if session_factory is None:
+            from main.framework.models.database import SessionLocal
+
+            session_factory = SessionLocal
+        self._session_factory = session_factory
+        self._engine_factory = engine_factory
         self._scheduler = AsyncIOScheduler()
         self._workflow_jobs: dict[str, dict] = {}  # workflow_id -> job_info
 
@@ -100,7 +100,7 @@ class WorkflowScheduler:
         logger.info(f"Scheduled workflow {workflow_id} with cron: {cron_expression}")
 
         # Update workflow in DB
-        db = SessionLocal()
+        db = self._session_factory()
         try:
             workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
             if workflow:
@@ -129,7 +129,7 @@ class WorkflowScheduler:
             logger.info(f"Removed scheduled workflow {workflow_id}")
 
             # Update workflow in DB
-            db = SessionLocal()
+            db = self._session_factory()
             try:
                 workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
                 if workflow:
@@ -146,7 +146,7 @@ class WorkflowScheduler:
 
     async def restore_jobs_from_db(self) -> None:
         """Restore scheduled jobs from database on startup."""
-        db = SessionLocal()
+        db = self._session_factory()
         try:
             workflows = (
                 db.query(Workflow)
@@ -268,7 +268,8 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
     """
     logger.info(f"Running scheduled workflow: {workflow_id}")
 
-    db = SessionLocal()
+    scheduler = get_scheduler()
+    db = scheduler._session_factory()
     try:
         # Load workflow from database
         workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
@@ -288,7 +289,7 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
         # Create ExecutionNode records
         from main.framework.models.workflow_execution import ExecutionNode
 
-        for node in (workflow.nodes or []):
+        for node in workflow.nodes or []:
             agent = node.get("agent", "")
             if not agent:
                 data = node.get("data", {})
@@ -304,16 +305,12 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
             db.add(exec_node)
         db.commit()
 
-        logger.info(
-            f"Created execution {execution.id} for scheduled workflow {workflow_id}"
-        )
+        logger.info(f"Created execution {execution.id} for scheduled workflow {workflow_id}")
 
         # Run via WorkflowEngine (created through factory for DI)
-        if _engine_factory is None:
-            raise RuntimeError("Scheduler not configured: call scheduler.configure() first")
-        engine = _engine_factory(
-            workflow_id=workflow_id, params={}, execution_id=str(execution.id)
-        )
+        if scheduler._engine_factory is None:
+            raise RuntimeError("Scheduler not configured: pass engine_factory to WorkflowScheduler()")
+        engine = scheduler._engine_factory(workflow_id=workflow_id, params={}, db=db, execution_id=str(execution.id))
 
         try:
             result = await engine.execute()
@@ -325,9 +322,7 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
                 execution.status = result.get("status", "completed")
                 db.commit()
 
-            logger.info(
-                f"Scheduled workflow {workflow_id} execution completed: {execution.status}"
-            )
+            logger.info(f"Scheduled workflow {workflow_id} execution completed: {execution.status}")
             return result
 
         except Exception as e:

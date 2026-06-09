@@ -125,9 +125,13 @@ class Container:
     def create_scheduler(self):
         """Create or return the WorkflowScheduler singleton."""
         from main.framework.core.scheduler import WorkflowScheduler
+        from main.framework.config.database import SessionLocal
 
         if "scheduler" not in self._instances:
-            self._instances["scheduler"] = WorkflowScheduler()
+            self._instances["scheduler"] = WorkflowScheduler(
+                session_factory=SessionLocal,
+                engine_factory=self.create_workflow_engine,
+            )
         return self._instances["scheduler"]  # type: ignore[return-value]
 
     def create_debate_executor(self):

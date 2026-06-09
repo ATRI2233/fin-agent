@@ -9,16 +9,11 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from main.framework.models.database import SessionLocal
-from main.framework.models.workflow import Workflow
-from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 from main.framework.repositories.execution_repo import ExecutionRepository
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/executions", tags=["executions"])
-
-repo = ExecutionRepository()
 
 
 # ---- Response models ----
@@ -80,6 +75,7 @@ async def list_executions(
     offset: int = 0,
 ):
     """List all execution records with optional filters."""
+    repo = ExecutionRepository()
     items, total = repo.list_executions(
         workflow_id=workflow_id,
         status=status,
@@ -88,17 +84,11 @@ async def list_executions(
     )
 
     # Enrich with workflow names
-    db = SessionLocal()
-    try:
-        wf_ids = list({item["workflow_id"] for item in items})
-        workflows = {
-            w.id: w.name
-            for w in db.query(Workflow).filter(Workflow.id.in_(wf_ids)).all()
-        }
+    wf_ids = list({item["workflow_id"] for item in items})
+    if wf_ids:
+        workflow_names = repo.get_workflow_names(wf_ids)
         for item in items:
-            item["workflow_name"] = workflows.get(item["workflow_id"])
-    finally:
-        db.close()
+            item["workflow_name"] = workflow_names.get(item["workflow_id"])
 
     return ExecutionListResponse(
         executions=items,
@@ -111,133 +101,88 @@ async def list_executions(
 @router.get("/{execution_id}")
 async def get_execution(execution_id: str, request: Request):
     """Get execution detail with all node statuses."""
-    db = SessionLocal()
-    try:
-        execution = db.query(WorkflowExecution).get(execution_id)
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
+    repo = ExecutionRepository()
+    execution, nodes, workflow = repo.get_execution_detail(execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
 
-        nodes = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.execution_id == execution_id)
-            .all()
-        )
-        workflow = db.query(Workflow).get(execution.workflow_id)
-
-        return {
-            "execution_id": execution.id,
-            "workflow_id": execution.workflow_id,
-            "workflow_name": workflow.name if workflow else None,
-            "status": execution.status,
-            "started_at": execution.started_at.isoformat() if execution.started_at else None,
-            "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
-            "nodes": [
-                {
-                    "node_id": n.node_id,
-                    "agent": n.agent,
-                    "status": n.status,
-                    "output": n.output,
-                    "error": n.error,
-                    "session_id": n.session_id,
-                    "retry_count": n.retry_count or 0,
-                }
-                for n in nodes
-            ],
-        }
-    finally:
-        db.close()
+    return {
+        "execution_id": execution.id,
+        "workflow_id": execution.workflow_id,
+        "workflow_name": workflow.name if workflow else None,
+        "status": execution.status,
+        "started_at": execution.started_at.isoformat() if execution.started_at else None,
+        "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+        "nodes": [
+            {
+                "node_id": n.node_id,
+                "agent": n.agent,
+                "status": n.status,
+                "output": n.output,
+                "error": n.error,
+                "session_id": n.session_id,
+                "retry_count": n.retry_count or 0,
+            }
+            for n in nodes
+        ],
+    }
 
 
 @router.get("/{execution_id}/timeline", response_model=TimelineResponse)
 async def get_execution_timeline(execution_id: str, request: Request):
     """Get node-level execution timeline."""
-    db = SessionLocal()
-    try:
-        execution = db.query(WorkflowExecution).get(execution_id)
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
+    repo = ExecutionRepository()
+    execution, _, workflow = repo.get_execution_detail(execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
 
-        workflow = db.query(Workflow).get(execution.workflow_id)
-        timeline = repo.get_execution_timeline(execution_id)
+    timeline = repo.get_execution_timeline(execution_id)
 
-        total_duration = None
-        if execution.started_at and execution.completed_at:
-            total_duration = (execution.completed_at - execution.started_at).total_seconds()
+    total_duration = None
+    if execution.started_at and execution.completed_at:
+        total_duration = (execution.completed_at - execution.started_at).total_seconds()
 
-        return TimelineResponse(
-            execution_id=execution_id,
-            workflow_id=execution.workflow_id,
-            workflow_name=workflow.name if workflow else None,
-            total_duration_seconds=total_duration,
-            nodes=timeline,
-        )
-    finally:
-        db.close()
+    return TimelineResponse(
+        execution_id=execution_id,
+        workflow_id=execution.workflow_id,
+        workflow_name=workflow.name if workflow else None,
+        total_duration_seconds=total_duration,
+        nodes=timeline,
+    )
 
 
 @router.post("/{execution_id}/retry", response_model=RetryResponse)
 async def retry_execution(execution_id: str, request: Request):
     """Retry a failed execution. Creates a new execution for the same workflow."""
     container = request.app.state.container
+    repo = ExecutionRepository()
 
-    db = SessionLocal()
-    try:
-        execution = db.query(WorkflowExecution).get(execution_id)
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
+    execution = repo.get_execution(execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
 
-        if execution.status not in ("failed", "completed"):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot retry execution with status '{execution.status}'",
-            )
-
-        workflow_id = execution.workflow_id
-
-        # Get original params from the first node's input
-        first_node = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.execution_id == execution_id)
-            .first()
+    if execution.status not in ("failed", "completed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot retry execution with status '{execution.status}'",
         )
-        params = first_node.input if first_node and first_node.input else {}
-    finally:
-        db.close()
 
-    # Create new execution and nodes before returning response
-    db2 = SessionLocal()
-    try:
-        execution = WorkflowExecution(workflow_id=workflow_id, status="pending")
-        db2.add(execution)
-        db2.commit()
-        exec_id = str(execution.id)
+    workflow_id = execution.workflow_id
 
-        workflow = db2.query(Workflow).filter(Workflow.id == workflow_id).first()
-        if workflow:
-            for node in (workflow.nodes or []):
-                agent = node.get("agent", "")
-                if not agent:
-                    data = node.get("data", {})
-                    if isinstance(data, dict):
-                        agent = data.get("agentType", "") or data.get("label", "")
-                exec_node = ExecutionNode(
-                    execution_id=exec_id,
-                    node_id=node["id"],
-                    agent=agent,
-                    status="pending",
-                    input=params,
-                )
-                db2.add(exec_node)
-            db2.commit()
-    finally:
-        db2.close()
+    # Get original params from the first node's input
+    params = repo.get_first_node_input(execution_id)
+
+    # Get workflow nodes definition
+    workflow = repo.get_workflow(workflow_id)
+    nodes_data = workflow.nodes if workflow and workflow.nodes else []
+
+    # Create new execution and nodes atomically
+    exec_id, _ = repo.create_execution_with_nodes(workflow_id, nodes_data, params)
 
     # Run engine in background
     async def _run():
         try:
-            engine = container.create_workflow_engine(
-                workflow_id, params, execution_id=exec_id
-            )
+            engine = container.create_workflow_engine(workflow_id, params, execution_id=exec_id)
             await engine.execute()
         except Exception as e:
             logger.error(f"Retry execution failed: {e}", exc_info=True)
@@ -253,28 +198,25 @@ async def retry_execution(execution_id: str, request: Request):
 @router.delete("/{execution_id}")
 async def abort_execution(execution_id: str, request: Request):
     """Abort a running execution and cleanup its sessions."""
+    repo = ExecutionRepository()
+
+    execution = repo.get_execution(execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+
+    if execution.status not in ("pending", "running"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot abort execution with status '{execution.status}'",
+        )
+
+    # Mark execution as failed
+    repo.update_execution(execution_id, status="failed")
+
+    # Cleanup sessions
+    from main.framework.core.session_cleanup import cleanup_workflow_sessions
+
     container = request.app.state.container
+    cleanup_workflow_sessions(execution_id, backend=container.backend)
 
-    db = SessionLocal()
-    try:
-        execution = db.query(WorkflowExecution).get(execution_id)
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
-
-        if execution.status not in ("pending", "running"):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot abort execution with status '{execution.status}'",
-            )
-
-        # Mark execution as failed
-        execution.status = "failed"
-        db.commit()
-
-        # Cleanup sessions
-        from main.framework.core.session_cleanup import cleanup_workflow_sessions
-        cleanup_workflow_sessions(execution_id)
-
-        return {"execution_id": execution_id, "status": "aborted"}
-    finally:
-        db.close()
+    return {"execution_id": execution_id, "status": "aborted"}

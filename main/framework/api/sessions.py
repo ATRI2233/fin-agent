@@ -65,15 +65,17 @@ async def list_sessions(request: Request):
             .all()
         )
         for n in nodes:
-            sessions.append(SessionInfo(
-                session_id=n.session_id,
-                source="workflow",
-                execution_id=n.execution_id,
-                node_id=n.node_id,
-                agent=n.agent,
-                status=_map_node_status(n.status),
-                created_at=n.started_at.isoformat() if n.started_at else None,
-            ))
+            sessions.append(
+                SessionInfo(
+                    session_id=n.session_id,
+                    source="workflow",
+                    execution_id=n.execution_id,
+                    node_id=n.node_id,
+                    agent=n.agent,
+                    status=_map_node_status(n.status),
+                    created_at=n.started_at.isoformat() if n.started_at else None,
+                )
+            )
 
         # Sessions from conversations
         convos = (
@@ -83,15 +85,17 @@ async def list_sessions(request: Request):
             .all()
         )
         for c in convos:
-            sessions.append(SessionInfo(
-                session_id=c.session_id,
-                source="conversation",
-                execution_id=None,
-                node_id=None,
-                agent=c.current_agent,
-                status="active",  # conversation sessions are active until deleted
-                created_at=c.created_at.isoformat() if c.created_at else None,
-            ))
+            sessions.append(
+                SessionInfo(
+                    session_id=c.session_id,
+                    source="conversation",
+                    execution_id=None,
+                    node_id=None,
+                    agent=c.current_agent,
+                    status="active",  # conversation sessions are active until deleted
+                    created_at=c.created_at.isoformat() if c.created_at else None,
+                )
+            )
 
         active_count = sum(1 for s in sessions if s.status == "active")
         return SessionListResponse(
@@ -109,11 +113,7 @@ async def get_session(session_id: str, request: Request):
     db = SessionLocal()
     try:
         # Check execution nodes
-        node = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.session_id == session_id)
-            .first()
-        )
+        node = db.query(ExecutionNode).filter(ExecutionNode.session_id == session_id).first()
         if node:
             return SessionInfo(
                 session_id=session_id,
@@ -126,11 +126,7 @@ async def get_session(session_id: str, request: Request):
             )
 
         # Check conversations
-        convo = (
-            db.query(Conversation)
-            .filter(Conversation.session_id == session_id)
-            .first()
-        )
+        convo = db.query(Conversation).filter(Conversation.session_id == session_id).first()
         if convo:
             return SessionInfo(
                 session_id=session_id,
@@ -160,11 +156,7 @@ async def cleanup_session(session_id: str, request: Request):
         # Mark nodes as cleaned up
         db = SessionLocal()
         try:
-            nodes = (
-                db.query(ExecutionNode)
-                .filter(ExecutionNode.session_id == session_id)
-                .all()
-            )
+            nodes = db.query(ExecutionNode).filter(ExecutionNode.session_id == session_id).all()
             for n in nodes:
                 n.status = "cleaned_up"
             db.commit()
@@ -194,7 +186,8 @@ async def bulk_cleanup(payload: CleanupRequest, request: Request):
     details: dict[str, str] = {}
 
     if payload.execution_id:
-        result = cleanup_workflow_sessions(payload.execution_id)
+        container = request.app.state.container
+        result = cleanup_workflow_sessions(payload.execution_id, backend=container.backend)
         for sid, status in result.items():
             details[sid] = status
             if status == "cleaned":

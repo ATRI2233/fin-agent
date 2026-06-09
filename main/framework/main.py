@@ -76,7 +76,9 @@ async def http_exception_handler(request, exc):
 async def generic_exception_handler(request: Request, exc: Exception):
     logger.exception(
         "Unhandled exception during request %s %s",
-        request.method, request.url, exc_info=exc,
+        request.method,
+        request.url,
+        exc_info=exc,
     )
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
@@ -98,23 +100,22 @@ scheduler = container.create_scheduler()
 
 @app.on_event("startup")
 async def startup():
-    # Wire up engine factory for scheduler
-    from main.framework.core import scheduler as scheduler_mod
-    scheduler_mod.configure(container.create_workflow_engine)
-
     scheduler.start()
     await scheduler.restore_jobs_from_db()
 
     # Wire up backend to modules that need it
     from main.framework.core import session_cleanup
+
     session_cleanup.configure(container.backend)
 
     from main.framework.api.conversations import configure_session_manager
+
     configure_session_manager(container.backend)
 
     # Initialize data maintenance
     from main.data_maintenance.models.maintenance_db import init_maintenance_db
     from main.data_maintenance.core.data_maintenance import DataMaintenanceService, configure as configure_maintenance
+
     init_maintenance_db()
     configure_maintenance(container.dispatcher, scheduler._scheduler)
     DataMaintenanceService.sync_scheduled_tasks()
@@ -124,4 +125,5 @@ async def startup():
 async def shutdown():
     scheduler.stop()
     from main.framework.core import session_cleanup
-    session_cleanup.cleanup_on_shutdown()
+
+    session_cleanup.cleanup_on_shutdown(container.backend)
