@@ -1,0 +1,33 @@
+# .pre-commit-config.yaml - Local hooks (no remote pre-commit framework install)
+default_install_hook_types: [pre-commit]
+repos:
+  - repo: local
+    hooks:
+      - id: check-file-lines
+        name: Check file line count (max 500)
+        entry: python scripts/check_lines.py
+        language: system
+        files: \.(py|ts|tsx)$
+        pass_filenames: false
+
+      - id: ruff-check
+        name: Ruff lint
+        entry: python -m ruff check
+        language: system
+        files: \.py$
+        types: [python]
+
+      - id: eslint-check
+        name: ESLint check
+        entry: npx eslint
+        language: system
+        files: \.(ts|tsx)$
+        types: [file]
+        # Note: webui/.eslintrc.json must exist (created in Task 6)
+
+      - id: dependency-check
+        name: Dependency architecture check
+        entry: python scripts/check_dependencies.py
+        language: system
+        files: \.py$
+        pass_filenames: false
