@@ -1,5 +1,14 @@
 # PHASE 2 — 业务逻辑拆分与依赖治理
 
+> **STATUS NOTE**: Plan written 2026-06-09. Previous session already executed partial PHASE 2 work (committed as `1f55ee1`):
+> - Task 2 (schemas/conversation.py): **DONE** (28 lines)
+> - Task 3 (move ConvSessionManager): **DONE** but placed in `core/`, not `services/`
+> - Task 9 (MessageProcessor): **DONE** (170 lines, in services/)
+> - Task 10 (refactor conversations.py): **PARTIAL** (549→217 lines, target 150)
+> - All 17 integration tests passing
+> - Branch: `phase1-foundation` (pre-PHASE 2 work was on this branch)
+> - This plan continues from current state; tasks already completed are marked `[x]`
+
 ## TL;DR
 
 > **Quick Summary**: Extract Service layer from existing API/core modules, split God Objects (conversations.py 549→150, workflow_engine.py 561→300), eliminate remaining globals (_scheduler_instance), and consolidate duplicated code. 4 existing integration tests must pass unchanged.
@@ -276,7 +285,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
 ### Wave 2 — Foundation (5 tasks, parallel, no behavior change)
 
-- [ ] 2. **Create `schemas/conversation.py` with 5 Pydantic models**
+- [x] 2. **Create `schemas/conversation.py` with 5 Pydantic models** ✅ DONE (commit 1f55ee1)
 
   **What to do**:
   - Create `main/framework/schemas/__init__.py` (empty)
@@ -320,7 +329,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `feat(schemas): extract 5 Pydantic models from api/conversations.py`
 
-- [ ] 3. **Move `ConvSessionManager` to `services/session_manager.py`**
+- [x] 3. **Move `ConvSessionManager` to `services/session_manager.py`** ✅ DONE but in `core/session_manager.py` (commit 1f55ee1). Decision: keep in `core/` (semantic fit — session management is core infra, not business service).
 
   **What to do**:
   - Create `main/framework/services/session_manager.py` with `ConvSessionManager` class (copy from `api/conversations.py:66-119`)
@@ -360,7 +369,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `refactor(services): move ConvSessionManager to services/session_manager.py`
 
-- [ ] 4. **Create `services/protocols.py` with Service base interface**
+- [ ] 4. **Create `services/protocols.py` with Service base interface** (note: `services/__init__.py` is just a docstring — needs re-exports)
 
   **What to do**:
   - Create `main/framework/services/protocols.py` with `ServiceProtocol` (typing.Protocol):
@@ -436,7 +445,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `feat(services): re-export core types from services/__init__.py`
 
-- [ ] 6. **Update `container.py` session_manager import path**
+- [x] 6. **Update `container.py` session_manager import path** ✅ DONE (commit 1f55ee1)
 
   **What to do**:
   - In `main/framework/core/container.py:114`, change `from main.framework.api.conversations import ConvSessionManager` to `from main.framework.services.session_manager import ConvSessionManager`
@@ -579,7 +588,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `refactor(controllers): move conversation routes to thin controllers/`
 
-- [ ] 9. **Create `MessageProcessor` (extract async background logic)**
+- [x] 9. **Create `MessageProcessor` (extract async background logic)** ✅ DONE (commit 1f55ee1, 170 lines in `services/message_processor.py`)
 
   **What to do**:
   - Create `main/framework/services/message_processor.py` with:
@@ -629,7 +638,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `feat(services): add MessageProcessor for async background tasks`
 
-- [ ] 10. **Refactor `api/conversations.py` to thin route file (≤150 lines)**
+- [ ] 10. **Refactor `api/conversations.py` to thin route file (≤150 lines)** ⚠️ PARTIAL (549→217 lines, need 67 more line reduction)
 
   **What to do**:
   - Reduce `api/conversations.py` to:
