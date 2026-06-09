@@ -16,9 +16,37 @@
       "session_id": "opencode:ses_1549b4b46ffeE9guemD1AC07sN",
       "agent": "Sisyphus-Junior",
       "category": "quick",
-      "updated_at": "2026-06-09T08:08:59.764Z",
+      "updated_at": "2026-06-09T08:11:53.243Z",
       "started_at": "2026-06-09T08:08:59.764Z",
-      "status": "running"
+      "status": "completed",
+      "ended_at": "2026-06-09T08:11:53.243Z",
+      "elapsed_ms": 173479
+    },
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "**pyproject.toml + pytest + ruff 配置**",
+      "session_id": "opencode:ses_1548e1193ffeyAm7P3e3HMcDF6",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-09T08:28:11.099Z",
+      "started_at": "2026-06-09T08:27:04.086Z",
+      "status": "completed",
+      "ended_at": "2026-06-09T08:28:11.099Z",
+      "elapsed_ms": 67013
+    },
+    "todo:7": {
+      "task_key": "todo:7",
+      "task_label": "7",
+      "task_title": "**BaseRepository[T] 泛型基类**",
+      "session_id": "opencode:ses_154800ef4ffej7PTpNCFl6saiD",
+      "agent": "Sisyphus-Junior",
+      "category": "unspecified-high",
+      "updated_at": "2026-06-09T08:35:50.248Z",
+      "started_at": "2026-06-09T08:35:16.909Z",
+      "status": "completed",
+      "ended_at": "2026-06-09T08:35:50.248Z",
+      "elapsed_ms": 33339
     }
   },
   "schema_version": 2,
@@ -74,7 +102,7 @@
       "plan_name": "phase1-foundation",
       "status": "active",
       "started_at": "2026-06-09T07:56:09.383Z",
-      "updated_at": "2026-06-09T08:08:59.764Z",
+      "updated_at": "2026-06-09T08:35:50.248Z",
       "session_ids": [
         "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
       ],
@@ -90,15 +118,43 @@
           "session_id": "opencode:ses_1549b4b46ffeE9guemD1AC07sN",
           "agent": "Sisyphus-Junior",
           "category": "quick",
-          "updated_at": "2026-06-09T08:08:59.764Z",
+          "updated_at": "2026-06-09T08:11:53.243Z",
           "started_at": "2026-06-09T08:08:59.764Z",
-          "status": "running"
+          "status": "completed",
+          "ended_at": "2026-06-09T08:11:53.243Z",
+          "elapsed_ms": 173479
+        },
+        "todo:1": {
+          "task_key": "todo:1",
+          "task_label": "1",
+          "task_title": "**pyproject.toml + pytest + ruff 配置**",
+          "session_id": "opencode:ses_1548e1193ffeyAm7P3e3HMcDF6",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-09T08:28:11.099Z",
+          "started_at": "2026-06-09T08:27:04.086Z",
+          "status": "completed",
+          "ended_at": "2026-06-09T08:28:11.099Z",
+          "elapsed_ms": 67013
+        },
+        "todo:7": {
+          "task_key": "todo:7",
+          "task_label": "7",
+          "task_title": "**BaseRepository[T] 泛型基类**",
+          "session_id": "opencode:ses_154800ef4ffej7PTpNCFl6saiD",
+          "agent": "Sisyphus-Junior",
+          "category": "unspecified-high",
+          "updated_at": "2026-06-09T08:35:50.248Z",
+          "started_at": "2026-06-09T08:35:16.909Z",
+          "status": "completed",
+          "ended_at": "2026-06-09T08:35:50.248Z",
+          "elapsed_ms": 33339
         }
       }
     }
   },
   "active_work_id": "phase1-foundation-09a390a2",
-  "updated_at": "2026-06-09T08:08:59.764Z",
+  "updated_at": "2026-06-09T08:35:50.248Z",
   "status": "active",
   "agent": "atlas"
 }
