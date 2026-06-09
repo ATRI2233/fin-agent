@@ -1,10 +1,11 @@
 # fin-agent 重构执行蓝图
 
-> 版本：v1.1
+> 版本：v1.2
 > 创建日期：2026-06-09
-> 更新日期：2026-06-09
+> 更新日期：2026-06-09（新增第四章：重构后完整目录结构）
 > 基于：ARCHITECTURE_AUDIT.md 审计结论
 > 目标：全面整改 God Object、全局状态滥用、DB 会话混乱、分层违规、前端无架构五大问题
+> 约束：每个子文件夹内最多 7 个代码文件（不含 `__init__.py` / `index.ts`）
 
 ---
 
@@ -13,11 +14,12 @@
 - [一、架构规范总则](#一架构规范总则)
 - [二、后端分层架构规范](#二后端分层架构规范)
 - [三、前端分层架构规范](#三前端分层架构规范)
-- [四、全局状态与依赖治理](#四全局状态与依赖治理)
-- [五、自动化防护工具配置](#五自动化防护工具配置)
-- [六、重构前置条件（依赖图 + 并发方案 + 测试策略）](#六重构前置条件依赖图--并发方案--测试策略)
-- [七、重构执行计划（6 阶段）](#七重构执行计划6-阶段)
-- [八、验收标准与检查清单](#八验收标准与检查清单)
+- [四、重构后完整目录结构](#四重构后完整目录结构)
+- [五、全局状态与依赖治理](#五全局状态与依赖治理)
+- [六、自动化防护工具配置](#六自动化防护工具配置)
+- [七、重构前置条件（依赖图 + 并发方案 + 测试策略）](#七重构前置条件依赖图--并发方案--测试策略)
+- [八、重构执行计划（7 阶段）](#八重构执行计划7-阶段)
+- [九、验收标准与检查清单](#九验收标准与检查清单)
 
 ---
 
@@ -580,9 +582,309 @@ export function ChatPage() {
 
 ---
 
-## 四、全局状态与依赖治理
+## 四、重构后完整目录结构
 
-### 4.1 后端 DI 容器
+> 规则：每个子文件夹内最多 7 个代码文件（不含 `__init__.py` / `index.ts`）
+
+### 4.1 后端 `main/` 目标结构
+
+```
+main/
+├── config/                              # 配置层（3 文件）
+│   ├── settings.py                      # Settings(BaseSettings)
+│   ├── constants.py                     # 业务常量
+│   └── database.py                      # 引擎、SessionLocal、get_db
+│
+├── models/                              # Model 层（5 文件）✅
+│   ├── agent.py
+│   ├── conversation.py
+│   ├── workflow.py
+│   ├── workflow_execution.py
+│   └── database.py                      # Base、engine（与 config 合并或保留）
+│
+├── repositories/                        # Repository 层（待扩展）
+│   ├── base.py                          # BaseRepository[T] 泛型基类
+│   ├── agent_repo.py
+│   ├── workflow_repo.py
+│   ├── execution_repo.py
+│   ├── conversation_repo.py
+│   └── maintenance_repo.py
+│
+├── services/                            # Service 层（7 文件）✅
+│   ├── agent_service.py
+│   ├── conversation_service.py          # 从 conversations.py 提取
+│   ├── workflow_service.py              # 从 workflows.py 提取
+│   ├── execution_service.py             # 从 executions.py 提取
+│   ├── scheduler_service.py             # 从 scheduler.py 提取
+│   ├── debate_service.py                # 从 debate_executor.py 提取
+│   └── maintenance_service.py
+│
+├── controllers/                         # Controller 层（按领域分组）
+│   ├── conversations/                   # 对话域（3 文件）✅
+│   │   ├── conversations.py             # 对话 CRUD + 消息发送
+│   │   ├── sessions.py                  # Session 管理
+│   │   └── dispatch.py                  # Agent 直接调度
+│   │
+│   ├── workflows/                       # 工作流域（4 文件）✅
+│   │   ├── workflows.py                 # 工作流 CRUD
+│   │   ├── triggers.py                  # 工作流触发
+│   │   ├── executions.py                # 执行记录查询/重试
+│   │   └── scheduler_routes.py          # 定时调度管理
+│   │
+│   ├── resources/                       # 资源域（3 文件）✅
+│   │   ├── agents.py                    # Agent 列表/详情/统计
+│   │   ├── tools.py                     # 工具列表
+│   │   └── skills.py                    # 技能列表
+│   │
+│   └── system.py                        # 系统状态（独立）
+│
+├── core/                                # 核心引擎（按职责分组）
+│   ├── agent/                           # Agent 调度域（3 文件）✅
+│   │   ├── dispatcher.py                # AgentDispatcher
+│   │   ├── registry.py                  # AgentRegistry
+│   │   └── debate_executor.py           # DebateExecutor
+│   │
+│   ├── workflow/                         # 工作流引擎域（3 文件）✅
+│   │   ├── engine.py                    # WorkflowEngine
+│   │   ├── parser.py                    # DAG 解析
+│   │   └── node_executors/              # 节点执行策略（4 文件）✅
+│   │       ├── base.py                  # NodeExecutor 抽象接口
+│   │       ├── agent_executor.py
+│   │       ├── debate_executor.py
+│   │       └── io_executor.py
+│   │
+│   ├── session/                         # Session 管理域（2 文件）✅
+│   │   ├── cleanup.py                   # Session 清理
+│   │   └── manager.py                   # Session 管理器
+│   │
+│   ├── infra/                           # 基础设施（4 文件）✅
+│   │   ├── container.py                 # DI 容器
+│   │   ├── protocols.py                 # Protocol 抽象接口
+│   │   ├── auth.py                      # API Key 认证
+│   │   └── exceptions.py                # 自定义异常
+│   │
+│   └── utils/                           # 工具模块（6 文件）✅
+│       ├── logger.py                    # 日志配置
+│       ├── log_collector.py             # 日志收集器
+│       ├── input_merger.py              # 输入合并
+│       ├── performance.py               # 性能限制器
+│       ├── retry_handler.py             # 重试与断路器
+│       └── scheduler.py                 # APScheduler 调度器
+│
+├── middleware/                          # 中间件（1 文件）
+│   └── auth.py                          # APIKeyMiddleware
+│
+├── session/                             # OpenCode 执行层（3 文件）✅
+│   ├── opencode_backend.py
+│   ├── process_pool.py
+│   └── output_parser.py
+│
+├── data_maintenance/                    # 数据维护子系统（3 文件）✅
+│   ├── api/
+│   │   └── data_maintenance.py
+│   ├── core/
+│   │   └── data_maintenance.py
+│   └── models/
+│       └── maintenance_db.py
+│
+└── main.py                              # FastAPI 入口
+```
+
+### 4.2 前端 `webui/src/` 目标结构
+
+```
+webui/src/
+├── config/                              # 配置层（4 文件）✅
+│   ├── api.ts                           # API 基础配置（baseURL、超时）
+│   ├── endpoints.ts                     # 所有 API 端点常量
+│   ├── theme.ts                         # 主题配置
+│   └── constants.ts                     # 业务常量
+│
+├── api/                                 # API 客户端层（按领域分组）
+│   ├── client.ts                        # Axios 实例 + 拦截器
+│   ├── conversations.ts                 # 对话 API
+│   ├── workflows.ts                     # 工作流 API
+│   ├── agents.ts                        # Agent API
+│   └── maintenance.ts                   # 数据维护 API
+│
+├── store/                               # 全局状态（Zustand）
+│   ├── conversationStore.ts
+│   ├── workflowStore.ts
+│   ├── agentStore.ts
+│   └── systemStore.ts
+│
+├── hooks/                               # 自定义 Hooks
+│   ├── useConversation.ts
+│   ├── useWorkflow.ts
+│   ├── useAgent.ts
+│   └── usePolling.ts
+│
+├── types/                               # TypeScript 类型
+│   ├── api.ts                           # API 请求/响应类型
+│   ├── models.ts                        # 业务模型类型
+│   └── common.ts                        # 通用类型
+│
+├── components/                          # UI 组件（按领域分组）
+│   ├── common/                          # 通用基础组件（3 文件）✅
+│   │   ├── PageHeader.tsx
+│   │   ├── StatusBadge.tsx
+│   │   └── LoadingSpinner.tsx
+│   │
+│   ├── layout/                          # 布局组件（3 文件）✅
+│   │   ├── AppLayout.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── Header.tsx
+│   │
+│   ├── chat/                            # 对话组件（3 文件）✅
+│   │   ├── MessageBubble.tsx
+│   │   ├── ChatInput.tsx
+│   │   └── ConversationList.tsx
+│   │
+│   └── workflow/                        # 工作流组件（5 文件）✅
+│       ├── WorkflowCanvas.tsx
+│       ├── SessionBoundarySelector.tsx
+│       └── nodes/
+│           ├── AgentNode.tsx
+│           ├── DebateNode.tsx
+│           └── InputOutputNode.tsx      # InputNode + OutputNode 合并
+│
+├── pages/                               # 页面（按领域分组）
+│   ├── dashboard/                       # 仪表盘（1 文件）
+│   │   └── Dashboard.tsx
+│   │
+│   ├── chat/                            # 对话（2 文件）✅
+│   │   ├── ChatPage.tsx
+│   │   └── SessionsPage.tsx
+│   │
+│   ├── workflow/                        # 工作流（6 文件）✅
+│   │   ├── WorkflowList.tsx
+│   │   ├── WorkflowEditor.tsx
+│   │   ├── WorkflowMonitor.tsx
+│   │   ├── WorkflowSettings.tsx
+│   │   ├── ExecutionTimeline.tsx
+│   │   └── NodeDataPanel.tsx
+│   │
+│   ├── agents/                          # Agent 管理（3 文件）✅
+│   │   ├── AgentsPage.tsx
+│   │   ├── FrameworkPage.tsx
+│   │   └── FrameworkAgentDetail.tsx
+│   │
+│   ├── config/                          # 配置管理（3 文件）✅
+│   │   ├── ConfigRawEditor.tsx
+│   │   ├── RulesEditor.tsx
+│   │   └── PermissionsPage.tsx
+│   │
+│   ├── resources/                       # 资源管理（4 文件）✅
+│   │   ├── ToolsPage.tsx
+│   │   ├── SkillsPage.tsx
+│   │   ├── MCPServersPage.tsx
+│   │   └── ProvidersPage.tsx
+│   │
+│   └── info/                            # 信息中心（2 文件）✅
+│       ├── InfoPage.tsx
+│       └── InfoSettingsPage.tsx
+│
+├── styles/                              # 样式
+│   ├── theme.css                        # CSS 变量主题
+│   └── global.css                       # 全局样式
+│
+├── App.tsx                              # 路由定义
+└── main.tsx                             # 入口
+```
+
+### 4.3 MCP Server `agents/` 目标结构
+
+```
+agents/
+├── lib/                                 # 共享逻辑库
+│   ├── index.ts                         # 入口（不计数）
+│   ├── types.ts                         # 类型定义
+│   ├── dataHub.ts                       # 数据中枢
+│   │
+│   ├── memory/                          # 记忆与学习（3 文件）✅
+│   │   ├── memoryTools.ts
+│   │   ├── memoryLearner.ts
+│   │   └── experienceSummary.ts
+│   │
+│   └── analysis/                        # 分析工具（3 文件）✅
+│       ├── conflictResolver.ts
+│       ├── consistencyCheck.ts
+│       └── devilAdvocate.ts
+│
+├── mcp/
+│   ├── core/                            # 核心 MCP Server
+│   │   └── src/
+│   │       ├── index.ts                 # 入口
+│   │       ├── types.ts                 # 类型
+│   │       │
+│   │       ├── mcp/                     # MCP 客户端（2 文件）✅
+│   │       │   ├── mcpClientManager.ts
+│   │       │   └── proxy.ts
+│   │       │
+│   │       ├── memory/                  # 记忆存储（1 文件）
+│   │       │   └── memoryStore.ts
+│   │       │
+│   │       └── tools/                   # 工具定义（已分组）✅
+│   │           ├── fundamental/ (4)
+│   │           ├── fusion/ (1)
+│   │           ├── market/ (3)
+│   │           ├── risk/ (1)
+│   │           ├── sentiment/ (3)
+│   │           └── technical/ (2)
+│   │
+│   ├── ashare/                          # A 股（1 文件）
+│   ├── cn-macro/                        # 中国宏观（1 文件）
+│   ├── fred/                            # FRED（1 文件）
+│   ├── risk/                            # 风控（1 文件）
+│   └── sec-edgar/                       # SEC（1 文件）
+│
+├── opencode/                            # OpenCode 配置
+└── hapi-hub/                            # HAPI Hub（遗留）
+```
+
+### 4.4 目录合规性验证
+
+| 目录 | 文件数 | 状态 |
+|------|--------|------|
+| `config/` | 3 | ✅ |
+| `models/` | 5 | ✅ |
+| `repositories/` | 6 | ✅ |
+| `services/` | 7 | ✅ |
+| `controllers/conversations/` | 3 | ✅ |
+| `controllers/workflows/` | 4 | ✅ |
+| `controllers/resources/` | 3 | ✅ |
+| `core/agent/` | 3 | ✅ |
+| `core/workflow/` | 3 | ✅ |
+| `core/workflow/node_executors/` | 4 | ✅ |
+| `core/session/` | 2 | ✅ |
+| `core/infra/` | 4 | ✅ |
+| `core/utils/` | 6 | ✅ |
+| `session/` | 3 | ✅ |
+| `api/` | 5 | ✅ |
+| `store/` | 4 | ✅ |
+| `hooks/` | 4 | ✅ |
+| `components/common/` | 3 | ✅ |
+| `components/layout/` | 3 | ✅ |
+| `components/chat/` | 3 | ✅ |
+| `components/workflow/` | 5 | ✅ |
+| `pages/dashboard/` | 1 | ✅ |
+| `pages/chat/` | 2 | ✅ |
+| `pages/workflow/` | 6 | ✅ |
+| `pages/agents/` | 3 | ✅ |
+| `pages/config/` | 3 | ✅ |
+| `pages/resources/` | 4 | ✅ |
+| `pages/info/` | 2 | ✅ |
+| `lib/memory/` | 3 | ✅ |
+| `lib/analysis/` | 3 | ✅ |
+| `src/mcp/` | 2 | ✅ |
+
+**所有目录均 ≤ 7 个代码文件。**
+
+---
+
+## 五、全局状态与依赖治理
+
+### 5.1 后端 DI 容器
 
 ```python
 # core/container.py — 增强版
@@ -630,7 +932,7 @@ def get_service(interface: Type[T]) -> Callable:
     return dependency
 ```
 
-### 4.2 容器初始化
+### 5.2 容器初始化
 
 ```python
 # main.py — startup 事件
@@ -671,7 +973,7 @@ async def startup():
     configure_container()
 ```
 
-### 4.3 消除全局状态清单
+### 5.3 消除全局状态清单
 
 | 文件 | 全局变量 | 替换方案 |
 |------|----------|----------|
@@ -680,7 +982,7 @@ async def startup():
 | `conversations.py` | `session_manager` | 移入 ConversationService |
 | `data_maintenance.py` | `_dispatcher`, `_scheduler` | 移入 Container |
 
-### 4.4 前端状态管理
+### 5.4 前端状态管理
 
 - 使用 **Zustand** 替代组件内 useState 管理全局状态
 - 每个领域创建独立 Store（conversationStore、workflowStore 等）
@@ -688,9 +990,9 @@ async def startup():
 
 ---
 
-## 五、自动化防护工具配置
+## 六、自动化防护工具配置
 
-### 5.1 ESLint 配置
+### 6.1 ESLint 配置
 
 ```jsonc
 // webui/.eslintrc.json
@@ -713,7 +1015,7 @@ async def startup():
 }
 ```
 
-### 5.2 Python 代码检查
+### 6.2 Python 代码检查
 
 ```toml
 # pyproject.toml — ruff 配置
@@ -739,7 +1041,7 @@ select = [
 max-complexity = 10
 ```
 
-### 5.3 Pre-commit Hook
+### 6.3 Pre-commit Hook
 
 ```yaml
 # .pre-commit-config.yaml
@@ -802,7 +1104,7 @@ if __name__ == '__main__':
     main()
 ```
 
-### 5.4 依赖架构检测
+### 6.4 依赖架构检测
 
 ```python
 # scripts/check_dependencies.py — 分层依赖检测
@@ -868,11 +1170,11 @@ if __name__ == '__main__':
 
 ---
 
-## 六、重构前置条件（依赖图 + 并发方案 + 测试策略）
+## 七、重构前置条件（依赖图 + 并发方案 + 测试策略）
 
 > ⚠️ 以下三项是重构的**安全网**，必须在动手前完成，否则重构就是在裸奔。
 
-### 6.1 后端依赖关系图分析
+### 7.1 后端依赖关系图分析
 
 #### 6.1.1 当前依赖关系（问题诊断）
 
@@ -935,16 +1237,16 @@ Level 10: main.py (组装所有)
 
 **Container 注册顺序必须严格按此拓扑序执行，否则会触发未初始化依赖。**
 
-### 6.2 SQLite 并发方案
+### 7.2 SQLite 并发方案
 
-#### 6.2.1 问题分析
+#### 7.2.1 问题分析
 
 当前 SQLite 并发问题的根源：
 - `workflow_engine.py` 在并行执行节点时，多个协程同时写入 `execution_nodes` 表
 - `conversations.py` 的 `_execute_workflow_async` 创建嵌套 Session（`db2 = SessionLocal()`）
 - 默认 journal mode 是 DELETE，不支持并发读写
 
-#### 6.2.2 方案选型：SQLite WAL + 写队列（选定方案）
+#### 7.2.2 方案选型：SQLite WAL + 写队列（选定方案）
 
 **不迁移 PostgreSQL**，理由：
 - 项目是单机部署的个人工具，不需要分布式
@@ -1020,7 +1322,7 @@ class BaseRepository(Generic[T]):
         return _write_queue.enqueue(operation)
 ```
 
-#### 6.2.3 Repository 层会话管理规则
+#### 7.2.3 Repository 层会话管理规则
 
 | 场景 | 策略 |
 |------|------|
@@ -1053,9 +1355,9 @@ class UnitOfWork:
         return self._repos[name]
 ```
 
-### 6.3 测试策略
+### 7.3 测试策略
 
-#### 6.3.1 测试金字塔
+#### 7.3.1 测试金字塔
 
 ```
          ╱╲
@@ -1067,7 +1369,7 @@ class UnitOfWork:
    ╱────────────────╲
 ```
 
-#### 6.3.2 重构前：关键路径集成测试（安全网）
+#### 7.3.2 重构前：关键路径集成测试（安全网）
 
 **必须在重构前完成的测试，作为重构的安全网：**
 
@@ -1182,7 +1484,7 @@ async def test_scheduled_workflow(client: AsyncClient):
     assert any(w["id"] == workflow_id for w in scheduled)
 ```
 
-#### 6.3.3 重构后：分层单元测试
+#### 7.3.3 重构后：分层单元测试
 
 ```python
 # tests/unit/test_conversation_service.py
@@ -1263,7 +1565,7 @@ class TestExecutionRepository:
         assert node.status == "completed"
 ```
 
-#### 6.3.4 测试目录结构
+#### 7.3.4 测试目录结构
 
 ```
 tests/
@@ -1288,7 +1590,7 @@ tests/
     └── test_full_analysis.py   # 端到端：大盘分析完整流程
 ```
 
-#### 6.3.5 测试执行计划
+#### 7.3.5 测试执行计划
 
 | 阶段 | 测试类型 | 数量目标 | 执行频率 |
 |------|----------|----------|----------|
@@ -1298,7 +1600,7 @@ tests/
 
 ---
 
-## 七、重构执行计划（7 阶段）
+## 八、重构执行计划（7 阶段）
 
 ### 阶段 0：安全网 + 基础设施（第 1-2 周）
 
@@ -1408,9 +1710,9 @@ tests/
 
 ---
 
-## 八、验收标准与检查清单
+## 九、验收标准与检查清单
 
-### 8.1 架构合规检查
+### 9.1 架构合规检查
 
 - [ ] 所有文件 ≤ 500 行
 - [ ] 无 God Object（单文件单一职责）
@@ -1422,14 +1724,14 @@ tests/
 - [ ] 前端无硬编码 API 地址
 - [ ] 所有常量抽离至 config/
 
-### 8.2 代码质量检查
+### 9.2 代码质量检查
 
 - [ ] ruff 检查通过（0 error）
 - [ ] ESLint 检查通过（0 error）
 - [ ] 分层依赖检测通过（0 violation）
 - [ ] 行数检查通过（所有文件 ≤ 500 行）
 
-### 8.3 功能验证
+### 9.3 功能验证
 
 - [ ] 后端所有 API 端点正常响应
 - [ ] 工作流创建、编辑、执行正常
