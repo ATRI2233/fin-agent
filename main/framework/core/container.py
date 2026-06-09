@@ -119,14 +119,18 @@ class Container:
     # Factory methods — create per-request / per-execution instances
     # ------------------------------------------------------------------
 
-    def create_workflow_engine(self, workflow_id: str, params: dict, status_callback=None, execution_id=None):
+    def create_workflow_engine(self, workflow_id: str, params: dict, db=None, status_callback=None, execution_id=None):
         """Create a fresh WorkflowEngine with injected dependencies."""
         from main.framework.core.workflow_engine import WorkflowEngine
+        from main.framework.config.database import SessionLocal
 
+        if db is None:
+            db = SessionLocal()
         return WorkflowEngine(
             workflow_id=workflow_id,
             params=params,
             dispatcher=self.dispatcher,
+            db=db,
             status_callback=status_callback,
             execution_id=execution_id,
         )

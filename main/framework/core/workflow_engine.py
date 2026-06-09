@@ -14,7 +14,6 @@ from main.framework.core.workflow_parser import (
     topological_sort,
     identify_parallel_branches,
 )
-from main.framework.models.database import SessionLocal
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 
 logger = logging.getLogger(__name__)
@@ -30,12 +29,16 @@ class WorkflowEngine:
         workflow_id: str,
         params: dict[str, Any],
         dispatcher: AgentDispatcher,
+        db: Any = None,
         status_callback: StatusCallback | None = None,
         execution_id: str | None = None,
+        exec_repo: Any = None,
+        workflow_repo: Any = None,
     ):
         self.workflow_id = workflow_id
         self.params = params
         self._dispatcher = dispatcher
+        self.db = db
         self._status_callback = status_callback or self._noop_callback
         self.execution_id: str | None = execution_id
         self.nodes: list[dict] = []
@@ -45,6 +48,8 @@ class WorkflowEngine:
         self._skipped_nodes: set[str] = set()
         # Serial chain session reuse: node_id -> session_id
         self._chain_sessions: dict[str, str] = {}
+        self._exec_repo = exec_repo
+        self._workflow_repo = workflow_repo
 
     @staticmethod
     async def _noop_callback(_status: str, _msg: str, _agent: str) -> None:
@@ -62,7 +67,7 @@ class WorkflowEngine:
         This method only UPDATES those rows, avoiding cross-session
         visibility issues with SQLite.
         """
-        db = SessionLocal()
+        db = self.db
         try:
             from main.framework.models.workflow import Workflow
 
@@ -77,7 +82,10 @@ class WorkflowEngine:
             self.edges = workflow.edges or []
 
             self._retry_handler = WorkflowRetryHandler(
-                self.workflow_id, dispatcher=self._dispatcher
+                self.workflow_id,
+                dispatcher=self._dispatcher,
+                exec_repo=self._exec_repo,
+                workflow_repo=self._workflow_repo,
             )
 
             total_nodes = len(self.nodes)
@@ -94,18 +102,12 @@ class WorkflowEngine:
             parallel_branches = identify_parallel_branches(self.nodes, self.edges)
             predecessors = self._build_predecessors()
 
-            await self._execute_in_order(
-                execution_order, parallel_branches, predecessors
-            )
+            await self._execute_in_order(execution_order, parallel_branches, predecessors)
 
             # Update execution final status
             if self.execution_id:
                 db.commit()  # end any open transaction
-                execution = (
-                    db.query(WorkflowExecution)
-                    .filter(WorkflowExecution.id == self.execution_id)
-                    .first()
-                )
+                execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == self.execution_id).first()
                 if execution:
                     final_status = "failed" if self._failed_nodes else "completed"
                     execution.status = final_status
@@ -114,9 +116,7 @@ class WorkflowEngine:
             completed_count = total_nodes - len(self._failed_nodes) - len(self._skipped_nodes)
             final_status = "failed" if self._failed_nodes else "completed"
 
-            summary = (
-                f"Workflow finished: {completed_count}/{total_nodes} nodes completed"
-            )
+            summary = f"Workflow finished: {completed_count}/{total_nodes} nodes completed"
             if self._failed_nodes:
                 summary += f", {len(self._failed_nodes)} failed"
             if self._skipped_nodes:
@@ -129,11 +129,7 @@ class WorkflowEngine:
             if self.execution_id:
                 try:
                     db.commit()  # end any open transaction
-                    execution = (
-                        db.query(WorkflowExecution)
-                        .filter(WorkflowExecution.id == self.execution_id)
-                        .first()
-                    )
+                    execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == self.execution_id).first()
                     if execution:
                         execution.status = "failed"
                         db.commit()
@@ -143,7 +139,6 @@ class WorkflowEngine:
             raise
         finally:
             await self._cleanup_sessions()
-            db.close()
 
     # ------------------------------------------------------------------
     # Session cleanup
@@ -197,9 +192,7 @@ class WorkflowEngine:
             levels[level].append(node_id)
 
         for level in sorted(levels.keys()):
-            nodes_to_run = [
-                n for n in levels[level] if n not in self._skipped_nodes
-            ]
+            nodes_to_run = [n for n in levels[level] if n not in self._skipped_nodes]
             if not nodes_to_run:
                 continue
 
@@ -210,9 +203,7 @@ class WorkflowEngine:
             )
 
             if can_parallel and len(nodes_to_run) > 1:
-                await asyncio.gather(
-                    *[self._execute_single_node(nid) for nid in nodes_to_run]
-                )
+                await asyncio.gather(*[self._execute_single_node(nid) for nid in nodes_to_run])
             else:
                 for node_id in nodes_to_run:
                     preds = predecessors.get(node_id, [])
@@ -229,16 +220,12 @@ class WorkflowEngine:
             ):
                 await asyncio.sleep(0.1)
 
-    def _compute_level(
-        self, node_id: str, predecessors: dict[str, list[str]]
-    ) -> int:
+    def _compute_level(self, node_id: str, predecessors: dict[str, list[str]]) -> int:
         preds = predecessors.get(node_id, [])
         if not preds:
             level = 0
         else:
-            max_pred_level = max(
-                (self._compute_level(p, predecessors) for p in preds), default=-1
-            )
+            max_pred_level = max((self._compute_level(p, predecessors) for p in preds), default=-1)
             level = max_pred_level + 1
         if not hasattr(self, "_node_levels"):
             self._node_levels = {}
@@ -263,26 +250,18 @@ class WorkflowEngine:
             await self.execute_node(node_id)
             self._results[node_id] = self._results.get(node_id, {})
         except Exception as e:
-            has_retry = node.get("retry") is not None and not node.get(
-                "no_retry", False
-            )
+            has_retry = node.get("retry") is not None and not node.get("no_retry", False)
             if has_retry and hasattr(self, "_retry_handler") and self.execution_id:
-                await self._status_callback(
-                    "running", f"[Node] {agent} failed, retrying...", agent
-                )
-                retry_result = await self._retry_handler.retry_node(
-                    node_id, self.execution_id
-                )
+                await self._status_callback("running", f"[Node] {agent} failed, retrying...", agent)
+                retry_result = await self._retry_handler.retry_node(node_id, self.execution_id)
                 if retry_result.get("success"):
                     self._results[node_id] = retry_result.get("result", {})
-                    await self._status_callback(
-                        "completed", f"[Node] {agent} retry succeeded", agent
-                    )
+                    await self._status_callback("completed", f"[Node] {agent} retry succeeded", agent)
                     return
             await self.handle_failure(node_id, e)
 
     async def execute_node(self, node_id: str) -> dict[str, Any]:
-        db = SessionLocal()
+        db = self.db
         exec_node = None
         try:
             node = self._find_node(node_id)
@@ -306,9 +285,7 @@ class WorkflowEngine:
                 )
                 db.add(exec_node)
 
-            predecessor_ids = [
-                e["source"] for e in self.edges if e.get("target") == node_id
-            ]
+            predecessor_ids = [e["source"] for e in self.edges if e.get("target") == node_id]
 
             # Handle input nodes — pass through trigger params as output
             if node.get("type") == "input":
@@ -330,12 +307,11 @@ class WorkflowEngine:
                             if isinstance(pred_result, dict)
                             else str(pred_result)
                         )
-                        upstream_outputs.append(
-                            {"agent_name": pred_id, "output": output}
-                        )
+                        upstream_outputs.append({"agent_name": pred_id, "output": output})
 
                 if upstream_outputs:
                     from main.framework.core.input_merger import merge_inputs
+
                     merged = merge_inputs(upstream_outputs)
                     result = {"result": merged}
                 else:
@@ -360,9 +336,7 @@ class WorkflowEngine:
 
             # Handle debate nodes
             if node.get("type") == "debate":
-                enriched_prompt = self._build_prompt(
-                    node.get("prompt", ""), node, predecessor_ids, node_id
-                )
+                enriched_prompt = self._build_prompt(node.get("prompt", ""), node, predecessor_ids, node_id)
                 node_with_prompt = {**node, "prompt": enriched_prompt}
                 debate_exec = DebateExecutor(self._dispatcher)
                 result = await debate_exec.execute_debate(node_with_prompt)
@@ -387,15 +361,10 @@ class WorkflowEngine:
             after_count = 0
             if len(predecessor_ids) == 1:
                 pred_id = predecessor_ids[0]
-                if (
-                    pred_id in self._chain_sessions
-                    and self._is_only_successor(node_id, pred_id)
-                ):
+                if pred_id in self._chain_sessions and self._is_only_successor(node_id, pred_id):
                     session_id = self._chain_sessions[pred_id]
                     # Get current message count to ignore old responses
-                    after_count = await self._dispatcher.backend.get_message_count(
-                        session_id
-                    )
+                    after_count = await self._dispatcher.backend.get_message_count(session_id)
 
             # Leaf nodes don't need to keep sessions alive for downstream
             is_leaf = self._is_leaf(node_id)
@@ -404,9 +373,7 @@ class WorkflowEngine:
             exec_node.status = "running"
             db.commit()
 
-            await self._status_callback(
-                "running", f"[Node] {agent} is working on: {prompt[:100]}...", agent
-            )
+            await self._status_callback("running", f"[Node] {agent} is working on: {prompt[:100]}...", agent)
 
             resp = await self._dispatcher.dispatch(
                 agent,
@@ -429,9 +396,7 @@ class WorkflowEngine:
 
             # Truncate result preview for status message
             result_preview = str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
-            await self._status_callback(
-                "completed", f"[Node] {agent} completed: {result_preview}", agent
-            )
+            await self._status_callback("completed", f"[Node] {agent} completed: {result_preview}", agent)
 
             self._results[node_id] = {"result": result}
             return {"result": result}
@@ -442,15 +407,13 @@ class WorkflowEngine:
                 exec_node.error = str(e)
                 db.commit()
             raise
-        finally:
-            db.close()
 
     # ------------------------------------------------------------------
     # Failure handling
     # ------------------------------------------------------------------
 
     async def handle_failure(self, node_id: str, error: Exception) -> None:
-        db = SessionLocal()
+        db = self.db
         try:
             node = self._find_node(node_id)
             agent = self._get_agent_name(node) if node else node_id
@@ -469,9 +432,7 @@ class WorkflowEngine:
                 db.commit()
 
             self._failed_nodes.add(node_id)
-            await self._status_callback(
-                "failed", f"[Node] {agent} failed: {str(error)}", agent
-            )
+            await self._status_callback("failed", f"[Node] {agent} failed: {str(error)}", agent)
 
             downstream_ids = self._find_downstream(node_id)
             if downstream_ids:
@@ -496,7 +457,7 @@ class WorkflowEngine:
                         dn.status = "skipped"
                         db.commit()
         finally:
-            db.close()
+            pass
 
     # ------------------------------------------------------------------
     # Helpers
@@ -587,9 +548,7 @@ class WorkflowEngine:
                         if isinstance(pred_result, dict)
                         else str(pred_result)
                     )
-                    upstream_outputs.append(
-                        {"agent_name": pred_id, "output": output}
-                    )
+                    upstream_outputs.append({"agent_name": pred_id, "output": output})
 
             if upstream_outputs:
                 from main.framework.core.input_merger import merge_inputs
