@@ -2111,7 +2111,7 @@ Wave FINAL (4 review tasks, parallel):
 
 ### Wave 5: Cleanup (并行, 3个任务)
 
-- [ ] 32. **移除 db.expire_all() workarounds**
+- [x] 32. **移除 db.expire_all() workarounds**
 
   **What to do**:
   - 搜索所有 `db.expire_all()` 和 `db.commit()` visibility hacks
@@ -2166,7 +2166,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `chore(cleanup): remove db.expire_all() workarounds`
   - Files: `main/framework/api/conversations.py`, `main/framework/core/scheduler.py`, `main/framework/core/workflow_engine.py`
 
-- [ ] 33. **移除死代码: 模块级 ExecutionRepository 实例化路径**
+- [x] 33. **移除死代码: 模块级 ExecutionRepository 实例化路径**
 
   **What to do**:
   - 搜索 `repo = ExecutionRepository()` 模式
@@ -2206,7 +2206,7 @@ Wave FINAL (4 review tasks, parallel):
   - Message: `chore(cleanup): remove dead ExecutionRepository instantiations`
   - Files: (TBD by grep results)
 
-- [ ] 34. **验证所有全局状态已替换**
+- [x] 34. **验证所有全局状态已替换**
 
   **What to do**:
   - 搜索 PHASE 1 识别的 4 个全局状态模式:
