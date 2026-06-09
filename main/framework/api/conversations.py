@@ -268,9 +268,6 @@ async def _execute_workflow_async(conversation_id: str, execution_id: str, workf
             )
             await engine.execute()
 
-            # Expire cached objects so we read fresh data from DB (engine updated them in its own session)
-            db.expire_all()
-
             execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == execution_id).first()
             if not execution:
                 return

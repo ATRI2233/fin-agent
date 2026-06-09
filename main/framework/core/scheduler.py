@@ -316,7 +316,6 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
             result = await engine.execute()
 
             # Update execution with final status
-            db.expire_all()
             execution = db.query(WorkflowExecution).filter(WorkflowExecution.id == execution.id).first()
             if execution:
                 execution.status = result.get("status", "completed")
