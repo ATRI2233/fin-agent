@@ -11,7 +11,7 @@ Endpoint reference (discovered via code reading):
 - GET  /api/v1/workflows/{id}                (get one)
 - PUT  /api/v1/workflows/{id}                (update)
 - DEL  /api/v1/workflows/{id}                (delete)
-- POST /api/workflows/{id}/trigger           (status 202 - NOTE: no /v1/ prefix)
+- POST /api/v1/workflows/{id}/trigger         (status 202)
 - GET  /api/v1/workflows/{id}/executions     (list executions for workflow)
 - GET  /api/v1/executions                    (list all executions)
 - GET  /api/v1/executions/{id}               (get execution detail)
@@ -20,7 +20,6 @@ Endpoint reference (discovered via code reading):
 from __future__ import annotations
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -180,7 +179,7 @@ async def test_trigger_endpoint_exists(client, db_session):
     fake_id = str(uuid.uuid4())  # Random ID, guaranteed not to exist anywhere
 
     trigger_resp = await client.post(
-        f"/api/workflows/{fake_id}/trigger",
+        f"/api/v1/workflows/{fake_id}/trigger",
         json={"params": {}},
     )
     # The trigger endpoint is reachable (router matched). It returns 404 because

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,7 @@ from main.framework.models.workflow_execution import ExecutionNode, WorkflowExec
 from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.repositories.workflow_repo import WorkflowRepository
 
-router = APIRouter(prefix="/api", tags=["triggers"])
+router = APIRouter(prefix="/api/v1", tags=["triggers"])
 
 
 class TriggerRequest(BaseModel):
@@ -30,8 +32,8 @@ class NodeStatus(BaseModel):
     node_id: str
     agent: str
     status: str
-    output: Optional[dict] = None
-    error: Optional[str] = None
+    output: dict | None = None
+    error: str | None = None
 
 
 class ExecutionStatusResponse(BaseModel):
@@ -84,7 +86,7 @@ async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str,
         exec_repo.update_execution(execution_id, status="running")
 
         # Create all ExecutionNode records
-        for node in (workflow.nodes or []):
+        for node in workflow.nodes or []:
             agent = node.get("agent", "")
             if not agent:
                 data = node.get("data", {})
@@ -103,10 +105,8 @@ async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str,
 
     except Exception as e:
         logger.error(f"Workflow execution failed: {e}", exc_info=True)
-        try:
+        with contextlib.suppress(Exception):
             exec_repo.update_execution(execution_id, status="failed")
-        except Exception:
-            pass
 
 
 @router.post("/workflows/{workflow_id}/trigger", status_code=status.HTTP_202_ACCEPTED)
@@ -126,9 +126,7 @@ async def trigger_workflow(
 
     import asyncio
 
-    asyncio.create_task(
-        _run_workflow_async(workflow_id, payload.params, exec_id, container)
-    )
+    asyncio.create_task(_run_workflow_async(workflow_id, payload.params, exec_id, container))
 
     return TriggerResponse(execution_id=exec_id)
 
@@ -174,11 +172,7 @@ async def get_execution_result(
         )
 
     nodes = exec_repo.get_execution_nodes(execution_id)
-    results = {
-        str(n.node_id): dict(n.output) if n.output else {}
-        for n in nodes
-        if n.output
-    }
+    results = {str(n.node_id): dict(n.output) if n.output else {} for n in nodes if n.output}
     return ExecutionResultResponse(
         execution_id=str(execution.id),
         workflow_id=str(execution.workflow_id),
