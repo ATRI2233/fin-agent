@@ -2,7 +2,10 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from main.framework.models.database import get_db
 
 router = APIRouter(prefix="/api/v1/system", tags=["system"])
 
@@ -14,11 +17,7 @@ def _get_executor_status() -> dict:
 
         import threading
 
-        alive = any(
-            t.name.startswith("Thread-") and t.is_alive()
-            for t in threading.enumerate()
-            if t.daemon
-        )
+        alive = any(t.name.startswith("Thread-") and t.is_alive() for t in threading.enumerate() if t.daemon)
         return {"running": alive, "workerThread": "alive" if alive else "stopped"}
     except ImportError:
         return {"running": False, "workerThread": "unavailable"}
@@ -68,7 +67,7 @@ def _get_scheduler_status() -> dict:
         return {"running": False, "scheduledJobs": 0, "nextRun": None}
 
 
-def _get_session_status() -> dict:
+def _get_session_status(db: Session) -> dict:
     """Get session status from the OpenCode backend.
 
     Returns:
@@ -78,7 +77,6 @@ def _get_session_status() -> dict:
             "total": int,
         }
     """
-    from main.framework.models.database import SessionLocal
     from main.framework.models.workflow_execution import ExecutionNode
 
     active_sessions: list = []
@@ -91,23 +89,21 @@ def _get_session_status() -> dict:
         exec_map = get_active_executions()
         for exec_id, sids in exec_map.items():
             for sid in sids:
-                active_sessions.append({
-                    "sessionId": sid,
-                    "status": "active",
-                    "agent": "",
-                    "startedAt": None,
-                    "updatedAt": None,
-                })
+                active_sessions.append(
+                    {
+                        "sessionId": sid,
+                        "status": "active",
+                        "agent": "",
+                        "startedAt": None,
+                        "updatedAt": None,
+                    }
+                )
     except ImportError:
         pass
 
     # DB total (historical)
     try:
-        db = SessionLocal()
-        try:
-            db_total = db.query(ExecutionNode).count()
-        finally:
-            db.close()
+        db_total = db.query(ExecutionNode).count()
     except Exception:
         pass
 
@@ -132,14 +128,14 @@ def _get_opencode_status() -> dict:
 
 
 @router.get("/status")
-async def system_status():
+async def system_status(db: Session = Depends(get_db)):
     """Aggregate system status for WebUI dashboard."""
     return {
         "opencode": _get_opencode_status(),
         "jobExecutor": _get_executor_status(),
         "concurrency": _get_concurrency_status(),
         "scheduler": _get_scheduler_status(),
-        "sessions": _get_session_status(),
+        "sessions": _get_session_status(db),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -187,9 +183,7 @@ async def cache_stats():
                 "active": limiter.active_count,
                 "max": limiter.max_concurrent,
                 "available": limiter.available_slots,
-                "usage_pct": round(
-                    limiter.active_count / max(limiter.max_concurrent, 1) * 100, 1
-                ),
+                "usage_pct": round(limiter.active_count / max(limiter.max_concurrent, 1) * 100, 1),
             },
         }
     except Exception:
