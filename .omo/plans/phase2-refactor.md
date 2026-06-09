@@ -233,7 +233,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
 ### Wave 1 — Setup (1 task, sequential)
 
-- [ ] 1. **Git baseline setup (branch + tag + boulder init)**
+- [x] 1. **Git baseline setup (branch + tag + boulder init)** ✅ DONE (branch `phase2-refactor` exists, tag `pre-phase2-baseline` created)
 
   **What to do**:
   - Create branch `phase2-refactor` from current HEAD on `phase1-foundation` (or merge `phase1-foundation` to master first if user prefers)
@@ -369,7 +369,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `refactor(services): move ConvSessionManager to services/session_manager.py`
 
-- [ ] 4. **Create `services/protocols.py` with Service base interface** (note: `services/__init__.py` is just a docstring — needs re-exports)
+- [x] 4. **Create `services/protocols.py` with Service base interface** ✅ DONE (commit 97fb0ff, 27 lines, `ServiceProtocol` is `runtime_checkable Protocol` with `__init__(**deps)` + `health_check()`)
 
   **What to do**:
   - Create `main/framework/services/protocols.py` with `ServiceProtocol` (typing.Protocol):
@@ -407,7 +407,9 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `feat(services): add ServiceProtocol marker interface`
 
-- [ ] 5. **Update `services/__init__.py` with re-exports**
+- [x] 5. **Update `services/__init__.py` with re-exports** ✅ DONE (commit 17ae7f4, 19 lines, re-exports 4 types)
+
+**⚠️ Note**: `MessageProcessor` does NOT exist as a class in `message_processor.py` (only module-level functions: `process_agent_message`, `execute_workflow_async`, `_save_workflow_status`). Wave 3 may need to either wrap functions into a class OR use functions directly.
 
   **What to do**:
   - Update `main/framework/services/__init__.py` to re-export:
