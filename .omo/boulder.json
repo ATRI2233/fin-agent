@@ -52,12 +52,12 @@
       "task_key": "todo:8",
       "task_label": "8",
       "task_title": "**集成测试: conversation flow**",
-      "session_id": "opencode:ses_15477f159ffe2IhcPpMvpzmJHT",
+      "session_id": "opencode:ses_153c28a49ffeAvT7y2njX11VDE",
       "agent": "Sisyphus-Junior",
       "category": "unspecified-high",
-      "updated_at": "2026-06-09T08:44:58.353Z",
       "started_at": "2026-06-09T08:44:58.353Z",
-      "status": "running"
+      "status": "running",
+      "updated_at": "2026-06-09T12:00:05.837Z"
     }
   },
   "schema_version": 2,
@@ -113,7 +113,7 @@
       "plan_name": "phase1-foundation",
       "status": "active",
       "started_at": "2026-06-09T07:56:09.383Z",
-      "updated_at": "2026-06-09T08:44:58.353Z",
+      "updated_at": "2026-06-09T12:00:05.837Z",
       "session_ids": [
         "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
       ],
@@ -165,18 +165,18 @@
           "task_key": "todo:8",
           "task_label": "8",
           "task_title": "**集成测试: conversation flow**",
-          "session_id": "opencode:ses_15477f159ffe2IhcPpMvpzmJHT",
+          "session_id": "opencode:ses_153c28a49ffeAvT7y2njX11VDE",
           "agent": "Sisyphus-Junior",
           "category": "unspecified-high",
-          "updated_at": "2026-06-09T08:44:58.353Z",
           "started_at": "2026-06-09T08:44:58.353Z",
-          "status": "running"
+          "status": "running",
+          "updated_at": "2026-06-09T12:00:05.837Z"
         }
       }
     }
   },
   "active_work_id": "phase1-foundation-09a390a2",
-  "updated_at": "2026-06-09T08:44:58.353Z",
+  "updated_at": "2026-06-09T12:00:05.837Z",
   "status": "active",
   "agent": "atlas"
 }

@@ -1,6 +1,7 @@
 """System status API endpoint - aggregates health info for WebUI dashboard."""
 
-from datetime import datetime, timezone
+import contextlib
+from datetime import UTC, datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -13,9 +14,9 @@ router = APIRouter(prefix="/api/v1/system", tags=["system"])
 def _get_executor_status() -> dict:
     """Get JobExecutor status. Returns defaults if executor not available."""
     try:
-        from main.framework.core.executor import JobExecutor
-
         import threading
+
+        from main.framework.core.executor import JobExecutor
 
         alive = any(t.name.startswith("Thread-") and t.is_alive() for t in threading.enumerate() if t.daemon)
         return {"running": alive, "workerThread": "alive" if alive else "stopped"}
@@ -87,7 +88,7 @@ def _get_session_status(db: Session) -> dict:
         from main.framework.core.session_cleanup import get_active_executions
 
         exec_map = get_active_executions()
-        for exec_id, sids in exec_map.items():
+        for _exec_id, sids in exec_map.items():
             for sid in sids:
                 active_sessions.append(
                     {
@@ -102,10 +103,8 @@ def _get_session_status(db: Session) -> dict:
         pass
 
     # DB total (historical)
-    try:
+    with contextlib.suppress(Exception):
         db_total = db.query(ExecutionNode).count()
-    except Exception:
-        pass
 
     return {
         "active": active_sessions,
@@ -117,6 +116,7 @@ def _get_session_status(db: Session) -> dict:
 def _get_opencode_status() -> dict:
     """Check if opencode binary is available."""
     import os
+
     from main.framework.config import settings
 
     bin_path = settings.OPENCODE_BIN
@@ -136,7 +136,7 @@ async def system_status(db: Session = Depends(get_db)):
         "concurrency": _get_concurrency_status(),
         "scheduler": _get_scheduler_status(),
         "sessions": _get_session_status(db),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -167,8 +167,8 @@ async def cache_stats():
     """Cache and concurrency statistics."""
     try:
         from main.framework.core.performance import (
-            get_workflow_cache_size,
             get_concurrency_limiter,
+            get_workflow_cache_size,
         )
 
         limiter = get_concurrency_limiter()

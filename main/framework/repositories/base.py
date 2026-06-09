@@ -8,7 +8,10 @@ should extend this class and add domain-specific queries.
 """
 
 from __future__ import annotations
-from typing import Generic, TypeVar, Type, Optional, List, Any
+
+import builtins
+from typing import Any, Generic, Optional, TypeVar
+
 from sqlalchemy.orm import Session
 
 T = TypeVar("T")
@@ -27,15 +30,15 @@ class BaseRepository(Generic[T]):
             # uow commits on __exit__ if no exception
     """
 
-    def __init__(self, model: Type[T], db: Session):
+    def __init__(self, model: type[T], db: Session):
         self._model = model
         self._db = db
 
-    def get(self, id: str) -> Optional[T]:
+    def get(self, id: str) -> T | None:
         """Get entity by primary key."""
         return self._db.get(self._model, id)
 
-    def list(self, limit: int = 100, offset: int = 0, **filters: Any) -> List[T]:
+    def list(self, limit: int = 100, offset: int = 0, **filters: Any) -> builtins.list[T]:
         """List entities with optional filters."""
         query = self._db.query(self._model)
         for key, value in filters.items():
@@ -50,7 +53,7 @@ class BaseRepository(Generic[T]):
         self._db.flush()
         return entity
 
-    def update(self, id: str, **kwargs: Any) -> Optional[T]:
+    def update(self, id: str, **kwargs: Any) -> T | None:
         """Update entity by id. Does NOT commit."""
         entity = self.get(id)
         if entity is None:

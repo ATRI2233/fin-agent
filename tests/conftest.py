@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 # Ensure project root is in path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -70,7 +70,8 @@ def db_session(test_engine, test_session_factory):
 def client(db_session):
     """FastAPI async test client with overridden DB dependency."""
     try:
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
+
         from main.framework.main import app
         from main.framework.models.database import get_db
 

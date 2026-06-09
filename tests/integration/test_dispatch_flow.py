@@ -22,7 +22,6 @@ import time
 import httpx
 import pytest
 
-
 # Canonical endpoints discovered from main/framework/api/dispatch.py
 # (router prefix "/api/v1/dispatch"; sync is empty suffix, parallel is "/parallel").
 SYNC_PATH = "/api/v1/dispatch"

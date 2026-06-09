@@ -1,13 +1,14 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from pydantic import BaseModel
 from typing import Optional
-from sqlalchemy import func, case
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from main.framework.core.workflow_parser import validate_dag
 from main.framework.models.database import get_db
 from main.framework.models.workflow import Workflow
-from main.framework.models.workflow_execution import WorkflowExecution, ExecutionNode
-from main.framework.core.workflow_parser import validate_dag
+from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 
 router = APIRouter(prefix="/api/v1/workflows", tags=["workflows"])
 
@@ -16,37 +17,37 @@ MAX_NODES = 50
 
 class WorkflowCreate(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     nodes: list[dict] = []
     edges: list[dict] = []
-    trigger_type: Optional[str] = "manual"
-    config: Optional[dict] = {}
+    trigger_type: str | None = "manual"
+    config: dict | None = {}
 
 
 class WorkflowUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    nodes: Optional[list[dict]] = None
-    edges: Optional[list[dict]] = None
-    trigger_type: Optional[str] = None
-    config: Optional[dict] = None
+    name: str | None = None
+    description: str | None = None
+    nodes: list[dict] | None = None
+    edges: list[dict] | None = None
+    trigger_type: str | None = None
+    config: dict | None = None
 
 
 class WorkflowTrigger(BaseModel):
-    params: Optional[dict] = {}
+    params: dict | None = {}
 
 
 class WorkflowResponse(BaseModel):
     id: str
     name: str
-    description: Optional[str]
+    description: str | None
     nodes: list[dict]
     edges: list[dict]
     trigger_type: str
     config: dict
     status: str
-    created_at: Optional[str]
-    updated_at: Optional[str]
+    created_at: str | None
+    updated_at: str | None
 
     class Config:
         from_attributes = True
@@ -57,7 +58,7 @@ class WorkflowListItem(BaseModel):
     name: str
     status: str
     node_count: int
-    created_at: Optional[str]
+    created_at: str | None
 
     class Config:
         from_attributes = True
@@ -147,7 +148,7 @@ async def get_workflow_stats(db: Session = Depends(get_db)):
 
     # Success rate = completed / (completed + failed), avoid division by zero
     terminal = completed + failed
-    success_rate: Optional[float] = (
+    success_rate: float | None = (
         round(completed / terminal * 100, 1) if terminal > 0 else None
     )
 
@@ -164,7 +165,7 @@ async def list_workflow_executions(
     workflow_id: str,
     offset: int = 0,
     limit: int = 20,
-    status: Optional[str] = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
 ):
     """List execution history for a specific workflow."""

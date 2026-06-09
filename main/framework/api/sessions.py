@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from main.framework.core.container import get_service
-from main.framework.models.workflow_execution import ExecutionNode
 from main.framework.models.conversation import Conversation
-from main.framework.repositories.execution_repo import ExecutionRepository
+from main.framework.models.workflow_execution import ExecutionNode
 from main.framework.repositories.conversation_repo import ConversationRepository
+from main.framework.repositories.execution_repo import ExecutionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,11 @@ router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 class SessionInfo(BaseModel):
     session_id: str
     source: str  # "workflow" | "conversation"
-    execution_id: Optional[str] = None
-    node_id: Optional[str] = None
-    agent: Optional[str] = None
+    execution_id: str | None = None
+    node_id: str | None = None
+    agent: str | None = None
     status: str  # "active" | "inactive" | "cleaned_up" | "unknown"
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 class SessionListResponse(BaseModel):
@@ -39,7 +39,7 @@ class SessionListResponse(BaseModel):
 
 
 class CleanupRequest(BaseModel):
-    execution_id: Optional[str] = None
+    execution_id: str | None = None
     all_expired: bool = False
 
 
@@ -175,7 +175,7 @@ async def cleanup_session(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/cleanup", response_model=CleanupResponse)

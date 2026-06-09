@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.repositories.workflow_repo import WorkflowRepository

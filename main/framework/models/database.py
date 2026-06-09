@@ -1,10 +1,9 @@
 # Re-export from new location for backward compat
-from main.framework.config.database import engine, SessionLocal, Base, get_db, get_session, init_db  # noqa: F401
-
-from sqlalchemy import create_engine, event, Table, ForeignKey
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import ForeignKey, Table, create_engine, event
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from main.framework.config import Settings
+from main.framework.config.database import Base, SessionLocal, engine, get_db, get_session, init_db  # noqa: F401
 
 settings = Settings()
 

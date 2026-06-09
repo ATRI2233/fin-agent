@@ -23,21 +23,21 @@ class TaskCreate(BaseModel):
     description: str = Field(default="", max_length=500)
     agent: str
     prompt: str = Field(..., max_length=5000)
-    schedule: Optional[str] = None  # cron: "*/5 9-15 * * 1-5"
+    schedule: str | None = None  # cron: "*/5 9-15 * * 1-5"
     enabled: bool = True
     trigger_type: str = "cron"  # cron | manual | interval
-    interval_seconds: Optional[int] = None
+    interval_seconds: int | None = None
 
 
 class TaskUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    agent: Optional[str] = None
-    prompt: Optional[str] = None
-    schedule: Optional[str] = None
-    enabled: Optional[bool] = None
-    trigger_type: Optional[str] = None
-    interval_seconds: Optional[int] = None
+    name: str | None = None
+    description: str | None = None
+    agent: str | None = None
+    prompt: str | None = None
+    schedule: str | None = None
+    enabled: bool | None = None
+    trigger_type: str | None = None
+    interval_seconds: int | None = None
 
 
 # ---- Endpoints ----
@@ -110,7 +110,7 @@ async def run_task(task_id: str):
 async def get_task_data(
     task_id: str,
     limit: int = 50,
-    data_key: Optional[str] = None,
+    data_key: str | None = None,
 ):
     """Get stored data for a task."""
     task = DataMaintenanceService.get_task(task_id)

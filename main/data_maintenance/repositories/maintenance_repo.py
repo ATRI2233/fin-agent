@@ -6,7 +6,7 @@ Accepts a Session via constructor; caller owns transaction boundaries.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -35,7 +35,7 @@ class MaintenanceRepository:
     # Settings (key-value via MaintenanceData)
     # ------------------------------------------------------------------
 
-    def get_setting(self, key: str) -> Optional[MaintenanceData]:
+    def get_setting(self, key: str) -> MaintenanceData | None:
         """Return the setting row for *key*, or ``None`` if absent."""
         return self._db.query(MaintenanceData).filter_by(task_id=_SETTINGS_TASK_ID, data_key=key).first()
 
@@ -44,7 +44,7 @@ class MaintenanceRepository:
         row = self.get_setting(key)
         if row is not None:
             row.content = value
-            row.fetched_at = datetime.now(timezone.utc)
+            row.fetched_at = datetime.now(UTC)
         else:
             self._db.add(
                 MaintenanceData(
@@ -67,8 +67,8 @@ class MaintenanceRepository:
         self,
         job_id: str,
         status: str,
-        error: Optional[str] = None,
-    ) -> Optional[MaintenanceTask]:
+        error: str | None = None,
+    ) -> MaintenanceTask | None:
         """Update the status of a maintenance task.  Does NOT commit.
 
         Returns the updated task or ``None`` if not found.
@@ -78,7 +78,7 @@ class MaintenanceRepository:
             return None
         task.last_status = status
         task.last_error = error
-        task.last_run_at = datetime.now(timezone.utc)
-        task.updated_at = datetime.now(timezone.utc)
+        task.last_run_at = datetime.now(UTC)
+        task.updated_at = datetime.now(UTC)
         self._db.flush()
         return task

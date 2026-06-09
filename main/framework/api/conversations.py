@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Request, status, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from datetime import UTC, datetime, timezone
+from typing import Optional
 from uuid import uuid4
-from datetime import datetime, timezone
 
-from main.framework.models.database import get_db, get_session
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
+
+from main.framework.core.protocols import AgentBackend
 from main.framework.models.conversation import Conversation, Message
+from main.framework.models.database import get_db, get_session
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
-from main.framework.core.protocols import AgentBackend
 
 logger = logging.getLogger(__name__)
 
@@ -24,29 +25,29 @@ router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
 
 
 class ConversationCreate(BaseModel):
-    title: Optional[str] = "New Conversation"
+    title: str | None = "New Conversation"
 
 
 class ConversationUpdate(BaseModel):
-    title: Optional[str] = None
-    current_agent: Optional[str] = None
+    title: str | None = None
+    current_agent: str | None = None
 
 
 class MessageCreate(BaseModel):
     content: str = Field(..., max_length=10000)
     mode: str = "agent"  # "agent" or "workflow"
-    agent: Optional[str] = None  # For agent mode
-    workflow_id: Optional[str] = None  # For workflow mode
+    agent: str | None = None  # For agent mode
+    workflow_id: str | None = None  # For workflow mode
 
 
 class MessageResponse(BaseModel):
     id: str
     role: str
     content: str
-    agent: Optional[str] = None
-    workflow_id: Optional[str] = None
-    execution_id: Optional[str] = None
-    extra_data: Optional[dict] = None
+    agent: str | None = None
+    workflow_id: str | None = None
+    execution_id: str | None = None
+    extra_data: dict | None = None
     created_at: str
 
 
@@ -95,7 +96,7 @@ class ConvSessionManager:
         self._session_ids[conversation_id] = session_id
         return session_id, self._backend
 
-    async def cleanup_session(self, conversation_id: str, db=None) -> Optional[str]:
+    async def cleanup_session(self, conversation_id: str, db=None) -> str | None:
         """Delete session for a conversation."""
         session_id = self._session_ids.pop(conversation_id, None)
 
@@ -114,7 +115,7 @@ class ConvSessionManager:
 
         return session_id
 
-    def get_session_id(self, conversation_id: str) -> Optional[str]:
+    def get_session_id(self, conversation_id: str) -> str | None:
         return self._session_ids.get(conversation_id)
 
 
@@ -197,7 +198,7 @@ async def _process_agent_message(
 
             conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conversation:
-                conversation.updated_at = datetime.now(timezone.utc)
+                conversation.updated_at = datetime.now(UTC)
 
             db.commit()
 
@@ -217,9 +218,9 @@ async def _execute_workflow_async(conversation_id: str, execution_id: str, workf
     """Execute workflow in background and save results to conversation."""
     with get_session() as db:
         try:
+            from main.framework.core.workflow_engine import WorkflowEngine
             from main.framework.models.workflow import Workflow
             from main.framework.models.workflow_execution import ExecutionNode
-            from main.framework.core.workflow_engine import WorkflowEngine
 
             workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
             if not workflow:
@@ -296,7 +297,7 @@ async def _execute_workflow_async(conversation_id: str, execution_id: str, workf
 
             conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conversation:
-                conversation.updated_at = datetime.now(timezone.utc)
+                conversation.updated_at = datetime.now(UTC)
 
             db.commit()
 
@@ -390,7 +391,7 @@ async def update_conversation(conversation_id: str, payload: ConversationUpdate,
     if payload.current_agent is not None:
         conversation.current_agent = payload.current_agent
 
-    conversation.updated_at = datetime.now(timezone.utc)
+    conversation.updated_at = datetime.now(UTC)
     db.commit()
 
     return {"success": True}
@@ -415,7 +416,7 @@ async def delete_conversation(conversation_id: str, request: Request, db=Depends
         db.commit()
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to delete: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete: {str(e)}") from e
 
 
 @router.get("/{conversation_id}/messages")
@@ -470,7 +471,7 @@ async def send_message(
     db.refresh(user_msg)
 
     # Update conversation
-    conversation.updated_at = datetime.now(timezone.utc)
+    conversation.updated_at = datetime.now(UTC)
     if payload.agent:
         conversation.current_agent = payload.agent
     db.commit()

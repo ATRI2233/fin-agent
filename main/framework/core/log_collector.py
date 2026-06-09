@@ -11,11 +11,11 @@ from collections import deque
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 # Context variable to track the current job_id during execution.
 # Set by the executor before dispatching to an agent.
-current_job_id: ContextVar[Optional[str]] = ContextVar("current_job_id", default=None)
+current_job_id: ContextVar[str | None] = ContextVar("current_job_id", default=None)
 
 
 @dataclass
@@ -25,9 +25,9 @@ class LogEntry:
     timestamp: datetime
     level: str
     message: str
-    job_id: Optional[str] = None
-    agent: Optional[str] = None
-    logger_name: Optional[str] = None
+    job_id: str | None = None
+    agent: str | None = None
+    logger_name: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -94,11 +94,11 @@ class LogCollector:
     def get_logs(
         self,
         job_id: str,
-        since: Optional[datetime] = None,
-        until: Optional[datetime] = None,
-        level: Optional[str] = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        level: str | None = None,
         limit: int = 500,
-    ) -> List[LogEntry]:
+    ) -> list[LogEntry]:
         """
         Retrieve log entries for a job with optional filtering.
 
@@ -166,7 +166,7 @@ def get_log_collector() -> LogCollector:
 
 
 def setup_job_log_handler(
-    logger_name: Optional[str] = None,
+    logger_name: str | None = None,
     level: int = logging.DEBUG,
 ) -> JobLogHandler:
     """

@@ -19,7 +19,7 @@ class SessionManager:
     def get_boundary_sessions(self) -> dict[str, set[str]]:
         return dict(self._boundaries)
 
-    def get_session_for_node(self, node_id: int | str) -> Optional[str]:
+    def get_session_for_node(self, node_id: int | str) -> str | None:
         boundary_id = self._node_to_boundary.get(str(node_id))
         if boundary_id:
             return boundary_id

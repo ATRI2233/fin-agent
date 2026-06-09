@@ -8,7 +8,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import List
 from uuid import uuid4
 
 from main.framework.core.protocols import AgentBackend
@@ -77,24 +76,30 @@ class OpenCodeBackend(AgentBackend):
             self._sessions[session_id] = result.session_id
 
         # Store in history
-        self._history.setdefault(session_id, []).append({
-            "role": "user",
-            "content": text,
-        })
+        self._history.setdefault(session_id, []).append(
+            {
+                "role": "user",
+                "content": text,
+            }
+        )
 
         if result.error and not result.text:
-            self._history[session_id].append({
-                "role": "assistant",
-                "content": f"[Error: {result.error}]",
-            })
+            self._history[session_id].append(
+                {
+                    "role": "assistant",
+                    "content": f"[Error: {result.error}]",
+                }
+            )
             raise RuntimeError(f"Agent '{agent}' error: {result.error}")
 
         # Strip thinking blocks before storing
         clean_text = strip_thinking(result.text) if result.text else result.text
-        self._history[session_id].append({
-            "role": "assistant",
-            "content": clean_text,
-        })
+        self._history[session_id].append(
+            {
+                "role": "assistant",
+                "content": clean_text,
+            }
+        )
 
         return "ok"
 
@@ -102,12 +107,10 @@ class OpenCodeBackend(AgentBackend):
         """Get current message count for a session."""
         return len(self._history.get(session_id, []))
 
-    async def get_messages(
-        self, session_id: str, offset: int = 0, limit: int = 50
-    ) -> list[dict]:
+    async def get_messages(self, session_id: str, offset: int = 0, limit: int = 50) -> list[dict]:
         """Return stored messages for this session."""
         history = self._history.get(session_id, [])
-        return history[offset: offset + limit]
+        return history[offset : offset + limit]
 
     async def wait_for_completion(
         self,
@@ -136,7 +139,7 @@ class OpenCodeBackend(AgentBackend):
         # Also try with session_id as key
         await self._pool.abort(session_id)
 
-    async def cleanup_sessions(self, session_ids: List[str]) -> dict[str, str]:
+    async def cleanup_sessions(self, session_ids: list[str]) -> dict[str, str]:
         """Clean up session state."""
         results = {}
         for sid in session_ids:

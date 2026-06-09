@@ -1,8 +1,10 @@
 """Conversation and Message models."""
 
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Text, JSON, ForeignKey, Integer
+from datetime import UTC, datetime, timezone
+
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
+
 from main.framework.models.database import Base
 
 
@@ -15,8 +17,8 @@ class Conversation(Base):
     title = Column(String, default="New Conversation")
     session_id = Column("hapi_session_id", String, nullable=True)  # Agent session ID
     current_agent = Column(String, default="fin-orchestrator")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
@@ -36,7 +38,7 @@ class Message(Base):
     workflow_id = Column(String, nullable=True)  # If from workflow execution
     execution_id = Column(String, nullable=True)  # If from workflow execution
     extra_data = Column(JSON, nullable=True)  # Extra data (tools used, etc.)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime, timezone
+from typing import Any, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -209,11 +210,7 @@ def validate_cron_expression(cron_expression: str) -> bool:
         r"^(\*|[0-6](-([0-6]))?(,([0-6])(-([0-6]))?)*)$",  # weekday (0-6)
     ]
 
-    for part, pattern in zip(parts, patterns):
-        if not re.match(pattern, part):
-            return False
-
-    return True
+    return all(re.match(pattern, part) for part, pattern in zip(parts, patterns, strict=False))
 
 
 def get_next_run_times(cron_expression: str, count: int = 5) -> list[str]:
@@ -240,7 +237,7 @@ def get_next_run_times(cron_expression: str, count: int = 5) -> list[str]:
         )
 
         run_times = []
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.now(UTC)
 
         for _ in range(count):
             next_time = trigger.get_next_fire_time(None, current_time)
@@ -337,7 +334,7 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
 
 
 # Global scheduler instance
-_scheduler_instance: Optional[WorkflowScheduler] = None
+_scheduler_instance: WorkflowScheduler | None = None
 
 
 def get_scheduler() -> WorkflowScheduler:

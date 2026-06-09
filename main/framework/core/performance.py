@@ -78,11 +78,11 @@ class NodeTimeout:
             result = await asyncio.wait_for(coro, timeout=timeout)
             logger.debug(f"Node {node_id} completed within {timeout}s")
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Node {node_id} timed out after {timeout}s")
             # Update execution node status to timeout if db accessible
             await self._mark_node_timeout(node_id)
-            raise asyncio.TimeoutError(f"Node {node_id} exceeded timeout of {timeout}s")
+            raise TimeoutError(f"Node {node_id} exceeded timeout of {timeout}s") from None
 
     async def _mark_node_timeout(self, node_id: str) -> None:
         """Mark node as timeout status in database."""

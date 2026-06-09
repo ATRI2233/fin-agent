@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 from main.data_maintenance.models.maintenance_db import (
@@ -125,13 +125,13 @@ class DataMaintenanceService:
 
             # Mark as running
             task.last_status = "running"
-            task.last_run_at = datetime.now(timezone.utc)
+            task.last_run_at = datetime.now(UTC)
             db.commit()
 
             log = MaintenanceLog(
                 task_id=task_id,
                 status="running",
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
             )
             db.add(log)
             db.commit()
@@ -157,7 +157,7 @@ class DataMaintenanceService:
                 log.status = "success"
                 log.duration_seconds = duration
                 log.records_updated = records
-                log.completed_at = datetime.now(timezone.utc)
+                log.completed_at = datetime.now(UTC)
                 db.commit()
 
                 return {
@@ -173,7 +173,7 @@ class DataMaintenanceService:
                 log.status = "failed"
                 log.duration_seconds = duration
                 log.error = str(e)
-                log.completed_at = datetime.now(timezone.utc)
+                log.completed_at = datetime.now(UTC)
                 db.commit()
                 return {"success": False, "error": str(e)}
 

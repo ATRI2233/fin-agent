@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from main.framework.models.database import SessionLocal
 from main.framework.models.agent import Agent
+from main.framework.models.database import SessionLocal
 
 
 class AgentRepository:

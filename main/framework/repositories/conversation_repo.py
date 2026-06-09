@@ -12,9 +12,11 @@ Supports two modes:
 
 from __future__ import annotations
 
+import builtins
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, List, cast
+from typing import cast
 
 from sqlalchemy.orm import Session
 
@@ -67,7 +69,7 @@ class ConversationRepository(BaseRepository[Conversation]):
         with self._session() as db:
             return db.get(Conversation, id)
 
-    def list(self, limit: int = 100, offset: int = 0, **filters) -> List[Conversation]:
+    def list(self, limit: int = 100, offset: int = 0, **filters) -> builtins.list[Conversation]:
         """List conversations with optional filters."""
         with self._session() as db:
             query = db.query(Conversation)
@@ -152,7 +154,7 @@ class ConversationRepository(BaseRepository[Conversation]):
             db.flush()
             return msg
 
-    def get_messages(self, conv_id: str) -> List[Message]:
+    def get_messages(self, conv_id: str) -> builtins.list[Message]:
         """Return all messages for a conversation, ordered by creation time."""
         with self._session() as db:
             return db.query(Message).filter(Message.conversation_id == conv_id).order_by(Message.created_at.asc()).all()
@@ -161,7 +163,7 @@ class ConversationRepository(BaseRepository[Conversation]):
     # Conversation queries
     # ------------------------------------------------------------------
 
-    def get_recent(self, limit: int = 20) -> List[Conversation]:
+    def get_recent(self, limit: int = 20) -> builtins.list[Conversation]:
         """Return most recently updated conversations."""
         with self._session() as db:
             return db.query(Conversation).order_by(Conversation.updated_at.desc()).limit(limit).all()

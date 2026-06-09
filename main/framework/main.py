@@ -105,11 +105,6 @@ async def startup():
     scheduler.start()
     await scheduler.restore_jobs_from_db()
 
-    # Wire up backend to modules that need it
-    from main.framework.core import session_cleanup
-
-    session_cleanup.configure(container.backend)
-
     # Initialize data maintenance
     from main.data_maintenance.core.data_maintenance import DataMaintenanceService
     from main.data_maintenance.core.data_maintenance import configure as configure_maintenance

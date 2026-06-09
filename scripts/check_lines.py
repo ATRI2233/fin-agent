@@ -11,7 +11,7 @@ INCLUDE_EXT = ('.py', '.ts', '.tsx')
 
 def check_file(path: str) -> tuple[bool, int]:
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             n = sum(1 for _ in f)
     except (UnicodeDecodeError, PermissionError):
         return True, 0

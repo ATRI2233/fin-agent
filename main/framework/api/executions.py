@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -20,11 +20,11 @@ router = APIRouter(prefix="/api/v1/executions", tags=["executions"])
 class ExecutionSummary(BaseModel):
     id: str
     workflow_id: str
-    workflow_name: Optional[str] = None
+    workflow_name: str | None = None
     status: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    duration_seconds: Optional[float] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_seconds: float | None = None
     node_count: int = 0
     completed_nodes: int = 0
     failed_nodes: int = 0
@@ -41,18 +41,18 @@ class TimelineNode(BaseModel):
     node_id: str
     agent: str
     status: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    session_id: Optional[str] = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_seconds: float | None = None
+    session_id: str | None = None
     retry_count: int = 0
 
 
 class TimelineResponse(BaseModel):
     execution_id: str
     workflow_id: str
-    workflow_name: Optional[str] = None
-    total_duration_seconds: Optional[float] = None
+    workflow_name: str | None = None
+    total_duration_seconds: float | None = None
     nodes: list[TimelineNode]
 
 
@@ -67,8 +67,8 @@ class RetryResponse(BaseModel):
 @router.get("", response_model=ExecutionListResponse)
 async def list_executions(
     request: Request,
-    workflow_id: Optional[str] = None,
-    status: Optional[str] = None,
+    workflow_id: str | None = None,
+    status: str | None = None,
     limit: int = 20,
     offset: int = 0,
 ):

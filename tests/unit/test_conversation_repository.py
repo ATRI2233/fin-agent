@@ -9,7 +9,6 @@ import pytest
 from main.framework.models.conversation import Conversation, Message
 from main.framework.repositories.conversation_repo import ConversationRepository
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

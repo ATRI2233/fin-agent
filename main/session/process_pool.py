@@ -120,7 +120,7 @@ class ProcessPool:
                     process.communicate(),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Process timed out after %ds, killing", timeout)
                 process.kill()
                 await process.wait()

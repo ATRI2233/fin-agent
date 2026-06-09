@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """ashare-mcp-server — A 股数据 MCP Server，使用 akshare 提供行情/技术面/基本面/新闻数据"""
 
-import json, sys, os, re, subprocess
+import json
 import logging
+import os
+import re
+import subprocess
+import sys
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -14,8 +18,8 @@ os.environ.pop("https_proxy", None)
 os.environ.pop("ALL_PROXY", None)
 os.environ.pop("all_proxy", None)
 
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
 
 try:
     import akshare as ak
@@ -210,7 +214,7 @@ def _http_get(url, headers=None, timeout=15, encoding="gbk"):
             "Referer": "https://finance.sina.com.cn",
         }
     try:
-        from urllib.request import build_opener, ProxyHandler
+        from urllib.request import ProxyHandler, build_opener
 
         opener = build_opener(ProxyHandler({}))
         req = Request(url, headers=headers)
@@ -392,9 +396,7 @@ def get_technical_levels(symbol):
 
         def calc_bb(arr, period=20, std_dev=2):
             sma = np.convolve(arr, np.ones(period) / period, mode="valid")
-            std = np.array(
-                [np.std(arr[i : i + period]) for i in range(len(arr) - period + 1)]
-            )
+            std = np.array([np.std(arr[i : i + period]) for i in range(len(arr) - period + 1)])
             upper = sma + std_dev * std
             lower = sma - std_dev * std
             return upper, sma, lower
@@ -446,12 +448,8 @@ def get_technical_levels(symbol):
                 "ema_10": round(float(ema_10[-1]), 2),
                 "ema_20": round(float(ema_20[-1]), 2),
                 "ema_60": round(float(ema_60[-1]), 2),
-                "ema_120": round(float(ema_120[-1]), 2)
-                if ema_120 is not None and len(ema_120) > 0
-                else None,
-                "ema_250": round(float(ema_250[-1]), 2)
-                if ema_250 is not None and len(ema_250) > 0
-                else None,
+                "ema_120": round(float(ema_120[-1]), 2) if ema_120 is not None and len(ema_120) > 0 else None,
+                "ema_250": round(float(ema_250[-1]), 2) if ema_250 is not None and len(ema_250) > 0 else None,
             },
             "bollinger_bands": {
                 "upper": round(float(bb_upper[-1]), 2),
@@ -553,26 +551,16 @@ def get_fundamental_scan(symbol):
                                     continue
                         return None
 
-                    extra["eps"] = safe_info_float(
-                        info_dict, "每股收益", "每股收益(元)"
-                    )
-                    extra["bvps"] = safe_info_float(
-                        info_dict, "每股净资产", "每股净资产(元)"
-                    )
-                    extra["total_shares"] = safe_info_float(
-                        info_dict, "总股本", "总股本(股)"
-                    )
-                    extra["float_shares"] = safe_info_float(
-                        info_dict, "流通股", "流通股(股)"
-                    )
+                    extra["eps"] = safe_info_float(info_dict, "每股收益", "每股收益(元)")
+                    extra["bvps"] = safe_info_float(info_dict, "每股净资产", "每股净资产(元)")
+                    extra["total_shares"] = safe_info_float(info_dict, "总股本", "总股本(股)")
+                    extra["float_shares"] = safe_info_float(info_dict, "流通股", "流通股(股)")
             except Exception as e:
                 logger.debug("stock_individual_info_em failed: %s", e)
 
             try:
                 # 财务摘要（含营收、净利润、毛利率等）
-                df_fin = ak.stock_financial_abstract_ths(
-                    symbol=code, indicator="按年度"
-                )
+                df_fin = ak.stock_financial_abstract_ths(symbol=code, indicator="按年度")
                 if df_fin is not None and not df_fin.empty:
                     latest = df_fin.iloc[0]
                     cols = df_fin.columns.tolist()
@@ -632,18 +620,14 @@ def get_fundamental_scan(symbol):
                             try:
                                 prev_rev = float(prev.get(rev_col, 0))
                                 if prev_rev and prev_rev != 0:
-                                    extra["revenue_yoy_pct"] = round(
-                                        (rev - prev_rev) / abs(prev_rev) * 100, 2
-                                    )
+                                    extra["revenue_yoy_pct"] = round((rev - prev_rev) / abs(prev_rev) * 100, 2)
                             except (ValueError, TypeError):
                                 pass
                         if ni_col and ni is not None:
                             try:
                                 prev_ni = float(prev.get(ni_col, 0))
                                 if prev_ni and prev_ni != 0:
-                                    extra["net_income_yoy_pct"] = round(
-                                        (ni - prev_ni) / abs(prev_ni) * 100, 2
-                                    )
+                                    extra["net_income_yoy_pct"] = round((ni - prev_ni) / abs(prev_ni) * 100, 2)
                             except (ValueError, TypeError):
                                 pass
             except Exception as e:
@@ -668,15 +652,9 @@ def get_fundamental_scan(symbol):
                                     if dv > 0:
                                         extra["dividend_per_share"] = dv
                                         # 计算股息率
-                                        cur_price = (
-                                            safe_float(parts[3])
-                                            if len(parts) > 3
-                                            else None
-                                        )
+                                        cur_price = safe_float(parts[3]) if len(parts) > 3 else None
                                         if cur_price and cur_price > 0:
-                                            extra["dividend_yield_pct"] = round(
-                                                dv / cur_price * 100, 2
-                                            )
+                                            extra["dividend_yield_pct"] = round(dv / cur_price * 100, 2)
                                         break
                                 except (ValueError, TypeError):
                                     continue
@@ -778,32 +756,16 @@ def get_news_sentiment(symbol):
         news_list = []
         if not df_news.empty:
             cols = df_news.columns.tolist()
-            title_col = (
-                "新闻标题"
-                if "新闻标题" in cols
-                else cols[1]
-                if len(cols) > 1
-                else cols[0]
-            )
-            time_col = (
-                "发布时间" if "发布时间" in cols else cols[2] if len(cols) > 2 else None
-            )
-            source_col = (
-                "文章来源" if "文章来源" in cols else cols[3] if len(cols) > 3 else None
-            )
-            content_col = (
-                "新闻内容" if "新闻内容" in cols else cols[4] if len(cols) > 4 else None
-            )
+            title_col = "新闻标题" if "新闻标题" in cols else cols[1] if len(cols) > 1 else cols[0]
+            time_col = "发布时间" if "发布时间" in cols else cols[2] if len(cols) > 2 else None
+            source_col = "文章来源" if "文章来源" in cols else cols[3] if len(cols) > 3 else None
+            content_col = "新闻内容" if "新闻内容" in cols else cols[4] if len(cols) > 4 else None
 
             for _, row in df_news.head(20).iterrows():
                 item = {
                     "title": str(row.get(title_col, "")),
-                    "datetime": str(row[time_col])[:19]
-                    if time_col and pd.notna(row.get(time_col))
-                    else None,
-                    "source": str(row[source_col])
-                    if source_col and pd.notna(row.get(source_col))
-                    else None,
+                    "datetime": str(row[time_col])[:19] if time_col and pd.notna(row.get(time_col)) else None,
+                    "source": str(row[source_col]) if source_col and pd.notna(row.get(source_col)) else None,
                 }
                 if content_col and pd.notna(row.get(content_col)):
                     item["summary"] = str(row[content_col])[:200]
@@ -820,23 +782,9 @@ def get_news_sentiment(symbol):
             df_global = ak.stock_info_global_em()
             if not df_global.empty:
                 gcols = df_global.columns.tolist()
-                g_title_col = (
-                    "标题"
-                    if "标题" in gcols
-                    else gcols[1]
-                    if len(gcols) > 1
-                    else gcols[0]
-                )
-                g_summary_col = (
-                    "摘要" if "摘要" in gcols else gcols[2] if len(gcols) > 2 else None
-                )
-                g_time_col = (
-                    "发布时间"
-                    if "发布时间" in gcols
-                    else gcols[3]
-                    if len(gcols) > 3
-                    else None
-                )
+                g_title_col = "标题" if "标题" in gcols else gcols[1] if len(gcols) > 1 else gcols[0]
+                g_summary_col = "摘要" if "摘要" in gcols else gcols[2] if len(gcols) > 2 else None
+                g_time_col = "发布时间" if "发布时间" in gcols else gcols[3] if len(gcols) > 3 else None
 
                 market_headlines = []
                 for _, row in df_global.head(30).iterrows():
@@ -862,11 +810,7 @@ def get_news_sentiment(symbol):
             "market_sentiment": market_sentiment,
             "market_news_count": market_news_count,
             "sentiment_score": final_sentiment,
-            "sentiment_label": "正面"
-            if final_sentiment > 60
-            else "负面"
-            if final_sentiment < 40
-            else "中性",
+            "sentiment_label": "正面" if final_sentiment > 60 else "负面" if final_sentiment < 40 else "中性",
         }
     except Exception as e:
         return {"error": f"新闻获取失败: {str(e)}", "symbol": symbol}
@@ -897,10 +841,7 @@ def get_market_snapshot():
         indices = []
         for name, code in INDEX_CODES.items():
             try:
-                if code.startswith("0"):
-                    market = "sz"
-                else:
-                    market = "sh"
+                market = "sz" if code.startswith("0") else "sh"
                 url = f"https://hq.sinajs.cn/list={market}{code}"
                 text = _http_get(url)
                 if text and "failed" not in text:
@@ -1051,9 +992,7 @@ def get_lhb(date=None):
             sell_val = row.get("龙虎榜卖出金额")
             records.append(
                 {
-                    "date": str(row.get("发布日期", ""))[:10]
-                    if row.get("发布日期")
-                    else None,
+                    "date": str(row.get("发布日期", ""))[:10] if row.get("发布日期") else None,
                     "code": str(row.get("代码", "")),
                     "name": str(row.get("名称", "")),
                     "close": float(close_val) if close_val is not None else 0,
@@ -1231,42 +1170,26 @@ def get_fund_flow_real(symbol):
 
         def safe_float(val):
             try:
-                return (
-                    round(float(val), 2) if val is not None and pd.notna(val) else None
-                )
+                return round(float(val), 2) if val is not None and pd.notna(val) else None
             except (ValueError, TypeError):
                 return None
 
         records = []
         for _, row in df.tail(10).iterrows():
             record = {
-                "date": str(row[date_col])[:10]
-                if date_col and pd.notna(row.get(date_col))
-                else None,
+                "date": str(row[date_col])[:10] if date_col and pd.notna(row.get(date_col)) else None,
                 "close": safe_float(row.get(close_col)) if close_col else None,
                 "change_pct": safe_float(row.get(change_col)) if change_col else None,
-                "主力净流入": safe_float(row.get(main_net_col))
-                if main_net_col
-                else None,
-                "主力净占比": safe_float(row.get(main_pct_col))
-                if main_pct_col
-                else None,
-                "超大单净流入": safe_float(row.get(large_net_col))
-                if large_net_col
-                else None,
-                "超大单净占比": safe_float(row.get(large_pct_col))
-                if large_pct_col
-                else None,
+                "主力净流入": safe_float(row.get(main_net_col)) if main_net_col else None,
+                "主力净占比": safe_float(row.get(main_pct_col)) if main_pct_col else None,
+                "超大单净流入": safe_float(row.get(large_net_col)) if large_net_col else None,
+                "超大单净占比": safe_float(row.get(large_pct_col)) if large_pct_col else None,
                 "大单净流入": safe_float(row.get(big_net_col)) if big_net_col else None,
                 "大单净占比": safe_float(row.get(big_pct_col)) if big_pct_col else None,
                 "中单净流入": safe_float(row.get(mid_net_col)) if mid_net_col else None,
                 "中单净占比": safe_float(row.get(mid_pct_col)) if mid_pct_col else None,
-                "小单净流入": safe_float(row.get(small_net_col))
-                if small_net_col
-                else None,
-                "小单净占比": safe_float(row.get(small_pct_col))
-                if small_pct_col
-                else None,
+                "小单净流入": safe_float(row.get(small_net_col)) if small_net_col else None,
+                "小单净占比": safe_float(row.get(small_pct_col)) if small_pct_col else None,
             }
             records.append(record)
 
@@ -1331,16 +1254,8 @@ def get_market_breadth():
             if df_zt is not None and not df_zt.empty:
                 limit_up_count = len(df_zt)
                 zcols = df_zt.columns.tolist()
-                name_col = (
-                    "名称"
-                    if "名称" in zcols
-                    else (zcols[1] if len(zcols) > 1 else zcols[0])
-                )
-                code_col = (
-                    "代码"
-                    if "代码" in zcols
-                    else (zcols[0] if len(zcols) > 0 else None)
-                )
+                name_col = "名称" if "名称" in zcols else (zcols[1] if len(zcols) > 1 else zcols[0])
+                code_col = "代码" if "代码" in zcols else (zcols[0] if len(zcols) > 0 else None)
                 for _, row in df_zt.head(10).iterrows():
                     item = {"name": str(row.get(name_col, ""))}
                     if code_col:
@@ -1357,16 +1272,8 @@ def get_market_breadth():
             if df_dt is not None and not df_dt.empty:
                 limit_down_count = len(df_dt)
                 dcols = df_dt.columns.tolist()
-                name_col = (
-                    "名称"
-                    if "名称" in dcols
-                    else (dcols[1] if len(dcols) > 1 else dcols[0])
-                )
-                code_col = (
-                    "代码"
-                    if "代码" in dcols
-                    else (dcols[0] if len(dcols) > 0 else None)
-                )
+                name_col = "名称" if "名称" in dcols else (dcols[1] if len(dcols) > 1 else dcols[0])
+                code_col = "代码" if "代码" in dcols else (dcols[0] if len(dcols) > 0 else None)
                 for _, row in df_dt.head(10).iterrows():
                     item = {"name": str(row.get(name_col, ""))}
                     if code_col:
@@ -1377,9 +1284,7 @@ def get_market_breadth():
 
         # 计算指标
         total = advance_count + decline_count + flat_count
-        ad_ratio = (
-            round(advance_count / decline_count, 2) if decline_count > 0 else None
-        )
+        ad_ratio = round(advance_count / decline_count, 2) if decline_count > 0 else None
 
         # 市场情绪判定
         if ad_ratio is not None:
@@ -1578,20 +1483,23 @@ def handle_request(req):
         args = params.get("arguments", {})
         symbol = args.get("symbol", "").strip()
 
-        if name in (
-            "ashare_quote",
-            "ashare_technical_levels",
-            "ashare_fundamental_scan",
-            "ashare_news_sentiment",
-            "ashare_fund_flow",
-            "ashare_fund_flow_real",
+        if (
+            name
+            in (
+                "ashare_quote",
+                "ashare_technical_levels",
+                "ashare_fundamental_scan",
+                "ashare_news_sentiment",
+                "ashare_fund_flow",
+                "ashare_fund_flow_real",
+            )
+            and not symbol
         ):
-            if not symbol:
-                return {
-                    "jsonrpc": "2.0",
-                    "error": {"message": "缺少 symbol"},
-                    "id": req_id,
-                }
+            return {
+                "jsonrpc": "2.0",
+                "error": {"message": "缺少 symbol"},
+                "id": req_id,
+            }
 
         if name == "ashare_quote":
             result = get_quote(symbol)

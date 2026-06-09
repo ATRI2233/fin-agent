@@ -44,7 +44,7 @@ AGENTS: dict[str, AgentInfo] = _load_agents_from_opencode()
 
 
 class AgentRegistry:
-    def get_agent(self, name: str) -> Optional[AgentInfo]:
+    def get_agent(self, name: str) -> AgentInfo | None:
         return AGENTS.get(name)
 
     def list_agents(self) -> list:

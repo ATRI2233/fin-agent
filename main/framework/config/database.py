@@ -1,10 +1,10 @@
 """Database configuration - migrated from main.framework.models.database."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from main.framework.config.settings import Settings
 

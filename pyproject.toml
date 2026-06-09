@@ -19,11 +19,8 @@ line-length = 120
 exclude = [".git", "__pycache__", ".venv", "venv", "node_modules", "dist", "build", ".opencode", "data"]
 
 [tool.ruff.lint]
-# BASELINE rule selection. Original spec wanted ["E", "W", "F", "C", "I", "N", "UP", "B", "SIM"]
-# but main/ has 215 legacy issues (UP=113, B=22, I=24, F=50, C=4, W=2, E=4).
-# Decision: keep select minimal so `ruff check main/` exits 0 on current code.
-# Full strict rules (UP/B/SIM/C/I) will be re-enabled in Wave 2-3 after cleanup.
-select = ["E", "W", "F"]
+# Full rule selection: E/W/F (baseline) + UP (pyupgrade) + I (isort) + B (flake8-bugbear) + SIM (simplify)
+select = ["E", "W", "F", "UP", "I", "B", "SIM"]
 ignore = [
     "E501",  # line-too-long (line-length config handles this)
     "F401",  # unused-imports (Wave 2 cleanup)
@@ -33,6 +30,7 @@ ignore = [
     "E902",  # syntax error in current code (need manual fix)
     "W292",  # no newline at end of file (legacy)
     "F541",  # f-string without any placeholders (Wave 2 cleanup)
+    "B008",  # FastAPI Depends() in argument defaults is standard pattern
 ]
 
 [tool.ruff.lint.mccabe]
@@ -41,3 +39,5 @@ max-complexity = 10
 [tool.ruff.lint.per-file-ignores]
 "main/framework/api/*.py" = ["C901"]  # complex-structure allowed in legacy routes
 "tests/*" = ["B011"]  # asserts OK in tests
+"main/framework/models/database.py" = ["F811"]  # intentional re-exports for backward compat
+"main/framework/config.py" = ["F811"]  # intentional re-exports for backward compat

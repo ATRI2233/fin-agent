@@ -1,7 +1,5 @@
 """Input merger for agent outputs."""
 
-from typing import List
-
 
 def truncate_output(output: str, max_size: int = 10240) -> str:
     """Truncate output to max_size bytes, adding [truncated] suffix if cut."""
@@ -11,14 +9,14 @@ def truncate_output(output: str, max_size: int = 10240) -> str:
     return truncated + "[truncated]"
 
 
-def merge_inputs(inputs: List[dict]) -> str:
+def merge_inputs(inputs: list[dict]) -> str:
     """Merge a list of agent inputs into a formatted string.
 
     Each input should be a dict with 'agent_name' and 'output' keys.
     Empty outputs are skipped.
     Outputs over 10KB are truncated.
     """
-    parts: List[str] = []
+    parts: list[str] = []
     for inp in inputs:
         agent_name = inp.get("agent_name", "")
         output = inp.get("output", "")

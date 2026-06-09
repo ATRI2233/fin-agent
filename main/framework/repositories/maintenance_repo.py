@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 from main.data_maintenance.models.maintenance_db import (
-    MaintenanceTask,
     MaintenanceData,
     MaintenanceLog,
+    MaintenanceTask,
     get_session,
 )
 

@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from main.framework.models.database import get_db
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
@@ -28,8 +29,9 @@ async def agent_stats(db: Session = Depends(get_db)):
     """Agent usage stats from workflow execution nodes."""
     try:
         from sqlalchemy import func
-        from main.framework.models.workflow_execution import ExecutionNode
+
         from main.framework.core.agent_registry import registry
+        from main.framework.models.workflow_execution import ExecutionNode
 
         rows = (
             db.query(ExecutionNode.agent, ExecutionNode.status, func.count(ExecutionNode.id))

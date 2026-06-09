@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from typing import Any, Iterator, cast
+from datetime import UTC, datetime, timezone
+from typing import Any, cast
 
 from sqlalchemy.orm import Session
 
@@ -271,7 +272,7 @@ class ExecutionRepository(BaseRepository[WorkflowExecution]):
             execution_id,
             status="completed",
             output=output,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
             session_id=session_id,
         )
 

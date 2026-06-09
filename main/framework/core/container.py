@@ -7,16 +7,17 @@ of importing concrete classes or module-level singletons.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Type, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from main.framework.config import Settings
 from main.framework.core.agent_dispatcher import AgentDispatcher
 from main.framework.core.protocols import AgentBackend
-from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.repositories.agent_repo import AgentRepository
-from main.framework.repositories.workflow_repo import WorkflowRepository
 from main.framework.repositories.conversation_repo import ConversationRepository
+from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.repositories.maintenance_repo import MaintenanceRepository
+from main.framework.repositories.workflow_repo import WorkflowRepository
 
 T = TypeVar("T")
 
@@ -121,8 +122,8 @@ class Container:
 
     def create_workflow_engine(self, workflow_id: str, params: dict, db=None, status_callback=None, execution_id=None):
         """Create a fresh WorkflowEngine with injected dependencies."""
-        from main.framework.core.workflow_engine import WorkflowEngine
         from main.framework.config.database import SessionLocal
+        from main.framework.core.workflow_engine import WorkflowEngine
 
         if db is None:
             db = SessionLocal()
@@ -137,8 +138,8 @@ class Container:
 
     def create_scheduler(self):
         """Create or return the WorkflowScheduler singleton."""
-        from main.framework.core.scheduler import WorkflowScheduler
         from main.framework.config.database import SessionLocal
+        from main.framework.core.scheduler import WorkflowScheduler
 
         if "scheduler" not in self._instances:
             self._instances["scheduler"] = WorkflowScheduler(
@@ -184,7 +185,7 @@ _SERVICE_MAP: dict[type, str] = {
 }
 
 
-def get_service(interface: Type[T]):
+def get_service(interface: type[T]):
     """FastAPI ``Depends`` factory —?resolve *interface* from the DI container.
 
     Usage::

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """risk-mcp-server — 本地风控计算 + 仓位管理 + 机构持仓 MCP Server"""
 
-import json, sys, os
+import json
+import os
+import sys
 
 try:
-    import yfinance as yf
     import numpy as np
     import pandas as pd
+    import yfinance as yf
 
     HAS_DEPS = True
 except ImportError:
@@ -94,9 +96,7 @@ def calculate_risk(symbol):
 # ═══════════════════════════════════════════════
 
 
-def calculate_position(
-    symbol, expected_return=None, risk_free_rate=0.05, kelly_fraction=0.25
-):
+def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_fraction=0.25):
     """
     基于凯利公式优化和波动率目标计算建议仓位。
 
@@ -132,10 +132,7 @@ def calculate_position(
         excess_return = exp_ret - risk_free_rate
         variance = annual_vol**2
 
-        if variance <= 0:
-            kelly_pct = 0
-        else:
-            kelly_pct = excess_return / variance
+        kelly_pct = 0 if variance <= 0 else excess_return / variance
 
         # 限制范围
         raw_kelly = round(kelly_pct * 100, 2)
@@ -143,9 +140,7 @@ def calculate_position(
 
         # 波动率目标仓位（目标波动率 20%）
         target_vol = 0.20
-        vol_parity = (
-            round((target_vol / annual_vol) * 100, 2) if annual_vol > 0 else 100
-        )
+        vol_parity = round((target_vol / annual_vol) * 100, 2) if annual_vol > 0 else 100
         vol_parity = round(min(vol_parity, 100), 2)
 
         # 综合建议 = 凯利和波动率目标中较低者（保守原则）
@@ -214,18 +209,10 @@ def get_institutional_flow(symbol, top_n=10):
                     for _, row in df.iterrows():
                         holder = {
                             "holder": str(row.get("Holder", "")),
-                            "shares": int(row["Shares"])
-                            if pd.notna(row.get("Shares"))
-                            else 0,
-                            "value": float(row["Value"])
-                            if pd.notna(row.get("Value"))
-                            else 0,
-                            "pct_held": float(row["pctHeld"])
-                            if pd.notna(row.get("pctHeld"))
-                            else 0,
-                            "pct_change": float(row["pctChange"])
-                            if pd.notna(row.get("pctChange"))
-                            else 0,
+                            "shares": int(row["Shares"]) if pd.notna(row.get("Shares")) else 0,
+                            "value": float(row["Value"]) if pd.notna(row.get("Value")) else 0,
+                            "pct_held": float(row["pctHeld"]) if pd.notna(row.get("pctHeld")) else 0,
+                            "pct_change": float(row["pctChange"]) if pd.notna(row.get("pctChange")) else 0,
                             "date": str(row.get("Date Reported", ""))[:10],
                         }
                         total_value += holder["value"]
@@ -241,9 +228,7 @@ def get_institutional_flow(symbol, top_n=10):
                 if hasattr(major_raw, "iterrows"):
                     for idx_name, row in major_raw.iterrows():
                         val = str(row.iloc[0]) if hasattr(row, "iloc") else str(row)
-                        if "Institution" in str(idx_name) or "institution" in str(
-                            idx_name
-                        ):
+                        if "Institution" in str(idx_name) or "institution" in str(idx_name):
                             pct = val
             except Exception:
                 pass

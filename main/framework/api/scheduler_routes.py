@@ -19,7 +19,7 @@ async def schedule_workflow(workflow_id: str, payload: ScheduleRequest):
     try:
         scheduler.add_workflow_job(workflow_id, payload.cron_expression)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return {
         "workflow_id": workflow_id,
         "cron_expression": payload.cron_expression,

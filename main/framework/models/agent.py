@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, JSON
+from sqlalchemy import JSON, Column, String
 
 from main.framework.models.database import Base
 

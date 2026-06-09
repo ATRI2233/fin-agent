@@ -1,7 +1,9 @@
 """UnitOfWork pattern for cross-Repository transaction management."""
 
 from typing import Optional
+
 from sqlalchemy.orm import Session
+
 from main.framework.config.database import SessionLocal
 
 
@@ -15,7 +17,7 @@ class UnitOfWork:
             # Commits on __exit__ if no exception
     """
 
-    def __init__(self, db: Optional[Session] = None):
+    def __init__(self, db: Session | None = None):
         self._external_db = db is not None
         self._db = db or SessionLocal()
 

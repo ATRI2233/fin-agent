@@ -25,10 +25,10 @@ class DispatchRequest(BaseModel):
 
 class DispatchResult(BaseModel):
     agent: str
-    result: Optional[object] = None
-    error: Optional[str] = None
+    result: object | None = None
+    error: str | None = None
     duration_seconds: float
-    session_id: Optional[str] = None
+    session_id: str | None = None
 
 
 class ParallelDispatchRequest(BaseModel):
@@ -117,4 +117,4 @@ async def dispatch_parallel(payload: ParallelDispatchRequest, request: Request):
         )
     except Exception as e:
         logger.error(f"Parallel dispatch failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

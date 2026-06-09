@@ -7,10 +7,10 @@ performance interference from frequent data updates.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Integer, Float, Text, DateTime, create_engine, event
+from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 MaintenanceBase = declarative_base()
@@ -93,11 +93,11 @@ class MaintenanceTask(MaintenanceBase):
     last_run_at = Column(DateTime, nullable=True)
     last_status = Column(String, nullable=True)  # success | failed | running
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
 
@@ -108,7 +108,7 @@ class MaintenanceData(MaintenanceBase):
     task_id = Column(String, nullable=False, index=True)
     data_key = Column(String, nullable=False, index=True)
     content = Column(Text, nullable=True)  # JSON string
-    fetched_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    fetched_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
 
 class MaintenanceLog(MaintenanceBase):
@@ -121,4 +121,4 @@ class MaintenanceLog(MaintenanceBase):
     records_updated = Column(Integer, default=0)
     error = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime, default=lambda: datetime.now(UTC))

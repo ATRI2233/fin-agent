@@ -1,10 +1,10 @@
 # DEPRECATED: Use main.framework.config.settings instead. Kept for backward compat.
-from main.framework.config.settings import Settings, _find_opencode_bin, settings  # noqa: F401
-
 import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
+
+from main.framework.config.settings import Settings, _find_opencode_bin, settings  # noqa: F401
 
 
 def _find_opencode_bin() -> str:

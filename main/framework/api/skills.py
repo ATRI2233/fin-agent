@@ -44,7 +44,7 @@ async def list_skills():
 
 
 @router.post("/{name}/trigger")
-async def trigger_skill(name: str, params: Optional[dict] = None):
+async def trigger_skill(name: str, params: dict | None = None):
     for s in SKILLS:
         if s["name"] == name:
             return {

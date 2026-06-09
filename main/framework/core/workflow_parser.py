@@ -50,11 +50,7 @@ def validate_dag(nodes: list[Node], edges: list[Edge]) -> bool:
 
     # Run DFS from all nodes
     node_ids = {edge["source"] for edge in edges} | {edge["target"] for edge in edges}
-    for node_id in node_ids:
-        if state[node_id] == "white":
-            if not dfs(node_id):
-                return False
-    return True
+    return all(dfs(node_id) for node_id in node_ids if state[node_id] == "white")
 
 
 def topological_sort(nodes: list[Node], edges: list[Edge]) -> list[NodeId]:
@@ -92,9 +88,7 @@ def topological_sort(nodes: list[Node], edges: list[Edge]) -> list[NodeId]:
     return result
 
 
-def identify_parallel_branches(
-    nodes: list[Node], edges: list[Edge]
-) -> dict[NodeId, list[NodeId]]:
+def identify_parallel_branches(nodes: list[Node], edges: list[Edge]) -> dict[NodeId, list[NodeId]]:
     """Find nodes with multiple outgoing edges (parallel branch points)."""
     # Build out-degree map
     out_degree: dict[NodeId, int] = defaultdict(int)
@@ -104,14 +98,10 @@ def identify_parallel_branches(
         out_degree[edge["source"]] += 1
         targets_map[edge["source"]].append(edge["target"])
 
-    result = {
-        node_id: targets
-        for node_id, targets in targets_map.items()
-        if out_degree[node_id] > 1
-    }
+    result = {node_id: targets for node_id, targets in targets_map.items() if out_degree[node_id] > 1}
 
     # Validate parallel branch count
-    for node_id, targets in result.items():
+    for _node_id, targets in result.items():
         if len(targets) > 10:
             raise ValueError("Cannot have more than 10 parallel agents")
 
@@ -148,10 +138,7 @@ def identify_serial_chains(nodes: list[Node], edges: list[Edge]) -> list[list[No
                 chain.append(current)
                 visited.add(current)
                 # Follow the single path
-                if len(adj[current]) == 1 and in_degree[adj[current][0]] == 1:
-                    current = adj[current][0]
-                else:
-                    current = None
+                current = adj[current][0] if len(adj[current]) == 1 and in_degree[adj[current][0]] == 1 else None
             if len(chain) > 1:
                 chains.append(chain)
 

@@ -1,11 +1,13 @@
 """Tests for UnitOfWork pattern."""
 
-import pytest
 from contextlib import contextmanager
-from main.framework.services.unit_of_work import UnitOfWork
-from main.framework.repositories.agent_repo import AgentRepository
+
+import pytest
+
 from main.framework.models.agent import Agent
 from main.framework.models.database import Base
+from main.framework.repositories.agent_repo import AgentRepository
+from main.framework.services.unit_of_work import UnitOfWork
 
 
 @contextmanager
@@ -34,9 +36,8 @@ def test_rollback_on_exception(db_session):
     Base.metadata.create_all(db_session.bind)
     # AgentRepository commits immediately, so we test UnitOfWork behavior
     # with a simple exception scenario
-    with pytest.raises(ValueError):
-        with UnitOfWork(db=db_session) as uow:
-            raise ValueError("intentional error")
+    with pytest.raises(ValueError), UnitOfWork(db=db_session) as uow:
+        raise ValueError("intentional error")
     # The session should be rolled back (no crash)
 
 
