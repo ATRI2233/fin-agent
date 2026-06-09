@@ -66,8 +66,15 @@ data/
 coverage/
 .nyc_output/
 
-# OpenCode working files
-.omo/
+# OpenCode working files (fine-grained)
+.omo/drafts/
+.omo/notepads/
+.omo/run-continuation/
+.omo/evidence/**/*.tmp
+.omo/evidence/**/*.log
+# Explicitly track:
+!.omo/plans/
+!.omo/evidence/
 
 # IDE
 .idea/

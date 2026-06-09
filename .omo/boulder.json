@@ -1,42 +1,14 @@
 {
-  "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\workflow-orchestration.md",
-  "started_at": "2026-06-02T03:31:29.857Z",
+  "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\phase1-foundation.md",
+  "started_at": "2026-06-09T07:56:09.383Z",
   "session_ids": [
-    "opencode:ses_17effe1afffeRBjLcZ52WVy4i8"
+    "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
   ],
-  "plan_name": "workflow-orchestration",
-  "worktree_path": null,
+  "plan_name": "phase1-foundation",
   "session_origins": {
-    "opencode:ses_17effe1afffeRBjLcZ52WVy4i8": "direct"
+    "opencode:ses_154ca0c3effegImMjNJ5tFDIdu": "direct"
   },
-  "task_sessions": {
-    "todo:1": {
-      "task_key": "todo:1",
-      "task_label": "1",
-      "task_title": "`retry_on_failure(max_attempts=3, delay=1.0, backoff=2.0)` decorator:",
-      "session_id": "opencode:ses_17989e98dffe3HDJx24eOSENeU",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "started_at": "2026-06-02T03:34:49.555Z",
-      "ended_at": "2026-06-02T03:54:39.460Z",
-      "elapsed_ms": 1189905,
-      "status": "completed",
-      "updated_at": "2026-06-02T03:54:39.460Z"
-    },
-    "final-wave:f1": {
-      "task_key": "final-wave:f1",
-      "task_label": "F1",
-      "task_title": "**Plan Compliance Audit** — `oracle`",
-      "session_id": "opencode:ses_179852312ffeFDNRxD7HCcLWib",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "started_at": "2026-06-02T03:57:24.054Z",
-      "status": "completed",
-      "updated_at": "2026-06-02T04:00:13.357Z",
-      "ended_at": "2026-06-02T04:00:13.357Z",
-      "elapsed_ms": 169303
-    }
-  },
+  "task_sessions": {},
   "schema_version": 2,
   "works": {
     "workflow-orchestration-legacy": {
@@ -83,11 +55,26 @@
       "ended_at": "2026-06-02T04:00:44.106Z",
       "elapsed_ms": 1754249,
       "status": "completed"
+    },
+    "phase1-foundation-09a390a2": {
+      "work_id": "phase1-foundation-09a390a2",
+      "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\phase1-foundation.md",
+      "plan_name": "phase1-foundation",
+      "status": "active",
+      "started_at": "2026-06-09T07:56:09.383Z",
+      "updated_at": "2026-06-09T07:56:09.383Z",
+      "session_ids": [
+        "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
+      ],
+      "session_origins": {
+        "opencode:ses_154ca0c3effegImMjNJ5tFDIdu": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {}
     }
   },
-  "active_work_id": "workflow-orchestration-legacy",
-  "updated_at": "2026-06-02T04:00:44.106Z",
-  "status": "completed",
-  "ended_at": "2026-06-02T04:00:44.106Z",
-  "elapsed_ms": 1754249
+  "active_work_id": "phase1-foundation-09a390a2",
+  "updated_at": "2026-06-09T07:56:09.383Z",
+  "status": "active",
+  "agent": "atlas"
 }
