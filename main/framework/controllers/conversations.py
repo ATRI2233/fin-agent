@@ -87,8 +87,8 @@ async def get_conversation(
     """Get a conversation by ID."""
     try:
         return service.get(conversation_id, db)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    except NotFoundError as err:
+        raise HTTPException(status_code=404, detail="Conversation not found") from err
 
 
 @router.put("/{conversation_id}")
@@ -101,8 +101,8 @@ async def update_conversation(
     """Update a conversation."""
     try:
         return {"success": service.update(conversation_id, payload, db)}
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    except NotFoundError as err:
+        raise HTTPException(status_code=404, detail="Conversation not found") from err
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -114,8 +114,8 @@ async def delete_conversation(
     """Delete a conversation and cleanup session."""
     try:
         service.delete(conversation_id, db)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    except NotFoundError as err:
+        raise HTTPException(status_code=404, detail="Conversation not found") from err
 
 
 @router.get("/{conversation_id}/messages")
@@ -127,8 +127,8 @@ async def list_messages(
     """List all messages in a conversation."""
     try:
         return service.list_messages(conversation_id, db)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    except NotFoundError as err:
+        raise HTTPException(status_code=404, detail="Conversation not found") from err
 
 
 @router.post("/{conversation_id}/messages", status_code=status.HTTP_202_ACCEPTED)
@@ -144,8 +144,8 @@ async def send_message(
     container = request.app.state.container
     try:
         conv_resp = service.get(conversation_id, db)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    except NotFoundError as err:
+        raise HTTPException(status_code=404, detail="Conversation not found") from err
     user_msg = service.save_user_message(conversation_id, payload.content, db)
     if payload.mode == "workflow" and payload.workflow_id:
         return await _dispatch_workflow(background_tasks, container, service, conversation_id, payload, user_msg, db)
@@ -173,8 +173,8 @@ async def _dispatch_workflow(
     assert workflow_id is not None
     try:
         execution = service.start_workflow_execution(conversation_id, workflow_id, db)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+    except NotFoundError as err:
+        raise HTTPException(status_code=404, detail="Workflow not found") from err
     background_tasks.add_task(
         execute_workflow_async,
         conversation_id=conversation_id,

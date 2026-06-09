@@ -8,13 +8,34 @@ from main.framework.config.database import SessionLocal
 
 
 class UnitOfWork:
-    """Context manager that provides a shared DB session.
+    """Context manager for cross-Repository transaction boundaries.
+
+    Provides a shared SQLAlchemy session that multiple repositories can use
+    within a single atomic transaction. On normal exit, commits all changes;
+    on exception, rolls back everything.
+
+    This is the intended companion to BaseRepository — repositories handle
+    CRUD but do NOT commit; UnitOfWork owns the transaction boundary.
+
+    When to use:
+    - Multiple repositories need atomic commit (e.g., creating an Agent
+      and its associated Workflow in one transaction)
+    - Service-layer code that orchestrates several repository operations
+
+    When NOT to use:
+    - Single repository calls (the repository's internal session handles it)
+    - Read-only queries (no transaction boundary needed)
 
     Usage:
         with UnitOfWork() as uow:
             agent_repo = AgentRepository(uow.db)
+            workflow_repo = WorkflowRepository(uow.db)
             agent = agent_repo.create(name="foo")
-            # Commits on __exit__ if no exception
+            workflow = workflow_repo.create(agent_id=agent.id, name="bar")
+            # Both committed atomically on __exit__
+
+    Args:
+        db: Optional existing Session. If None, creates a new one via SessionLocal().
     """
 
     def __init__(self, db: Session | None = None):

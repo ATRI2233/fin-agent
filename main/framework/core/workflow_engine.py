@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from main.framework.core.retry_handler import WorkflowRetryHandler  # noqa: F401 — still needed
 from main.framework.core.workflow.node_executors.registry import default_registry

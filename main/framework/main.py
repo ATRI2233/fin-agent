@@ -107,12 +107,15 @@ async def startup():
 
     # Initialize data maintenance
     from main.data_maintenance.core.data_maintenance import DataMaintenanceService
-    from main.data_maintenance.core.data_maintenance import configure as configure_maintenance
     from main.data_maintenance.models.maintenance_db import init_maintenance_db
 
     init_maintenance_db()
-    configure_maintenance(container.dispatcher, scheduler._scheduler)
-    DataMaintenanceService.sync_scheduled_tasks()
+    maintenance_service = DataMaintenanceService(
+        dispatcher=container.dispatcher,
+        scheduler=scheduler._scheduler,
+    )
+    app.state.maintenance_service = maintenance_service
+    maintenance_service.sync_scheduled_tasks()
 
 
 @app.on_event("shutdown")

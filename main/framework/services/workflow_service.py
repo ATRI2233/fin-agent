@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol, runtime_checkable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from main.framework.core.workflow.node_executors.base import NodeContext
 from main.framework.core.workflow_parser import (
@@ -109,10 +110,8 @@ class WorkflowService:
         self.execution_id = execution_id
 
         try:
-            try:
-                db.commit()
-            except Exception:
-                pass  # db may be None in unit tests
+            with contextlib.suppress(Exception):
+                db.commit()  # db may be None in unit tests
 
             # ---- Load workflow ----
             workflow = self._workflow_repo.get(workflow_id)

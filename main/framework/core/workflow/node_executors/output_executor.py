@@ -30,10 +30,7 @@ class OutputNodeExecutor(NodeExecutor):
         # output-node handler.
         upstream_list: list[dict] = []
         for pid, pred_result in upstream.items():
-            if isinstance(pred_result, dict):
-                output = pred_result.get("result", str(pred_result))
-            else:
-                output = str(pred_result)
+            output = pred_result.get("result", str(pred_result)) if isinstance(pred_result, dict) else str(pred_result)
             if output:
                 upstream_list.append({"agent_name": pid, "output": output})
 

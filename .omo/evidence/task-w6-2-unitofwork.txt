@@ -1,0 +1,61 @@
+Task W6-2: UnitOfWork Decision
+================================
+Date: 2026-06-09
+Branch: phase2-refactor
+Decision: KEEP
+
+Evidence
+--------
+1. File: main/framework/services/unit_of_work.py (38 lines)
+   - Context manager providing shared SQLAlchemy session
+   - Commits on normal exit, rolls back on exception
+   - Accepts optional external session or creates via SessionLocal()
+
+2. File: main/framework/repositories/base.py
+   - BaseRepository docstring explicitly references UnitOfWork as the
+     intended transaction management pattern (line 27):
+     "with UnitOfWork() as uow: repo = AgentRepository(uow.db)"
+   - BaseRepository.create/update/delete use flush() but do NOT commit
+   - Transaction boundaries are caller's responsibility → UnitOfWork
+
+3. File: main/framework/services/__init__.py
+   - Re-exports UnitOfWork in __all__ (line 12, 18)
+
+4. File: tests/unit/test_unit_of_work.py
+   - test_commit_on_success: verifies commit on clean exit
+   - test_rollback_on_exception: verifies rollback on exception
+   - test_cross_repo_transaction: verifies shared session across repos
+
+5. Production import search:
+   - Only import: services/__init__.py (re-export) + test file
+   - No production code currently calls UnitOfWork yet
+   - BUT: BaseRepository docstring documents it as the intended pattern
+
+Reasoning
+---------
+- UnitOfWork is the documented contract for cross-repository transactions
+- BaseRepository explicitly defers transaction management to callers
+- Removing UnitOfWork would break the documented pattern in BaseRepository
+- Tests already exist and cover the 3 key scenarios
+- Small (38 lines), clean, no dependencies beyond SQLAlchemy Session
+- Future service-layer code will use it for multi-repo atomic operations
+
+Action Taken
+------------
+- Enhanced docstring in unit_of_work.py with:
+  - Clear explanation of purpose (cross-repo transaction boundaries)
+  - When to use / when NOT to use guidance
+  - Multi-repository usage example
+  - Args documentation
+- Existing 3 tests retained (no changes needed)
+
+Test Results
+------------
+pytest tests/unit/ -v --tb=short → 149 passed (0.86s)
+  - test_commit_on_success PASSED
+  - test_rollback_on_exception PASSED
+  - test_cross_repo_transaction PASSED
+LSP diagnostics: clean (no errors in unit_of_work.py)
+
+Note: Integration tests (tests/integration/) timeout on test_parallel_dispatch
+— unrelated to UnitOfWork changes, pre-existing issue.

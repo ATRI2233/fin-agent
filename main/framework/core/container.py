@@ -154,6 +154,97 @@ class Container:
 
         return DebateExecutor(dispatcher=self.dispatcher)
 
+    # ------------------------------------------------------------------
+    # Service factories (Wave 6 — DI registration)
+    # ------------------------------------------------------------------
+
+    def create_conversation_service(self):
+        """@singleton — ConversationService(conv_repo, workflow_repo).
+
+        Business-logic facade for conversations / messages.  Repos are
+        resolved lazily from the container so no eager DB connections are
+        created at container init.
+        """
+        from main.framework.services.conversation_service import ConversationService
+
+        if "conversation_service" not in self._instances:
+            self._instances["conversation_service"] = ConversationService(
+                conv_repo=self.conversation_repo,
+                workflow_repo=self.workflow_repo,
+            )
+        return self._instances["conversation_service"]
+
+    def create_execution_service(self):
+        """@singleton — ExecutionService(exec_repo).
+
+        Manages WorkflowExecution + ExecutionNode lifecycle (status
+        updates, failure cascade, recording).
+        """
+        from main.framework.services.execution_service import ExecutionService
+
+        if "execution_service" not in self._instances:
+            self._instances["execution_service"] = ExecutionService(
+                exec_repo=self.execution_repo,
+            )
+        return self._instances["execution_service"]
+
+    def create_workflow_service(self):
+        """@singleton — WorkflowService(workflow_repo, exec_service, registry).
+
+        Orchestrates workflow DAG execution: topological sort, level-walking,
+        dispatch, failure cascade.  Depends on ExecutionService (created via
+        :meth:`create_execution_service`) and NodeExecutorRegistry.
+        """
+        from main.framework.core.workflow.node_executors.registry import (
+            NodeExecutorRegistry,
+        )
+        from main.framework.services.workflow_service import WorkflowService
+
+        if "workflow_service" not in self._instances:
+            self._instances["workflow_service"] = WorkflowService(
+                workflow_repo=self.workflow_repo,
+                exec_service=self.create_execution_service(),  # type: ignore[arg-type]
+                registry=NodeExecutorRegistry(),
+                dispatcher=self.dispatcher,
+            )
+        return self._instances["workflow_service"]
+
+    def create_scheduler_service(self):
+        """@singleton — SchedulerService(session_factory, workflow_service).
+
+        APScheduler wrapper for cron-based workflow execution.  Depends on
+        WorkflowService (created via :meth:`create_workflow_service`).
+        """
+        from main.framework.config.database import SessionLocal
+        from main.framework.services.scheduler_service import SchedulerService
+
+        if "scheduler_service" not in self._instances:
+            self._instances["scheduler_service"] = SchedulerService(
+                session_factory=SessionLocal,
+                workflow_service=self.create_workflow_service(),
+            )
+        return self._instances["scheduler_service"]
+
+    def create_message_processor(self):
+        """@per_execution — MessageProcessor.
+
+        ``message_processor.py`` exposes standalone async functions
+        (``process_agent_message``, ``execute_workflow_async``) rather than
+        a class, so there is nothing to instantiate.  This factory is a
+        no-op placeholder kept for API symmetry; callers should import the
+        functions directly.
+        """
+        return None
+
+    def create_conv_session_manager(self):
+        """@singleton — ConvSessionManager(backend).
+
+        Maps conversation IDs to HAPI session IDs.  Delegates to the
+        existing ``session_manager`` property which already handles lazy
+        init and caching.
+        """
+        return self.session_manager
+
 
 # ------------------------------------------------------------------
 # Module-level container reference & FastAPI dependency factory

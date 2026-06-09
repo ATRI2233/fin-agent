@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from datetime import UTC, datetime, timezone
+from functools import partial
 from typing import Any
 
 from main.data_maintenance.models.maintenance_db import (
@@ -17,27 +18,23 @@ from main.data_maintenance.models.maintenance_db import (
 
 logger = logging.getLogger(__name__)
 
-# Module-level references set via configure()
-_dispatcher = None
-_scheduler = None
-
-
-def configure(dispatcher, scheduler) -> None:
-    """Set the dispatcher and scheduler used by the service."""
-    global _dispatcher, _scheduler
-    _dispatcher = dispatcher
-    _scheduler = scheduler
-
 
 class DataMaintenanceService:
-    """Manages maintenance tasks: scheduling, execution, data storage."""
+    """Manages maintenance tasks: scheduling, execution, data storage.
+
+    Dependencies (dispatcher, scheduler) are injected via constructor
+    instead of module-level globals.
+    """
+
+    def __init__(self, dispatcher=None, scheduler=None):
+        self._dispatcher = dispatcher
+        self._scheduler = scheduler
 
     # ------------------------------------------------------------------
     # Task CRUD
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def list_tasks() -> list[dict]:
+    def list_tasks(self) -> list[dict]:
         db = get_session()
         try:
             tasks = db.query(MaintenanceTask).order_by(MaintenanceTask.name).all()
@@ -45,8 +42,7 @@ class DataMaintenanceService:
         finally:
             db.close()
 
-    @staticmethod
-    def get_task(task_id: str) -> dict | None:
+    def get_task(self, task_id: str) -> dict | None:
         db = get_session()
         try:
             task = db.query(MaintenanceTask).get(task_id)
@@ -54,8 +50,7 @@ class DataMaintenanceService:
         finally:
             db.close()
 
-    @staticmethod
-    def create_task(data: dict) -> dict:
+    def create_task(self, data: dict) -> dict:
         db = get_session()
         try:
             task = MaintenanceTask(
@@ -75,16 +70,21 @@ class DataMaintenanceService:
         finally:
             db.close()
 
-    @staticmethod
-    def update_task(task_id: str, data: dict) -> dict | None:
+    def update_task(self, task_id: str, data: dict) -> dict | None:
         db = get_session()
         try:
             task = db.query(MaintenanceTask).get(task_id)
             if not task:
                 return None
             for key in [
-                "name", "description", "agent", "prompt", "schedule",
-                "enabled", "trigger_type", "interval_seconds",
+                "name",
+                "description",
+                "agent",
+                "prompt",
+                "schedule",
+                "enabled",
+                "trigger_type",
+                "interval_seconds",
             ]:
                 if key in data:
                     setattr(task, key, data[key])
@@ -94,8 +94,7 @@ class DataMaintenanceService:
         finally:
             db.close()
 
-    @staticmethod
-    def delete_task(task_id: str) -> bool:
+    def delete_task(self, task_id: str) -> bool:
         db = get_session()
         try:
             task = db.query(MaintenanceTask).get(task_id)
@@ -111,10 +110,9 @@ class DataMaintenanceService:
     # Task execution
     # ------------------------------------------------------------------
 
-    @staticmethod
-    async def execute_task(task_id: str) -> dict:
+    async def execute_task(self, task_id: str) -> dict:
         """Execute a maintenance task: call agent, store result."""
-        if _dispatcher is None:
+        if self._dispatcher is None:
             raise RuntimeError("DataMaintenanceService not configured")
 
         db = get_session()
@@ -140,9 +138,7 @@ class DataMaintenanceService:
 
             try:
                 # Call agent
-                resp = await _dispatcher.dispatch(
-                    task.agent, task.prompt, timeout=120
-                )
+                resp = await self._dispatcher.dispatch(task.agent, task.prompt, timeout=120)
                 result = resp["result"]
                 duration = round(time.time() - start_time, 2)
 
@@ -184,15 +180,10 @@ class DataMaintenanceService:
     # Data query
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def get_task_data(
-        task_id: str, limit: int = 50, data_key: str | None = None
-    ) -> list[dict]:
+    def get_task_data(self, task_id: str, limit: int = 50, data_key: str | None = None) -> list[dict]:
         db = get_session()
         try:
-            q = db.query(MaintenanceData).filter(
-                MaintenanceData.task_id == task_id
-            )
+            q = db.query(MaintenanceData).filter(MaintenanceData.task_id == task_id)
             if data_key:
                 q = q.filter(MaintenanceData.data_key == data_key)
             rows = q.order_by(MaintenanceData.fetched_at.desc()).limit(limit).all()
@@ -208,8 +199,7 @@ class DataMaintenanceService:
         finally:
             db.close()
 
-    @staticmethod
-    def get_task_logs(task_id: str, limit: int = 20) -> list[dict]:
+    def get_task_logs(self, task_id: str, limit: int = 20) -> list[dict]:
         db = get_session()
         try:
             logs = (
@@ -238,10 +228,9 @@ class DataMaintenanceService:
     # Scheduling
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def sync_scheduled_tasks() -> None:
+    def sync_scheduled_tasks(self) -> None:
         """Sync enabled cron tasks to the scheduler."""
-        if _scheduler is None:
+        if self._scheduler is None:
             return
         db = get_session()
         try:
@@ -255,8 +244,8 @@ class DataMaintenanceService:
             for task in tasks:
                 job_id = f"maintenance_{task.id}"
                 try:
-                    _scheduler.add_job(
-                        _run_task_job,
+                    self._scheduler.add_job(
+                        partial(_run_task_job, self),
                         "cron",
                         args=[task.id],
                         id=job_id,
@@ -273,19 +262,21 @@ class DataMaintenanceService:
 # ---- Internal helpers ----
 
 
-def _run_task_job(task_id: str):
+def _run_task_job(service: DataMaintenanceService, task_id: str):
     """Sync wrapper for APScheduler to call the async task."""
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                pool.submit(asyncio.run, DataMaintenanceService.execute_task(task_id))
+                pool.submit(asyncio.run, service.execute_task(task_id))
         else:
-            loop.run_until_complete(DataMaintenanceService.execute_task(task_id))
+            loop.run_until_complete(service.execute_task(task_id))
     except RuntimeError:
-        asyncio.run(DataMaintenanceService.execute_task(task_id))
+        asyncio.run(service.execute_task(task_id))
 
 
 def _parse_cron(expr: str) -> dict:

@@ -48,9 +48,9 @@ class AgentNodeExecutor(NodeExecutor):
 
     def __init__(
         self,
-        dispatcher: "AgentDispatcher",
-        db: "Session | None" = None,
-        chain_sessions: "dict[str, str] | None" = None,
+        dispatcher: AgentDispatcher,
+        db: Session | None = None,
+        chain_sessions: dict[str, str] | None = None,
     ) -> None:
         super().__init__(dispatcher=dispatcher)
         self._db = db

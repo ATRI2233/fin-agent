@@ -11,24 +11,10 @@ import os
 import sys
 from typing import Optional
 
+from main.framework.config.settings import settings
 from main.session.output_parser import ParsedOutput, parse_stream
 
 logger = logging.getLogger(__name__)
-
-# Auto-detect opencode binary path
-def _find_opencode_bin() -> str:
-    """Find the opencode binary. Checks agents/opencode/node_modules first."""
-    candidates = [
-        os.path.join("agents", "opencode", "node_modules", "opencode-ai", "bin", "opencode.exe"),
-        os.path.join("agents", "opencode", "node_modules", "opencode-ai", "bin", "opencode"),
-        os.path.join("agents", "opencode", "node_modules", ".bin", "opencode.exe"),
-        os.path.join("agents", "opencode", "node_modules", ".bin", "opencode"),
-    ]
-    for c in candidates:
-        if os.path.isfile(c):
-            return os.path.abspath(c)
-    # Fallback: hope it's in PATH
-    return "opencode"
 
 
 class ProcessPool:
@@ -46,7 +32,7 @@ class ProcessPool:
     ):
         self._max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
-        self._opencode_bin = opencode_bin or _find_opencode_bin()
+        self._opencode_bin = opencode_bin or settings.OPENCODE_BIN or "opencode"
         self._cwd = cwd
         # session_id -> process (for abort support)
         self._active_processes: dict[str, asyncio.subprocess.Process] = {}
@@ -86,8 +72,10 @@ class ProcessPool:
         cmd = [
             self._opencode_bin,
             "run",
-            "--agent", agent,
-            "--format", "json",
+            "--agent",
+            agent,
+            "--format",
+            "json",
             "--dangerously-skip-permissions",
         ]
 
@@ -133,9 +121,7 @@ class ProcessPool:
 
             if process.returncode != 0 and not stdout_lines:
                 logger.error("opencode exited %d: %s", process.returncode, stderr_text[:500])
-                return ParsedOutput(
-                    error=f"opencode exited with code {process.returncode}: {stderr_text[:300]}"
-                )
+                return ParsedOutput(error=f"opencode exited with code {process.returncode}: {stderr_text[:300]}")
 
             result = parse_stream(stdout_lines)
 
@@ -147,7 +133,10 @@ class ProcessPool:
 
             logger.info(
                 "Agent %s completed: session=%s reason=%s text_len=%d",
-                agent, result.session_id, result.reason, len(result.text),
+                agent,
+                result.session_id,
+                result.reason,
+                len(result.text),
             )
 
             return result
