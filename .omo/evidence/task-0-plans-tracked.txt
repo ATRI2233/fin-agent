@@ -1,0 +1,4 @@
+git check-ignore -v .omo/plans/phase1-foundation.md
+EXIT_CODE: 1
+RESULT: :: (NOT ignored — fine-grained .omo ignore rules correctly track .omo/plans/)
+VERIFICATION: Output starts with "::" indicating the file is NOT ignored by .gitignore
