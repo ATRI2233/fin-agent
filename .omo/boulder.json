@@ -8,7 +8,19 @@
   "session_origins": {
     "opencode:ses_154ca0c3effegImMjNJ5tFDIdu": "direct"
   },
-  "task_sessions": {},
+  "task_sessions": {
+    "todo:0": {
+      "task_key": "todo:0",
+      "task_label": "0",
+      "task_title": "**Git 基线设置（PATH、分支、.gitignore、uncommitted docs）**",
+      "session_id": "opencode:ses_1549b4b46ffeE9guemD1AC07sN",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-09T08:08:59.764Z",
+      "started_at": "2026-06-09T08:08:59.764Z",
+      "status": "running"
+    }
+  },
   "schema_version": 2,
   "works": {
     "workflow-orchestration-legacy": {
@@ -62,7 +74,7 @@
       "plan_name": "phase1-foundation",
       "status": "active",
       "started_at": "2026-06-09T07:56:09.383Z",
-      "updated_at": "2026-06-09T07:56:09.383Z",
+      "updated_at": "2026-06-09T08:08:59.764Z",
       "session_ids": [
         "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
       ],
@@ -70,11 +82,23 @@
         "opencode:ses_154ca0c3effegImMjNJ5tFDIdu": "direct"
       },
       "agent": "atlas",
-      "task_sessions": {}
+      "task_sessions": {
+        "todo:0": {
+          "task_key": "todo:0",
+          "task_label": "0",
+          "task_title": "**Git 基线设置（PATH、分支、.gitignore、uncommitted docs）**",
+          "session_id": "opencode:ses_1549b4b46ffeE9guemD1AC07sN",
+          "agent": "Sisyphus-Junior",
+          "category": "quick",
+          "updated_at": "2026-06-09T08:08:59.764Z",
+          "started_at": "2026-06-09T08:08:59.764Z",
+          "status": "running"
+        }
+      }
     }
   },
   "active_work_id": "phase1-foundation-09a390a2",
-  "updated_at": "2026-06-09T07:56:09.383Z",
+  "updated_at": "2026-06-09T08:08:59.764Z",
   "status": "active",
   "agent": "atlas"
 }
