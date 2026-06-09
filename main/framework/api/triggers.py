@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-from main.framework.models.database import SessionLocal
+from main.framework.core.container import get_service
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
+from main.framework.repositories.execution_repo import ExecutionRepository
+from main.framework.repositories.workflow_repo import WorkflowRepository
 
 router = APIRouter(prefix="/api", tags=["triggers"])
 
@@ -46,55 +48,40 @@ class ExecutionResultResponse(BaseModel):
     results: dict[str, dict]
 
 
-def _get_execution_or_404(execution_id: str) -> WorkflowExecution:
+def _get_execution_or_404(
+    execution_id: str,
+    exec_repo: ExecutionRepository,
+) -> WorkflowExecution:
     """Fetch execution or raise 404."""
-    db = SessionLocal()
-    try:
-        execution = (
-            db.query(WorkflowExecution)
-            .filter(WorkflowExecution.id == execution_id)
-            .first()
-        )
-        if not execution:
-            raise HTTPException(status_code=404, detail="Execution not found")
-        return execution
-    finally:
-        db.close()
+    execution = exec_repo.get_execution(execution_id)
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    return execution
 
 
-def _get_workflow_or_404(workflow_id: str) -> Workflow:
+def _get_workflow_or_404(
+    workflow_id: str,
+    wf_repo: WorkflowRepository,
+) -> Workflow:
     """Fetch workflow or raise 404."""
-    db = SessionLocal()
-    try:
-        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-        if not workflow:
-            raise HTTPException(status_code=404, detail="Workflow not found")
-        return workflow
-    finally:
-        db.close()
+    workflow = wf_repo.get(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return workflow
 
 
 async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str, container):
     """Background task to execute workflow."""
-    db = SessionLocal()
-    try:
-        from main.framework.models.workflow import Workflow
-        from main.framework.models.workflow_execution import ExecutionNode
+    wf_repo = container.workflow_repo
+    exec_repo = container.execution_repo
 
-        workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+    try:
+        workflow = wf_repo.get(workflow_id)
         if not workflow:
             return
 
         # Update execution status
-        execution = (
-            db.query(WorkflowExecution)
-            .filter(WorkflowExecution.id == execution_id)
-            .first()
-        )
-        if not execution:
-            return
-        execution.status = "running"
-        db.commit()
+        exec_repo.update_execution(execution_id, status="running")
 
         # Create all ExecutionNode records
         for node in (workflow.nodes or []):
@@ -103,15 +90,13 @@ async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str,
                 data = node.get("data", {})
                 if isinstance(data, dict):
                     agent = data.get("agentType", "") or data.get("label", "")
-            exec_node = ExecutionNode(
+            exec_repo.create_node(
                 execution_id=execution_id,
                 node_id=node["id"],
                 agent=agent,
                 status="pending",
                 input=params,
             )
-            db.add(exec_node)
-        db.commit()
 
         engine = container.create_workflow_engine(workflow_id, params, execution_id=execution_id)
         await engine.execute()
@@ -119,79 +104,68 @@ async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str,
     except Exception as e:
         logger.error(f"Workflow execution failed: {e}", exc_info=True)
         try:
-            execution = (
-                db.query(WorkflowExecution)
-                .filter(WorkflowExecution.id == execution_id)
-                .first()
-            )
-            if execution:
-                execution.status = "failed"
-                db.commit()
+            exec_repo.update_execution(execution_id, status="failed")
         except Exception:
             pass
-    finally:
-        db.close()
 
 
 @router.post("/workflows/{workflow_id}/trigger", status_code=status.HTTP_202_ACCEPTED)
-async def trigger_workflow(workflow_id: str, payload: TriggerRequest, request: Request):
+async def trigger_workflow(
+    workflow_id: str,
+    payload: TriggerRequest,
+    request: Request,
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+):
     """Trigger a workflow execution asynchronously."""
-    _get_workflow_or_404(workflow_id)
+    _get_workflow_or_404(workflow_id, wf_repo)
     container = request.app.state.container
 
-    db = SessionLocal()
-    try:
-        execution = WorkflowExecution(workflow_id=workflow_id, status="pending")
-        db.add(execution)
-        db.commit()
+    execution = exec_repo.create_execution(workflow_id, status="pending")
+    exec_id = str(execution.id)
 
-        import asyncio
+    import asyncio
 
-        exec_id = str(execution.id)
-        asyncio.create_task(
-            _run_workflow_async(workflow_id, payload.params, exec_id, container)
-        )
+    asyncio.create_task(
+        _run_workflow_async(workflow_id, payload.params, exec_id, container)
+    )
 
-        return TriggerResponse(execution_id=exec_id)
-    finally:
-        db.close()
+    return TriggerResponse(execution_id=exec_id)
 
 
 @router.get("/executions/{execution_id}/status", response_model=ExecutionStatusResponse)
-async def get_execution_status(execution_id: str):
+async def get_execution_status(
+    execution_id: str,
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+):
     """Get current execution status including all node statuses."""
-    execution = _get_execution_or_404(execution_id)
+    execution = _get_execution_or_404(execution_id, exec_repo)
+    nodes = exec_repo.get_execution_nodes(execution_id)
 
-    db = SessionLocal()
-    try:
-        nodes = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.execution_id == execution_id)
-            .all()
-        )
-        return ExecutionStatusResponse(
-            execution_id=str(execution.id),
-            workflow_id=str(execution.workflow_id),
-            status=str(execution.status),
-            nodes=[
-                NodeStatus(
-                    node_id=str(n.node_id),
-                    agent=str(n.agent),
-                    status=str(n.status),
-                    output=dict(n.output) if n.output is not None else None,
-                    error=str(n.error) if n.error is not None else None,
-                )
-                for n in nodes
-            ],
-        )
-    finally:
-        db.close()
+    return ExecutionStatusResponse(
+        execution_id=str(execution.id),
+        workflow_id=str(execution.workflow_id),
+        status=str(execution.status),
+        nodes=[
+            NodeStatus(
+                node_id=str(n.node_id),
+                agent=str(n.agent),
+                status=str(n.status),
+                output=dict(n.output) if n.output is not None else None,
+                error=str(n.error) if n.error is not None else None,
+            )
+            for n in nodes
+        ],
+    )
 
 
 @router.get("/executions/{execution_id}/result", response_model=ExecutionResultResponse)
-async def get_execution_result(execution_id: str):
+async def get_execution_result(
+    execution_id: str,
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
+):
     """Get full execution result with all node outputs."""
-    execution = _get_execution_or_404(execution_id)
+    execution = _get_execution_or_404(execution_id, exec_repo)
 
     if str(execution.status) not in ("completed", "failed"):
         raise HTTPException(
@@ -199,23 +173,15 @@ async def get_execution_result(execution_id: str):
             detail=f"Execution not yet completed (status: {execution.status})",
         )
 
-    db = SessionLocal()
-    try:
-        nodes = (
-            db.query(ExecutionNode)
-            .filter(ExecutionNode.execution_id == execution_id)
-            .all()
-        )
-        results = {
-            str(n.node_id): dict(n.output) if n.output else {}
-            for n in nodes
-            if n.output
-        }
-        return ExecutionResultResponse(
-            execution_id=str(execution.id),
-            workflow_id=str(execution.workflow_id),
-            status=str(execution.status),
-            results=results,
-        )
-    finally:
-        db.close()
+    nodes = exec_repo.get_execution_nodes(execution_id)
+    results = {
+        str(n.node_id): dict(n.output) if n.output else {}
+        for n in nodes
+        if n.output
+    }
+    return ExecutionResultResponse(
+        execution_id=str(execution.id),
+        workflow_id=str(execution.workflow_id),
+        status=str(execution.status),
+        results=results,
+    )
