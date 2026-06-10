@@ -24,9 +24,11 @@ async-workflow dispatch.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
+from main.framework.api.problems import ProblemDetail
 from main.framework.core.container import get_container, get_service
 from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.schemas.conversation import (
@@ -46,6 +48,29 @@ from main.framework.services.message_processor import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/conversations", tags=["conversations"])
+
+# Reusable error response definitions for OpenAPI documentation.
+# FastAPI merges these into the generated schema under ``components.responses``.
+_PROBLEM_MEDIA = "application/problem+json"
+_PROBLEM_SCHEMA = ProblemDetail.model_json_schema()
+
+_ERROR_404: dict[int | str, Any] = {
+    "description": "Resource not found",
+    "content": {_PROBLEM_MEDIA: {"schema": _PROBLEM_SCHEMA}},
+}
+_ERROR_422: dict[int | str, Any] = {
+    "description": "Validation error",
+    "content": {_PROBLEM_MEDIA: {"schema": _PROBLEM_SCHEMA}},
+}
+_ERROR_500: dict[int | str, Any] = {
+    "description": "Internal server error",
+    "content": {_PROBLEM_MEDIA: {"schema": _PROBLEM_SCHEMA}},
+}
+
+# Compound dicts composed per-endpoint to keep decorator lines short.
+_RESP_GET: dict[int | str, Any] = {404: _ERROR_404, 500: _ERROR_500}
+_RESP_POST: dict[int | str, Any] = {422: _ERROR_422, 500: _ERROR_500}
+_RESP_DELETE: dict[int | str, Any] = {404: _ERROR_404, 500: _ERROR_500}
 
 
 # ---------------------------------------------------------------------------
@@ -68,7 +93,7 @@ def _user_message_response(user_msg) -> MessageResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, responses=_RESP_POST)
 async def create_conversation(
     payload: ConversationCreate,
     conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
@@ -89,7 +114,7 @@ async def list_conversations(
         return service.list(db)
 
 
-@router.get("/{conversation_id}")
+@router.get("/{conversation_id}", responses=_RESP_GET)
 async def get_conversation(
     conversation_id: str,
     conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
