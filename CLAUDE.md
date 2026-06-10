@@ -2,8 +2,6 @@
 
 ## 项目概览
 
-金融分析多 Agent 系统，基于 OpenCode CLI 子进程模式执行 Agent。
-
 ## 目录结构
 
 ```
@@ -44,30 +42,3 @@ project/
 - **前端**: React 18, TypeScript, Ant Design, @xyflow/react (React Flow), Vite
 - **Agent**: OpenCode CLI 子进程模式
 - **数据库**: SQLite (`data/finagent.db` + `data/maintenance.db`)
-
-## 启动方式
-
-```powershell
-cd project
-.\start.ps1
-# FastAPI: localhost:8000
-# WebUI Server: localhost:9876
-# WebUI Frontend: localhost:5173
-```
-
-## 核心模块
-
-| 功能 | 文件 |
-|------|------|
-| DI 容器 | `project/main/framework/core/container.py` |
-| Agent 调度 | `project/main/framework/core/agent_dispatcher.py` |
-| DAG 工作流 | `project/main/framework/core/workflow_engine.py` |
-| 定时调度 | `project/main/framework/core/scheduler.py` |
-| Agent 后端 | `project/main/session/opencode_backend.py` |
-
-## 开发约定
-
-- API 路由 → controllers → services → repositories 分层
-- 工作流节点上限 50，拓扑排序执行
-- Agent 工具白名单在 `project/.opencode/opencode.json` 配置
-- 前端页面自治状态管理，无集中式 store
