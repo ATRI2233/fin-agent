@@ -15,7 +15,7 @@ import {
    CONSTANTS & API
    ═══════════════════════════════════════════════════════════════════ */
 
-const API_V1 = '/api/v1';
+import { API_V1_BASE } from '../config/env';
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
@@ -124,15 +124,15 @@ export default function Dashboard() {
       };
 
       const results = await Promise.allSettled([
-        fetchJson(`${API_V1}/health`),           // 0
-        fetchJson(`${API_V1}/system/status`),     // 1
-        fetchJson(`${API_V1}/workflows/stats`),   // 2
-        fetchJson(`${API_V1}/agents`),            // 3
-        fetchJson(`${API_V1}/tools`),             // 4
-        fetchJson(`${API_V1}/skills`),            // 5
-        fetchJson(`${API_V1}/agents/stats`),      // 6
-        fetchJson(`${API_V1}/system/logs/stats`), // 7
-        fetchJson(`${API_V1}/system/cache`),      // 8
+        fetchJson(`${API_V1_BASE}/health`),           // 0
+        fetchJson(`${API_V1_BASE}/system/status`),     // 1
+        fetchJson(`${API_V1_BASE}/workflows/stats`),   // 2
+        fetchJson(`${API_V1_BASE}/agents`),            // 3
+        fetchJson(`${API_V1_BASE}/tools`),             // 4
+        fetchJson(`${API_V1_BASE}/skills`),            // 5
+        fetchJson(`${API_V1_BASE}/agents/stats`),      // 6
+        fetchJson(`${API_V1_BASE}/system/logs/stats`), // 7
+        fetchJson(`${API_V1_BASE}/system/cache`),      // 8
       ]);
 
       const val = (r: PromiseSettledResult<unknown>) =>
@@ -158,35 +158,35 @@ export default function Dashboard() {
   /* ─── Polling helpers ─── */
   const fetchSystemStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1}/system/status`);
+      const res = await fetch(`${API_V1_BASE}/system/status`);
       if (res.ok) setSystemStatus(await res.json());
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchWorkflowStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1}/workflows/stats`);
+      const res = await fetch(`${API_V1_BASE}/workflows/stats`);
       if (res.ok) setWorkflowStats(await res.json());
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchAgentStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1}/agents/stats`);
+      const res = await fetch(`${API_V1_BASE}/agents/stats`);
       if (res.ok) setAgentStats(await res.json());
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchLogStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1}/system/logs/stats`);
+      const res = await fetch(`${API_V1_BASE}/system/logs/stats`);
       if (res.ok) setLogStats(await res.json());
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchCacheStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1}/system/cache`);
+      const res = await fetch(`${API_V1_BASE}/system/cache`);
       if (res.ok) setCacheStats(await res.json());
     } catch { /* keep last good data */ }
   }, []);

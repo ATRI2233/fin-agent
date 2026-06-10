@@ -11,7 +11,7 @@ import {
 
 const { Text, Title } = Typography;
 
-const API = '/api/v1/data-maintenance';
+import { MAINTENANCE_API_BASE } from '../config/env';
 
 interface TaskStatus {
   id: string;
@@ -48,7 +48,7 @@ export default function InfoPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/status`);
+      const res = await fetch(`${MAINTENANCE_API_BASE}/status`);
       if (res.ok) setOverview(await res.json());
     } catch (e) {
       console.error('Failed to fetch maintenance status', e);
@@ -67,7 +67,7 @@ export default function InfoPage() {
     setSelectedTask(taskId);
     setDataLoading(true);
     try {
-      const res = await fetch(`${API}/tasks/${taskId}/data?limit=50`);
+      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks/${taskId}/data?limit=50`);
       if (res.ok) {
         const data = await res.json();
         setTaskData(data.data || []);
@@ -81,7 +81,7 @@ export default function InfoPage() {
 
   const runTask = async (taskId: string) => {
     try {
-      const res = await fetch(`${API}/tasks/${taskId}/run`, { method: 'POST' });
+      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks/${taskId}/run`, { method: 'POST' });
       const result = await res.json();
       if (result.success) {
         message.success(`更新完成: ${result.records_updated} 条数据`);

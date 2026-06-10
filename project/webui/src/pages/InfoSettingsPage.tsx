@@ -16,7 +16,7 @@ import {
 const { Text } = Typography;
 const { TextArea } = Input;
 
-const API = '/api/v1/data-maintenance';
+import { MAINTENANCE_API_BASE } from '../config/env';
 
 interface Task {
   id: string;
@@ -50,7 +50,7 @@ export default function InfoSettingsPage() {
 
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/tasks`);
+      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks`);
       if (res.ok) {
         const data = await res.json();
         setTasks(data.tasks || []);
@@ -79,7 +79,7 @@ export default function InfoSettingsPage() {
 
   const handleToggle = async (task: Task) => {
     try {
-      await fetch(`${API}/tasks/${task.id}`, {
+      await fetch(`${MAINTENANCE_API_BASE}/tasks/${task.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !task.enabled }),
@@ -92,7 +92,7 @@ export default function InfoSettingsPage() {
 
   const handleDelete = async (taskId: string) => {
     try {
-      await fetch(`${API}/tasks/${taskId}`, { method: 'DELETE' });
+      await fetch(`${MAINTENANCE_API_BASE}/tasks/${taskId}`, { method: 'DELETE' });
       message.success('已删除');
       fetchTasks();
     } catch {
@@ -102,7 +102,7 @@ export default function InfoSettingsPage() {
 
   const handleRun = async (taskId: string) => {
     try {
-      const res = await fetch(`${API}/tasks/${taskId}/run`, { method: 'POST' });
+      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks/${taskId}/run`, { method: 'POST' });
       const result = await res.json();
       if (result.success) {
         message.success(`执行成功: ${result.records_updated} 条数据`);
@@ -134,14 +134,14 @@ export default function InfoSettingsPage() {
       values.enabled = values.enabled ? 1 : 0;
 
       if (editTask) {
-        await fetch(`${API}/tasks/${editTask.id}`, {
+        await fetch(`${MAINTENANCE_API_BASE}/tasks/${editTask.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(values),
         });
         message.success('已更新');
       } else {
-        await fetch(`${API}/tasks`, {
+        await fetch(`${MAINTENANCE_API_BASE}/tasks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(values),
@@ -160,7 +160,7 @@ export default function InfoSettingsPage() {
     setLogsTaskName(task.name);
     setLogsVisible(true);
     try {
-      const res = await fetch(`${API}/tasks/${task.id}/logs?limit=20`);
+      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks/${task.id}/logs?limit=20`);
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);

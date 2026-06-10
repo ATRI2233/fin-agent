@@ -62,16 +62,16 @@ interface Agent {
 }
 
 // ���� API Helpers ����������������������������������������������������������������������������������������������������������
-const API_V1 = '/api/v1';
+import { API_V1_BASE } from '../config/env';
 
 async function fetchConversations(): Promise<Conversation[]> {
-  const res = await fetch(`${API_V1}/conversations`);
+  const res = await fetch(`${API_V1_BASE}/conversations`);
   if (!res.ok) throw new Error('Failed to fetch conversations');
   return res.json();
 }
 
 async function createConversation(title?: string): Promise<Conversation> {
-  const res = await fetch(`${API_V1}/conversations`, {
+  const res = await fetch(`${API_V1_BASE}/conversations`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title: title || 'New Conversation' }),
@@ -81,12 +81,12 @@ async function createConversation(title?: string): Promise<Conversation> {
 }
 
 async function deleteConversation(id: string): Promise<void> {
-  const res = await fetch(`${API_V1}/conversations/${id}`, { method: 'DELETE' });
+  const res = await fetch(`${API_V1_BASE}/conversations/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to delete conversation');
 }
 
 async function fetchMessages(conversationId: string): Promise<Message[]> {
-  const res = await fetch(`${API_V1}/conversations/${conversationId}/messages`);
+  const res = await fetch(`${API_V1_BASE}/conversations/${conversationId}/messages`);
   if (!res.ok) throw new Error('Failed to fetch messages');
   return res.json();
 }
@@ -98,7 +98,7 @@ async function sendMessage(
   agent?: string,
   workflowId?: string
 ): Promise<any> {
-  const res = await fetch(`${API_V1}/conversations/${conversationId}/messages`, {
+  const res = await fetch(`${API_V1_BASE}/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -113,13 +113,13 @@ async function sendMessage(
 }
 
 async function fetchWorkflows(): Promise<Workflow[]> {
-  const res = await fetch(`${API_V1}/workflows`);
+  const res = await fetch(`${API_V1_BASE}/workflows`);
   if (!res.ok) throw new Error('Failed to fetch workflows');
   return res.json();
 }
 
 async function fetchAgents(): Promise<Agent[]> {
-  const res = await fetch(`${API_V1}/agents`);
+  const res = await fetch(`${API_V1_BASE}/agents`);
   if (!res.ok) throw new Error('Failed to fetch agents');
   return res.json();
 }
