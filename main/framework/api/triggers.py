@@ -1,31 +1,30 @@
-"""Workflow trigger and execution status APIs."""
+"""Execution status / result APIs.
+
+The workflow *trigger* endpoint (``POST /api/v1/workflows/{id}/trigger``) used
+to live here but has moved to ``controllers/workflows.py`` as part of the Wave
+2 pilot (it is a workflow-management concern, not an execution-status concern).
+This module retains the execution-lifecycle read APIs:
+
+  GET /api/v1/executions/{id}/status
+  GET /api/v1/executions/{id}/result
+"""
 
 from __future__ import annotations
 
-import contextlib
 import logging
-from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
-
 from main.framework.core.container import get_service
-from main.framework.models.workflow import Workflow
-from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 from main.framework.repositories.execution_repo import ExecutionRepository
-from main.framework.repositories.workflow_repo import WorkflowRepository
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["triggers"])
 
 
-class TriggerRequest(BaseModel):
-    params: dict = {}
-
-
-class TriggerResponse(BaseModel):
-    execution_id: str
+# ---- Response models ----
 
 
 class NodeStatus(BaseModel):
@@ -53,82 +52,12 @@ class ExecutionResultResponse(BaseModel):
 def _get_execution_or_404(
     execution_id: str,
     exec_repo: ExecutionRepository,
-) -> WorkflowExecution:
+):
     """Fetch execution or raise 404."""
     execution = exec_repo.get_execution(execution_id)
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
     return execution
-
-
-def _get_workflow_or_404(
-    workflow_id: str,
-    wf_repo: WorkflowRepository,
-) -> Workflow:
-    """Fetch workflow or raise 404."""
-    workflow = wf_repo.get(workflow_id)
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    return workflow
-
-
-async def _run_workflow_async(workflow_id: str, params: dict, execution_id: str, container):
-    """Background task to execute workflow."""
-    wf_repo = container.workflow_repo
-    exec_repo = container.execution_repo
-
-    try:
-        workflow = wf_repo.get(workflow_id)
-        if not workflow:
-            return
-
-        # Update execution status
-        exec_repo.update_execution(execution_id, status="running")
-
-        # Create all ExecutionNode records
-        for node in workflow.nodes or []:
-            agent = node.get("agent", "")
-            if not agent:
-                data = node.get("data", {})
-                if isinstance(data, dict):
-                    agent = data.get("agentType", "") or data.get("label", "")
-            exec_repo.create_node(
-                execution_id=execution_id,
-                node_id=node["id"],
-                agent=agent,
-                status="pending",
-                input=params,
-            )
-
-        engine = container.create_workflow_engine(workflow_id, params, execution_id=execution_id)
-        await engine.execute()
-
-    except Exception as e:
-        logger.error(f"Workflow execution failed: {e}", exc_info=True)
-        with contextlib.suppress(Exception):
-            exec_repo.update_execution(execution_id, status="failed")
-
-
-@router.post("/workflows/{workflow_id}/trigger", status_code=status.HTTP_202_ACCEPTED)
-async def trigger_workflow(
-    workflow_id: str,
-    payload: TriggerRequest,
-    request: Request,
-    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
-    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
-):
-    """Trigger a workflow execution asynchronously."""
-    _get_workflow_or_404(workflow_id, wf_repo)
-    container = request.app.state.container
-
-    execution = exec_repo.create_execution(workflow_id, status="pending")
-    exec_id = str(execution.id)
-
-    import asyncio
-
-    asyncio.create_task(_run_workflow_async(workflow_id, payload.params, exec_id, container))
-
-    return TriggerResponse(execution_id=exec_id)
 
 
 @router.get("/executions/{execution_id}/status", response_model=ExecutionStatusResponse)

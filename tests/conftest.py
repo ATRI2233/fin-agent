@@ -94,7 +94,7 @@ def client(db_session, test_session_factory):
             from main.framework.services.conversation_service import ConversationService
             from main.framework.services.scheduler_service import SchedulerService
             from main.framework.services.session_service import SessionService
-            from main.framework.services.workflow_crud_service import WorkflowCrudService
+            from main.framework.services.workflow_query_service import WorkflowQueryService
 
             test_settings = Settings()
             test_container = Container(test_settings)
@@ -125,11 +125,17 @@ def client(db_session, test_session_factory):
                 workflow_service=None,
             )
 
-            # Phase 2 fix: Register WorkflowCrudService and SessionService
+            # Phase 2 fix: Register WorkflowQueryService and SessionService
             # so Depends(get_service(...)) resolves in the refactored controllers.
-            test_container._instances["WorkflowCrudService"] = WorkflowCrudService(
+            # WorkflowQueryService (Wave 2 pilot) supersedes the legacy
+            # WorkflowCrudService — its lookup key is the class name because
+            # the service is registered through get_service(WorkflowQueryService),
+            # which falls through to the _from_factory path that uses
+            # interface.__name__ as the dict key.
+            test_container._instances["WorkflowQueryService"] = WorkflowQueryService(
                 workflow_repo=test_container._instances["workflow_repo"],
                 exec_repo=test_container._instances["execution_repo"],
+                conv_repo=test_container._instances["conversation_repo"],
             )
             test_container._instances["SessionService"] = SessionService(
                 exec_repo=test_container._instances["execution_repo"],

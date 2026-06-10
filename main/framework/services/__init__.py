@@ -14,7 +14,7 @@ from .protocols import ServiceProtocol
 from .scheduler_service import SchedulerService
 from .session_service import SessionService
 from .unit_of_work import UnitOfWork
-from .workflow_crud_service import WorkflowCrudService
+from .workflow_query_service import WorkflowQueryService
 from .workflow_service import WorkflowService
 
 __all__ = [
@@ -26,6 +26,6 @@ __all__ = [
     "ServiceProtocol",
     "SessionService",
     "UnitOfWork",
-    "WorkflowCrudService",
+    "WorkflowQueryService",
     "WorkflowService",
 ]

@@ -108,6 +108,19 @@ class Container:
         return self._instances["maintenance_repo"]  # type: ignore[return-value]
 
     @property
+    def workflow_query_service(self):
+        """WorkflowQueryService (lazy singleton) — see :meth:`create_workflow_query_service`."""
+        if "workflow_query_service" not in self._instances:
+            from main.framework.services.workflow_query_service import WorkflowQueryService
+
+            self._instances["workflow_query_service"] = WorkflowQueryService(
+                workflow_repo=self.workflow_repo,
+                exec_repo=self.execution_repo,
+                conv_repo=self.conversation_repo,
+            )
+        return self._instances["workflow_query_service"]
+
+    @property
     def session_manager(self):
         """Conversation —?session mapping (lazy, needs backend)."""
         if "session_manager" not in self._instances:
@@ -236,20 +249,23 @@ class Container:
         """
         return None
 
-    def create_workflow_crud_service(self):
-        """@singleton — WorkflowCrudService(workflow_repo, exec_repo).
+    def create_workflow_query_service(self):
+        """@singleton — WorkflowQueryService(workflow_repo, exec_repo, conv_repo).
 
-        CRUD + stats for workflow management.  Separate from WorkflowService
-        which handles DAG orchestration/execution.
+        Business-logic facade for the workflows controller (Wave 2 pilot).
+        Replaces the inline handlers that previously lived in
+        ``api/workflows.py`` and supersedes ``WorkflowCrudService``.  Exposes
+        CRUD, stats, and trigger-workflow as a single coherent surface.
         """
-        from main.framework.services.workflow_crud_service import WorkflowCrudService
+        from main.framework.services.workflow_query_service import WorkflowQueryService
 
-        if "workflow_crud_service" not in self._instances:
-            self._instances["workflow_crud_service"] = WorkflowCrudService(
+        if "workflow_query_service" not in self._instances:
+            self._instances["workflow_query_service"] = WorkflowQueryService(
                 workflow_repo=self.workflow_repo,
                 exec_repo=self.execution_repo,
+                conv_repo=self.conversation_repo,
             )
-        return self._instances["workflow_crud_service"]
+        return self._instances["workflow_query_service"]
 
     def create_session_service(self):
         """@singleton — SessionService(exec_repo, conv_repo, backend).
@@ -296,13 +312,16 @@ def get_container() -> Container:
     return _container
 
 
-# Interface —?container-property mapping for get_service lookup
-_SERVICE_MAP: dict[type, str] = {
-    ExecutionRepository: "execution_repo",
-    AgentRepository: "agent_repo",
-    WorkflowRepository: "workflow_repo",
-    ConversationRepository: "conversation_repo",
-    MaintenanceRepository: "maintenance_repo",
+# Interface —?container-property mapping for get_service lookup.
+# Keys are class-name strings (e.g. "WorkflowQueryService"), values are the
+# attribute name on the Container instance to fetch.
+_SERVICE_MAP: dict[str, str] = {
+    "ExecutionRepository": "execution_repo",
+    "AgentRepository": "agent_repo",
+    "WorkflowRepository": "workflow_repo",
+    "ConversationRepository": "conversation_repo",
+    "MaintenanceRepository": "maintenance_repo",
+    "WorkflowQueryService": "workflow_query_service",
 }
 
 
@@ -317,7 +336,7 @@ def get_service(interface: type[T]):
         ):
             ...
     """
-    prop = _SERVICE_MAP.get(interface)
+    prop = _SERVICE_MAP.get(interface.__name__)
     if prop is not None:
 
         def _from_property() -> T:
