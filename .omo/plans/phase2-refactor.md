@@ -1,4 +1,4 @@
-# PHASE 2 — 业务逻辑拆分与依赖治理
+﻿# PHASE 2 — 业务逻辑拆分与依赖治理
 
 > **STATUS NOTE**: Plan written 2026-06-09. Previous session already executed partial PHASE 2 work (committed as `1f55ee1`):
 > - Task 2 (schemas/conversation.py): **DONE** (28 lines)
@@ -81,17 +81,17 @@ Extract a complete Service layer from existing God Objects in 6 waves, with all 
 - 50+ new unit tests in `tests/unit/test_*.py`
 
 ### Definition of Done
-- [ ] `pytest tests/integration/ -v` → 4 passed (zero test file changes)
-- [ ] `pytest tests/unit/ -v -k "service or executor"` → 50+ passed
-- [ ] `conversations.py` ≤ 150 lines
-- [ ] `workflow_engine.py` ≤ 300 lines
-- [ ] `radon cc -s -n B main/framework/core/workflow_engine.py` → max rank B
-- [ ] `grep -r "_scheduler_instance" main/` → 0 matches
-- [ ] `grep -r "_find_opencode_bin" main/` → 2 matches (1 def + 1 re-export)
-- [ ] `grep "^from main.framework.core" main/framework/api/conversations.py` → only `protocols`
-- [ ] `python -c "from main.framework.services import *"` → no ImportError
-- [ ] `ruff check main/ webui/` → 0 errors
-- [ ] `python scripts/check_lines.py` → no 500+ line files
+- [x] `pytest tests/integration/ -v` → 4 passed (zero test file changes)
+- [x] `pytest tests/unit/ -v -k "service or executor"` → 50+ passed
+- [x] `conversations.py` ≤ 150 lines
+- [x] `workflow_engine.py` ≤ 300 lines
+- [x] `radon cc -s -n B main/framework/core/workflow_engine.py` → max rank B
+- [x] `grep -r "_scheduler_instance" main/` → 0 matches
+- [x] `grep -r "_find_opencode_bin" main/` → 2 matches (1 def + 1 re-export)
+- [x] `grep "^from main.framework.core" main/framework/api/conversations.py` → only `protocols`
+- [x] `python -c "from main.framework.services import *"` → no ImportError
+- [x] `ruff check main/ webui/` → 0 errors
+- [x] `python scripts/check_lines.py` → no 500+ line files
 
 ### Must Have
 - All 6 services registered in Container (register_singleton or register_factory)
@@ -1467,7 +1467,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
 ### Wave 6 — Polish (4 tasks, parallel)
 
-- [ ] 28. **Consolidate `_find_opencode_bin()` to 1 definition + 1 re-export**
+- [x] 28. **Consolidate `_find_opencode_bin()` to 1 definition + 1 re-export**
 
   **What to do**:
   - Verify current state: `grep -r "_find_opencode_bin" main/` should show 3 matches
@@ -1512,7 +1512,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `refactor(config): consolidate _find_opencode_bin to single source`
 
-- [ ] 29. **Decide on `UnitOfWork` (keep with usage OR remove)**
+- [x] 29. **Decide on `UnitOfWork` (keep with usage OR remove)**
 
   **What to do**:
   - Investigate: `grep -r "UnitOfWork" main/ tests/` to find current usage
@@ -1553,7 +1553,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `chore(services): decide on UnitOfWork (keep+test or remove)`
 
-- [ ] 30. **Update `container.py` to register all 6 services**
+- [x] 30. **Update `container.py` to register all 6 services**
 
   **What to do**:
   - In `main/framework/core/container.py`:
@@ -1596,7 +1596,7 @@ Wave FINAL (Verification - 4 parallel reviews):
 
   **Commit**: `feat(container): register all 6 services with factory methods`
 
-- [ ] 31. **Final ruff + line count + complexity checks**
+- [x] 31. **Final ruff + line count + complexity checks**
 
   **What to do**:
   - Run all verification commands from PHASE 2 Definition of Done:
@@ -1655,15 +1655,15 @@ Wave FINAL (Verification - 4 parallel reviews):
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 
-- [ ] F1. **Plan Compliance Audit** — `unspecified-high`
+- [x] F1. **Plan Compliance Audit** — `unspecified-high`
   Read the plan end-to-end. For each "Must Have": verify implementation exists. For each "Must NOT Have": search codebase for forbidden patterns. Check evidence files exist in `.omo/evidence/`. Compare deliverables against plan.
   Output: `Must Have [N/N] | Must NOT Have [N/N] | Tasks [N/N] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `ruff check main/ webui/` + `pytest tests/ -v`. Review changed files for: `as any`/`@ts-ignore`, empty catches, console.log in prod, commented-out code, unused imports. Check AI slop: excessive comments, over-abstraction, generic names. Verify line counts: `conversations.py ≤ 150`, `workflow_engine.py ≤ 300`. Verify complexity: `radon cc -s -n B main/framework/core/workflow_engine.py` ≤ B.
   Output: `Build [PASS/FAIL] | Lint [PASS/FAIL] | Tests [N/N pass] | Files [N clean/N issues] | VERDICT`
 
-- [ ] F3. **Real Manual QA** — `unspecified-high`
+- [x] F3. **Real Manual QA** — `unspecified-high`
   Start uvicorn. Hit each endpoint with curl:
   - `POST /api/v1/conversations` → 201
   - `GET /api/v1/conversations` → 200, array
@@ -1678,7 +1678,7 @@ Wave FINAL (Verification - 4 parallel reviews):
   Save outputs to `.omo/evidence/final-qa/`.
   Output: `Endpoints [N/N pass] | Errors [N] | VERDICT`
 
-- [ ] F4. **Scope Fidelity Check** — `deep`
+- [x] F4. **Scope Fidelity Check** — `deep`
   For each task: read "What to do", read actual diff (`git log -p`). Verify 1:1 — everything in spec was built (no missing), nothing beyond spec was built (no creep). Check "Must NOT do" compliance. Detect cross-task contamination. Flag unaccounted changes.
   Output: `Tasks [N/N compliant] | Contamination [CLEAN/N issues] | Unaccounted [CLEAN/N files] | VERDICT`
 
@@ -1726,16 +1726,16 @@ python -c "from main.framework.services import ConversationService, WorkflowServ
 ```
 
 ### Final Checklist
-- [ ] All "Must Have" present
-- [ ] All "Must NOT Have" absent
-- [ ] All 4 existing integration tests pass unchanged
-- [ ] 50+ new unit tests pass
-- [ ] conversations.py ≤ 150 lines
-- [ ] workflow_engine.py ≤ 300 lines
-- [ ] All globals removed
-- [ ] All 6 services registered in Container
-- [ ] ruff + line count + complexity checks pass
-- [ ] User has approved F1-F4 review results
+- [x] All "Must Have" present
+- [x] All "Must NOT Have" absent
+- [x] All 4 existing integration tests pass unchanged
+- [x] 50+ new unit tests pass
+- [x] conversations.py ≤ 150 lines
+- [x] workflow_engine.py ≤ 300 lines
+- [x] All globals removed
+- [x] All 6 services registered in Container
+- [x] ruff + line count + complexity checks pass
+- [x] User has approved F1-F4 review results
 
 ---
 
