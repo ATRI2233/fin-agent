@@ -12,10 +12,13 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-# Ensure project root is in path
+# Ensure project root and project/ subdirectory are in path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_SUBDIR = PROJECT_ROOT / "project"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+if str(PROJECT_SUBDIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_SUBDIR))
 
 
 @pytest.fixture(scope="session")
