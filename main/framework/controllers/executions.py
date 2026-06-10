@@ -27,9 +27,9 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
-from main.framework.core.container import get_service
+from main.framework.core.container import get_container, get_service
 from main.framework.core.session_cleanup import cleanup_workflow_sessions
 from main.framework.services.exceptions import NotFoundError, ServiceError
 from main.framework.services.execution_query_service import (
@@ -121,7 +121,6 @@ async def get_execution_timeline(
 @router.post("/{execution_id}/retry", response_model=RetryResponse)
 async def retry_execution(
     execution_id: str,
-    request: Request,
     service: ExecutionQueryService = Depends(get_service(ExecutionQueryService)),
 ):
     """Retry a failed execution. Creates a new execution for the same workflow.
@@ -137,7 +136,7 @@ async def retry_execution(
     except ServiceError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    container = request.app.state.container
+    container = get_container()
     asyncio.create_task(
         _run_retry_async(
             workflow_id=result["workflow_id"],
@@ -152,7 +151,6 @@ async def retry_execution(
 @router.delete("/{execution_id}")
 async def abort_execution(
     execution_id: str,
-    request: Request,
     service: ExecutionQueryService = Depends(get_service(ExecutionQueryService)),
 ):
     """Abort a running execution and cleanup its sessions.
@@ -168,6 +166,6 @@ async def abort_execution(
     except ServiceError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    container = request.app.state.container
+    container = get_container()
     cleanup_workflow_sessions(execution_id, backend=container.backend)
     return result

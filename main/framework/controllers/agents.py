@@ -1,7 +1,7 @@
 """Agent HTTP routes — thin handlers that delegate to AgentQueryService.
 
 Each endpoint is a thin shell:
-  1. Resolve the request (``name`` path param or ``db`` session).
+  1. Resolve the request (``name`` path param or DB session).
   2. Call one :class:`AgentQueryService` method.
   3. Translate ``NotFoundError`` → 404 for the ``/{name}`` endpoint.
 
@@ -17,6 +17,15 @@ The router defines 3 routes:
 The re-export shim at ``api/agents.py`` re-publishes this ``router``
 under the original import path so ``main.py`` and any other consumer
 keep working unchanged.
+
+DI strategy
+-----------
+Per Wave 4.3 the controllers use ``Depends(get_service(...))`` exclusively.
+The DB session for ``/stats`` is sourced from the injected
+``ExecutionRepository`` via its ``_session()`` context manager — the same
+pattern the workflows/conversations controllers use for per-call db access.
+``ExecutionRepository`` is chosen because ``agent_stats`` aggregates over the
+``ExecutionNode`` table, which is owned by the execution-side repo.
 """
 
 from __future__ import annotations
@@ -24,10 +33,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
 from main.framework.core.container import get_service
-from main.framework.models.database import get_db
+from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.services.agent_query_service import AgentQueryService
 from main.framework.services.exceptions import NotFoundError
 
@@ -51,11 +59,12 @@ async def list_agents(
 
 @router.get("/stats")
 async def agent_stats(
-    db: Session = Depends(get_db),
+    exec_repo: ExecutionRepository = Depends(get_service(ExecutionRepository)),
     service: AgentQueryService = Depends(get_service(AgentQueryService)),
 ):
     """Agent usage stats from workflow execution nodes."""
-    return service.agent_stats(db)
+    with exec_repo._session() as db:
+        return service.agent_stats(db)
 
 
 @router.get("/{name}")

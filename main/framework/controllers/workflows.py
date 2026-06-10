@@ -22,6 +22,13 @@ The router defines 7 routes:
 The re-export shim at ``api/workflows.py`` re-publishes this ``router`` under
 the original import path so ``main.py`` and any other consumer keep working
 unchanged.
+
+DI strategy
+-----------
+Per Wave 4.3 the controllers use ``Depends(get_service(...))`` exclusively.
+The DB session is sourced from the injected ``WorkflowRepository`` via its
+``_session()`` context manager — the same pattern ``SessionService`` and the
+new ``conversations.py`` controller use for per-call db access.
 """
 
 from __future__ import annotations
@@ -30,12 +37,11 @@ import asyncio
 import contextlib
 import logging
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
-from main.framework.core.container import get_service
-from main.framework.models.database import get_db
+from main.framework.core.container import get_container, get_service
+from main.framework.repositories.workflow_repo import WorkflowRepository
 from main.framework.services.workflow_query_service import WorkflowQueryService
 
 logger = logging.getLogger(__name__)
@@ -128,62 +134,68 @@ async def _run_workflow_async(
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_workflow(
     payload: WorkflowCreate,
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """Create a new workflow. Returns the created workflow (full detail)."""
-    return service.create_workflow(payload.model_dump(), db)
+    with wf_repo._session() as db:
+        return service.create_workflow(payload.model_dump(), db)
 
 
 @router.get("")
 async def list_workflows(
     skip: int = 0,
     limit: int = 1000,
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """List workflows (summary view, newest first)."""
-    return service.list_workflows(db, skip=skip, limit=limit)
+    with wf_repo._session() as db:
+        return service.list_workflows(db, skip=skip, limit=limit)
 
 
 @router.get("/stats")
 async def get_workflow_stats(
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """Get aggregated workflow execution statistics."""
-    return service.get_workflow_stats(db)
+    with wf_repo._session() as db:
+        return service.get_workflow_stats(db)
 
 
 @router.get("/{workflow_id}")
 async def get_workflow(
     workflow_id: str,
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """Get a workflow by id. 404 via the global NotFoundError handler."""
-    return service.get_workflow(workflow_id, db)
+    with wf_repo._session() as db:
+        return service.get_workflow(workflow_id, db)
 
 
 @router.put("/{workflow_id}")
 async def update_workflow(
     workflow_id: str,
     payload: WorkflowUpdate,
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """Update a workflow. Re-validates the DAG if nodes/edges change."""
-    return service.update_workflow(workflow_id, payload.model_dump(exclude_none=True), db)
+    with wf_repo._session() as db:
+        return service.update_workflow(workflow_id, payload.model_dump(exclude_none=True), db)
 
 
 @router.delete("/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_workflow(
     workflow_id: str,
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """Delete a workflow and cascade-delete its executions."""
-    service.delete_workflow(workflow_id, db)
+    with wf_repo._session() as db:
+        service.delete_workflow(workflow_id, db)
     return None
 
 
@@ -191,8 +203,7 @@ async def delete_workflow(
 async def trigger_workflow(
     workflow_id: str,
     payload: WorkflowTrigger,
-    request: Request,
-    db: Session = Depends(get_db),
+    wf_repo: WorkflowRepository = Depends(get_service(WorkflowRepository)),
     service: WorkflowQueryService = Depends(get_service(WorkflowQueryService)),
 ):
     """Trigger a workflow execution asynchronously.
@@ -202,7 +213,8 @@ async def trigger_workflow(
     ``create_workflow_engine`` factory so the work runs out-of-band.
     """
     params = payload.params or {}
-    execution_id = service.trigger_workflow(workflow_id, params, db)
-    container = request.app.state.container
+    with wf_repo._session() as db:
+        execution_id = service.trigger_workflow(workflow_id, params, db)
+    container = get_container()
     asyncio.create_task(_run_workflow_async(workflow_id, params, execution_id, container))
     return {"execution_id": execution_id}

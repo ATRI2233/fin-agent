@@ -1,6 +1,5 @@
 """Application entry point — wires up all dependencies via Container."""
 
-import logging
 from datetime import UTC, datetime, timezone
 from http import HTTPStatus
 
@@ -25,10 +24,14 @@ from main.framework.api.workflows import router as workflows_router
 from main.framework.config import settings as settings
 from main.framework.core.auth import APIKeyMiddleware
 from main.framework.core.container import Container
-from main.framework.core.request_context import get_request_id
+from main.framework.core.logger import get_logger
+from main.framework.core.request_context import RequestContextMiddleware, get_request_id
 from main.framework.services.exceptions import NotFoundError, ServiceError
 
-logger = logging.getLogger(__name__)
+# JSON-formatted logger with auto-injected request_id. ``get_logger`` is
+# idempotent: first call configures the JSON formatter + stdout handler,
+# subsequent calls just hand back a request-id-injecting adapter.
+logger = get_logger(__name__)
 
 # ------------------------------------------------------------------
 # DI container — single source of truth
@@ -56,6 +59,17 @@ app.add_middleware(
 
 # API Key authentication middleware
 app.add_middleware(APIKeyMiddleware)
+
+# Request-context middleware — MUST be added LAST so it becomes the
+# OUTERMOST middleware (Starlette stacks middleware in reverse add-order).
+# Being outermost means it runs first on every incoming request, assigns
+# the correlation id (honouring an inbound ``X-Request-ID`` header, or
+# minting a uuid4 hex), populates the ``current_request_id`` contextvar,
+# and echoes the id back in the response. All other middleware
+# (CORS, APIKey) and every request handler can then read the id via
+# ``get_request_id()`` for log correlation, and the id is present even
+# on error responses produced by the exception handlers below.
+app.add_middleware(RequestContextMiddleware)
 
 # Include routers
 app.include_router(agents_router)

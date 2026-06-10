@@ -9,17 +9,26 @@ Each endpoint is a thin shell:
 Business logic lives in:
   - ``ConversationService`` — CRUD, user-message persistence, workflow-execution creation
   - ``message_processor``    — async ``process_agent_message`` + ``execute_workflow_async`` tasks
+
+DI strategy
+-----------
+Per Wave 4.3 the controllers use ``Depends(get_service(...))`` exclusively.
+The DB session is sourced from the injected ``ConversationRepository`` via
+its ``_session()`` context manager (the same pattern that
+``SessionService`` uses internally for per-call db access). This keeps the
+legacy db-session hook and the global-state container access out of the
+controllers — the container is now reached via ``get_container()`` for
+async-workflow dispatch.
 """
 
 from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
-from main.framework.core.container import get_service
-from main.framework.models.database import get_db
+from main.framework.core.container import get_container, get_service
+from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
@@ -62,31 +71,34 @@ def _user_message_response(user_msg) -> MessageResponse:
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_conversation(
     payload: ConversationCreate,
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """Create a new conversation."""
-    return service.create(payload, db)
+    with conv_repo._session() as db:
+        return service.create(payload, db)
 
 
 @router.get("")
 async def list_conversations(
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """List all conversations."""
-    return service.list(db)
+    with conv_repo._session() as db:
+        return service.list(db)
 
 
 @router.get("/{conversation_id}")
 async def get_conversation(
     conversation_id: str,
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """Get a conversation by ID."""
     try:
-        return service.get(conversation_id, db)
+        with conv_repo._session() as db:
+            return service.get(conversation_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err
 
@@ -95,12 +107,13 @@ async def get_conversation(
 async def update_conversation(
     conversation_id: str,
     payload: ConversationUpdate,
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """Update a conversation."""
     try:
-        return {"success": service.update(conversation_id, payload, db)}
+        with conv_repo._session() as db:
+            return {"success": service.update(conversation_id, payload, db)}
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err
 
@@ -108,12 +121,13 @@ async def update_conversation(
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(
     conversation_id: str,
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """Delete a conversation and cleanup session."""
     try:
-        service.delete(conversation_id, db)
+        with conv_repo._session() as db:
+            service.delete(conversation_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err
 
@@ -121,12 +135,13 @@ async def delete_conversation(
 @router.get("/{conversation_id}/messages")
 async def list_messages(
     conversation_id: str,
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """List all messages in a conversation."""
     try:
-        return service.list_messages(conversation_id, db)
+        with conv_repo._session() as db:
+            return service.list_messages(conversation_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err
 
@@ -136,19 +151,22 @@ async def send_message(
     conversation_id: str,
     payload: MessageCreate,
     background_tasks: BackgroundTasks,
-    request: Request,
-    db: Session = Depends(get_db),
+    conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),
     service: ConversationService = Depends(get_service(ConversationService)),
 ):
     """Send a message (async processing)."""
-    container = request.app.state.container
+    container = get_container()
     try:
-        conv_resp = service.get(conversation_id, db)
+        with conv_repo._session() as db:
+            conv_resp = service.get(conversation_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err
-    user_msg = service.save_user_message(conversation_id, payload.content, db)
+    with conv_repo._session() as db:
+        user_msg = service.save_user_message(conversation_id, payload.content, db)
     if payload.mode == "workflow" and payload.workflow_id:
-        return await _dispatch_workflow(background_tasks, container, service, conversation_id, payload, user_msg, db)
+        return await _dispatch_workflow(
+            background_tasks, container, service, conversation_id, payload, user_msg, conv_repo
+        )
     return await _dispatch_agent(background_tasks, container, conversation_id, payload, user_msg, conv_resp)
 
 
@@ -165,14 +183,15 @@ async def _dispatch_workflow(
     conversation_id: str,
     payload: MessageCreate,
     user_msg,
-    db: Session,
+    conv_repo: ConversationRepository,
 ):
     """Workflow branch: create execution record, then schedule background task."""
     # Caller guarantees workflow_id is non-None via the `payload.mode == "workflow" and payload.workflow_id` check.
     workflow_id = payload.workflow_id
     assert workflow_id is not None
     try:
-        execution = service.start_workflow_execution(conversation_id, workflow_id, db)
+        with conv_repo._session() as db:
+            execution = service.start_workflow_execution(conversation_id, workflow_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Workflow not found") from err
     background_tasks.add_task(

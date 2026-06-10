@@ -46,6 +46,17 @@ class Container:
         """
         self._factories[cls.__name__] = factory
 
+    def register(self, name: str, instance: object) -> None:
+        """Register *instance* under *name* (idempotent — replaces any prior value).
+
+        Generic string-keyed helper.  Used by test fixtures (see
+        ``tests/conftest.py``) and any other manual wiring where a
+        class-based key is inconvenient.  Production code should prefer
+        :meth:`register_singleton` (typed) or :meth:`register_factory`
+        (lazy).
+        """
+        self._instances[name] = instance
+
     # ------------------------------------------------------------------
     # Core infrastructure
     # ------------------------------------------------------------------
@@ -191,6 +202,56 @@ class Container:
 
             self._instances["session_manager"] = ConvSessionManager(self.backend)
         return self._instances["session_manager"]
+
+    # ------------------------------------------------------------------
+    # Service properties (Wave 4 — DI hardening)
+    #
+    # These thin wrappers expose the ``create_*`` factories as properties
+    # so ``_SERVICE_MAP`` can reference them and ``get_service(...)`` can
+    # resolve through ``getattr(container, prop)`` (the fast path).  The
+    # underlying ``create_*`` methods remain the canonical factories for
+    # callers that prefer explicit method syntax.
+    # ------------------------------------------------------------------
+
+    @property
+    def conversation_service(self):
+        """Lazy singleton — see :meth:`create_conversation_service`."""
+        return self.create_conversation_service()
+
+    @property
+    def execution_service(self):
+        """Lazy singleton — see :meth:`create_execution_service`."""
+        return self.create_execution_service()
+
+    @property
+    def workflow_service(self):
+        """Lazy singleton — see :meth:`create_workflow_service`."""
+        return self.create_workflow_service()
+
+    @property
+    def scheduler_service(self):
+        """Lazy singleton — see :meth:`create_scheduler_service`."""
+        return self.create_scheduler_service()
+
+    @property
+    def session_service(self):
+        """Lazy singleton — see :meth:`create_session_service`."""
+        return self.create_session_service()
+
+    @property
+    def execution_query_service(self):
+        """Lazy singleton — see :meth:`create_execution_query_service`."""
+        return self.create_execution_query_service()
+
+    @property
+    def skill_query_service(self):
+        """Lazy singleton — see :meth:`create_skill_query_service`."""
+        return self.create_skill_query_service()
+
+    @property
+    def maintenance_query_service(self):
+        """Lazy singleton — see :meth:`create_maintenance_query_service`."""
+        return self.create_maintenance_query_service()
 
     # ------------------------------------------------------------------
     # Factory methods —?create per-request / per-execution instances
@@ -414,6 +475,43 @@ class Container:
             )
         return self._instances["system_query_service"]
 
+    def create_skill_query_service(self):
+        """@singleton — SkillQueryService().
+
+        Business-logic facade for the skills controller (Wave 3).  No
+        constructor dependencies; the static catalog lives on the
+        module-level ``SKILLS`` constant.
+        """
+        from main.framework.services.skill_query_service import SkillQueryService
+
+        if "skill_query_service" not in self._instances:
+            self._instances["skill_query_service"] = SkillQueryService()
+        return self._instances["skill_query_service"]
+
+    def create_maintenance_query_service(self):
+        """@singleton — MaintenanceQueryService(maintenance_service).
+
+        Business-logic facade for the data-maintenance controller
+        (Wave 7).  Depends on a ``DataMaintenanceService`` core.  In
+        production, ``main.py`` startup registers a factory that
+        captures the freshly-initialised core; in tests, the conftest
+        pre-registers an instance under ``"maintenance_query_service"``
+        (property name) so this fallback path is bypassed.
+
+        The fallback below uses ``dispatcher=self.dispatcher`` so the
+        instance is fully constructible in any container context.
+        """
+        from main.data_maintenance.core.data_maintenance import DataMaintenanceService
+        from main.data_maintenance.services.maintenance_query_service import (
+            MaintenanceQueryService,
+        )
+
+        if "maintenance_query_service" not in self._instances:
+            self._instances["maintenance_query_service"] = MaintenanceQueryService(
+                DataMaintenanceService(dispatcher=self.dispatcher, scheduler=None)
+            )
+        return self._instances["maintenance_query_service"]
+
     def create_conv_session_manager(self):
         """@singleton — ConvSessionManager(backend).
 
@@ -446,18 +544,35 @@ def get_container() -> Container:
 
 # Interface —?container-property mapping for get_service lookup.
 # Keys are class-name strings (e.g. "WorkflowQueryService"), values are the
-# attribute name on the Container instance to fetch.
+# attribute name on the Container instance to fetch.  Wave 4 (DI hardening)
+# extends this to every service class so Depends(get_service(...)) resolves
+# through the property path (lazy singleton) rather than the factory
+# fallback.  Tests that pre-register instances should use the matching
+# property name (e.g. ``register("conversation_service", instance)``) to
+# override the lazy default; class-name keys remain supported via the
+# factory fallback for backwards compatibility.
 _SERVICE_MAP: dict[str, str] = {
+    # ----- Repositories -------------------------------------------------
     "ExecutionRepository": "execution_repo",
     "AgentRepository": "agent_repo",
     "WorkflowRepository": "workflow_repo",
     "ConversationRepository": "conversation_repo",
     "MaintenanceRepository": "maintenance_repo",
+    # ----- Business-logic services (Wave 6) -----------------------------
+    "ConversationService": "conversation_service",
+    "ExecutionService": "execution_service",
+    "WorkflowService": "workflow_service",
+    "SchedulerService": "scheduler_service",
+    "SessionService": "session_service",
+    # ----- Query services (Wave 2 pilot + Wave 3 + Wave 7) --------------
     "WorkflowQueryService": "workflow_query_service",
+    "ExecutionQueryService": "execution_query_service",
+    "AgentQueryService": "agent_query_service",
+    "SystemQueryService": "system_query_service",
     "DispatchQueryService": "dispatch_query_service",
     "ToolQueryService": "tool_query_service",
-    "SessionService": "session_service",
-    "SystemQueryService": "system_query_service",
+    "SkillQueryService": "skill_query_service",
+    "MaintenanceQueryService": "maintenance_query_service",
 }
 
 
