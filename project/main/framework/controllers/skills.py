@@ -32,7 +32,7 @@ async def list_skills(
 @router.post("/{name}/trigger")
 async def trigger_skill(
     name: str,
-    params: Optional[dict] = Body(default=None),
+    params: dict | None = Body(default=None),
     service: SkillQueryService = Depends(get_service(SkillQueryService)),
 ):
     """Trigger a skill by name (v1 stub — preserves the legacy response shape).

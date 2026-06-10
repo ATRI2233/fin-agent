@@ -88,18 +88,28 @@ EXPECTED_REPOS: frozenset[str] = frozenset(
     }
 )
 
-# Wave 4.1 will add: ConversationService, ExecutionService,
-# WorkflowService, SchedulerService.
-EXPECTED_SERVICES: frozenset[str] = frozenset({"SessionService"})
+# All business-logic services registered in _SERVICE_MAP.
+EXPECTED_SERVICES: frozenset[str] = frozenset(
+    {
+        "ConversationService",
+        "ExecutionService",
+        "WorkflowService",
+        "SchedulerService",
+        "SessionService",
+    }
+)
 
-# Wave 4.1 will add: ExecutionQueryService, AgentQueryService,
-# SkillQueryService.
+# All query services registered in _SERVICE_MAP.
 EXPECTED_QUERY_SERVICES: frozenset[str] = frozenset(
     {
         "WorkflowQueryService",
+        "ExecutionQueryService",
+        "AgentQueryService",
+        "SystemQueryService",
         "DispatchQueryService",
         "ToolQueryService",
-        "SystemQueryService",
+        "SkillQueryService",
+        "MaintenanceQueryService",
     }
 )
 

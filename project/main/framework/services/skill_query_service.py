@@ -88,7 +88,7 @@ class SkillQueryService:
     # Skill triggering (v1 stub)
     # ------------------------------------------------------------------
 
-    def trigger_skill(self, name: str, params: Optional[dict] = None) -> dict:
+    def trigger_skill(self, name: str, params: dict | None = None) -> dict:
         """Stub: trigger a skill by name.  Preserves the legacy response shape.
 
         Raises :class:`NotFoundError` if ``name`` does not match a registered

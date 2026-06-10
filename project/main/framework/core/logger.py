@@ -17,8 +17,9 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from datetime import datetime, timezone
-from typing import Any, MutableMapping
+from collections.abc import MutableMapping
+from datetime import UTC, datetime, timezone
+from typing import Any
 
 from main.framework.core.request_context import get_request_id
 
@@ -30,7 +31,7 @@ class JsonLogFormatter(logging.Formatter):
     request_id, module, line — plus ``exc_info`` only when present."""
 
     def format(self, record: logging.LogRecord) -> str:
-        ts = datetime.now(timezone.utc).isoformat()
+        ts = datetime.now(UTC).isoformat()
         if ts.endswith("+00:00"):
             ts = ts[:-6] + "Z"
         payload: dict[str, Any] = {
