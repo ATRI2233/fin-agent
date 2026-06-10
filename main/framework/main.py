@@ -223,6 +223,9 @@ async def startup():
     # Initialize data maintenance
     from main.data_maintenance.core.data_maintenance import DataMaintenanceService
     from main.data_maintenance.models.maintenance_db import init_maintenance_db
+    from main.data_maintenance.services.maintenance_query_service import (
+        MaintenanceQueryService,
+    )
 
     init_maintenance_db()
     maintenance_service = DataMaintenanceService(
@@ -230,6 +233,16 @@ async def startup():
         scheduler=scheduler._scheduler,
     )
     app.state.maintenance_service = maintenance_service
+
+    # Register the query-service factory so the controller's
+    # ``Depends(get_service(MaintenanceQueryService))`` resolves in DI.
+    # The factory captures the freshly-initialised ``DataMaintenanceService``
+    # so the controller can stay framework-agnostic.
+    container.register_factory(
+        MaintenanceQueryService,
+        lambda: MaintenanceQueryService(maintenance_service),
+    )
+
     maintenance_service.sync_scheduled_tasks()
 
 

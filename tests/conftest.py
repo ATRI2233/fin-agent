@@ -92,6 +92,7 @@ def client(db_session, test_session_factory):
             from main.framework.repositories.execution_repo import ExecutionRepository
             from main.framework.repositories.workflow_repo import WorkflowRepository
             from main.framework.services.conversation_service import ConversationService
+            from main.framework.services.dispatch_query_service import DispatchQueryService
             from main.framework.services.scheduler_service import SchedulerService
             from main.framework.services.session_service import SessionService
             from main.framework.services.workflow_query_service import WorkflowQueryService
@@ -137,10 +138,36 @@ def client(db_session, test_session_factory):
                 exec_repo=test_container._instances["execution_repo"],
                 conv_repo=test_container._instances["conversation_repo"],
             )
+            # Phase 3 fix: Register DispatchQueryService so Depends(get_service(...))
+            # resolves in the refactored dispatch controller. Mirrors the
+            # WorkflowQueryService registration above — the production container
+            # resolves it via the ``dispatch_query_service`` property, but the
+            # test container needs the explicit instance under the class name
+            # so the ``_from_factory`` fallback path picks it up.
+            test_container._instances["DispatchQueryService"] = DispatchQueryService(
+                dispatcher=test_container.dispatcher,
+            )
             test_container._instances["SessionService"] = SessionService(
                 exec_repo=test_container._instances["execution_repo"],
                 conv_repo=test_container._instances["conversation_repo"],
                 backend=None,  # no real backend in tests
+            )
+
+            # W7.x fix: Register MaintenanceQueryService so
+            # Depends(get_service(...)) resolves in the data-maintenance
+            # controller (which was moved out of api/data_maintenance.py).
+            # We use a mock core service (no dispatcher) — controllers that
+            # exercise business logic will override this with a real
+            # DataMaintenanceService bound to the test session.
+            from main.data_maintenance.core.data_maintenance import (
+                DataMaintenanceService,
+            )
+            from main.data_maintenance.services.maintenance_query_service import (
+                MaintenanceQueryService,
+            )
+
+            test_container._instances["MaintenanceQueryService"] = MaintenanceQueryService(
+                DataMaintenanceService(dispatcher=None, scheduler=None)
             )
 
             configure(test_container)

@@ -121,6 +121,69 @@ class Container:
         return self._instances["workflow_query_service"]
 
     @property
+    def dispatch_query_service(self):
+        """DispatchQueryService (lazy singleton) — see :meth:`create_dispatch_query_service`."""
+        if "dispatch_query_service" not in self._instances:
+            from main.framework.services.dispatch_query_service import DispatchQueryService
+
+            self._instances["dispatch_query_service"] = DispatchQueryService(
+                dispatcher=self.dispatcher,
+            )
+        return self._instances["dispatch_query_service"]
+
+    @property
+    def tool_query_service(self):
+        """ToolQueryService (lazy singleton) — see :meth:`create_tool_query_service`.
+
+        No constructor dependencies.  The tool manifest is loaded lazily on
+        first call to a public method, so container init has zero file IO.
+        """
+        if "tool_query_service" not in self._instances:
+            from main.framework.services.tool_query_service import ToolQueryService
+
+            self._instances["tool_query_service"] = ToolQueryService()
+        return self._instances["tool_query_service"]
+
+    @property
+    def agent_query_service(self):
+        """AgentQueryService (lazy singleton) — see :meth:`create_agent_query_service`.
+
+        Business-logic facade for the agents controller (Wave 2 pilot).
+        Registry-backed reads (list, get_by_name) hit the in-memory
+        ``core.agent_registry``; ``agent_stats`` aggregates ``ExecutionNode``
+        rows bound to the caller's session.
+        """
+        if "agent_query_service" not in self._instances:
+            from main.framework.services.agent_query_service import AgentQueryService
+
+            self._instances["agent_query_service"] = AgentQueryService(
+                agent_repo=self.agent_repo,
+            )
+        return self._instances["agent_query_service"]
+
+    @property
+    def system_query_service(self):
+        """SystemQueryService (lazy singleton) — see :meth:`create_system_query_service`.
+
+        Business-logic facade for the system controller (Wave 3 migration).
+        Aggregates cross-subsystem state (opencode binary, JobExecutor,
+        ConcurrencyLimiter, SchedulerService, LogCollector, workflow cache)
+        for the WebUI dashboard ``/api/v1/system/*`` endpoints.  Depends on
+        ``SchedulerService`` (created via :meth:`create_scheduler_service`)
+        and an optional ``session_factory`` for the historical
+        ``ExecutionNode`` row count.
+        """
+        if "system_query_service" not in self._instances:
+            from main.framework.config.database import SessionLocal
+            from main.framework.services.system_query_service import SystemQueryService
+
+            self._instances["system_query_service"] = SystemQueryService(
+                scheduler_service=self.create_scheduler_service(),
+                session_factory=SessionLocal,
+            )
+        return self._instances["system_query_service"]
+
+    @property
     def session_manager(self):
         """Conversation —?session mapping (lazy, needs backend)."""
         if "session_manager" not in self._instances:
@@ -267,6 +330,45 @@ class Container:
             )
         return self._instances["workflow_query_service"]
 
+    def create_execution_query_service(self):
+        """@singleton — ExecutionQueryService(exec_repo).
+
+        Business-logic facade for the executions controller (Wave 3).
+        Read-only + sync operations over ``WorkflowExecution`` /
+        ``ExecutionNode`` / ``Workflow``: list, detail, timeline, retry
+        (creates a fresh row), abort.  Replaces the inline handlers that
+        previously lived in ``api/executions.py``.  Async side-effects
+        (engine spawn, session cleanup) remain in the controller.
+
+        Distinct from :meth:`create_execution_service`, which owns the
+        lifecycle side (status transitions, failure cascade).
+        """
+        from main.framework.services.execution_query_service import (
+            ExecutionQueryService,
+        )
+
+        if "execution_query_service" not in self._instances:
+            self._instances["execution_query_service"] = ExecutionQueryService(
+                exec_repo=self.execution_repo,
+            )
+        return self._instances["execution_query_service"]
+
+    def create_dispatch_query_service(self):
+        """@singleton — DispatchQueryService(dispatcher).
+
+        Business-logic facade for the dispatch controller (Wave 2 pilot).
+        Wraps :class:`AgentDispatcher` with timing, error normalisation,
+        and result shaping for the ``/api/v1/dispatch`` HTTP API.  Replaces
+        the inline handlers that previously lived in ``api/dispatch.py``.
+        """
+        from main.framework.services.dispatch_query_service import DispatchQueryService
+
+        if "dispatch_query_service" not in self._instances:
+            self._instances["dispatch_query_service"] = DispatchQueryService(
+                dispatcher=self.dispatcher,
+            )
+        return self._instances["dispatch_query_service"]
+
     def create_session_service(self):
         """@singleton — SessionService(exec_repo, conv_repo, backend).
 
@@ -281,6 +383,36 @@ class Container:
                 backend=self.backend,
             )
         return self._instances["session_service"]
+
+    def create_tool_query_service(self):
+        """@singleton — ToolQueryService().
+
+        Business-logic facade for the tools controller (Wave 2 pilot).  Reads
+        the tool manifest lazily on first public-method call so the container
+        does not do file IO at init time.  No constructor dependencies.
+        """
+        from main.framework.services.tool_query_service import ToolQueryService
+
+        if "tool_query_service" not in self._instances:
+            self._instances["tool_query_service"] = ToolQueryService()
+        return self._instances["tool_query_service"]
+
+    def create_system_query_service(self):
+        """@singleton — SystemQueryService(scheduler_service).
+
+        Business-logic facade for the system controller (Wave 2 pilot).
+        Aggregates opencode / executor / concurrency / scheduler / sessions
+        / log-collector / workflow-cache state for the ``/api/v1/system``
+        HTTP API.  Depends on :class:`SchedulerService` (created via
+        :meth:`create_scheduler_service`).
+        """
+        from main.framework.services.system_query_service import SystemQueryService
+
+        if "system_query_service" not in self._instances:
+            self._instances["system_query_service"] = SystemQueryService(
+                scheduler_service=self.create_scheduler_service(),
+            )
+        return self._instances["system_query_service"]
 
     def create_conv_session_manager(self):
         """@singleton — ConvSessionManager(backend).
@@ -322,6 +454,10 @@ _SERVICE_MAP: dict[str, str] = {
     "ConversationRepository": "conversation_repo",
     "MaintenanceRepository": "maintenance_repo",
     "WorkflowQueryService": "workflow_query_service",
+    "DispatchQueryService": "dispatch_query_service",
+    "ToolQueryService": "tool_query_service",
+    "SessionService": "session_service",
+    "SystemQueryService": "system_query_service",
 }
 
 
