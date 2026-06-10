@@ -275,12 +275,12 @@ MAXIMUM PARALLEL BATCH: 10 (Wave 3 fetch migration)
 
 ---
 
-## 6. Open Decisions (resolve before W1 starts)
+## 6. Decisions Resolved (2026-06-10)
 
-- [ ] **W1.4 Workflow types scope**: include `WorkflowBlockNode` shape (used in `WorkflowEditor.tsx:117`) or defer to `WorkflowBlock` backend schema (not yet extracted)?
-- [ ] **W4 zustand version**: v4.5.7 (transitive, stable) or v5.x (latest, breaking changes)?
-- [ ] **W2 fetch wrapper**: native `fetch` + custom wrapper OR `ky`/`wretch` library?
-- [ ] **W6 split granularity**: full split (8/9/14 files) OR conservative split (4-5 files each)?
+- [x] **W1.4 Workflow types scope**: INCLUDE `WorkflowBlockNode` shape (used in `WorkflowEditor.tsx:117`) — frontend split needs it
+- [x] **W4 zustand version**: **v4.5.7** (transitive, stable, already tested in `package-lock.json`)
+- [x] **W2 fetch wrapper**: **native `fetch` + custom typed wrapper** (no axios/ky/wretch — zero new deps, full control)
+- [x] **W6 split granularity**: **Full split (8/9/14 files)** for ChatPage/AgentsPage/WorkflowEditor (matches explore agent's recommendation)
 
 ---
 
