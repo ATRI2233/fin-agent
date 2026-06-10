@@ -1,554 +1,266 @@
-================================================================================
-F4 — SCOPE FIDELITY CHECK (PHASE 2 REFACTOR)
-================================================================================
-
-Branch: phase2-refactor
-Plan:   .omo/plans/phase2-refactor.md (31 tasks + 4 final-wave reviews)
-Baseline: eed60ac (PHASE 1 COMPLETE checkpoint)
-HEAD:    fea8307
-Phase 2 commits: 11 (1f55ee1, ae84ef5, 3017a8e, 97fb0ff, ac72c2a, 17ae7f4,
-                          5fb3b2f, 9ef1926, 575327b, f71b194, fea8307)
-Files changed in phase2 window: 78 files (+10176 / -1351 LOC)
+PHASE 3 SCOPE FIDELITY AUDIT
+==============================
+Date: 2026-06-10
+Branch: phase3-api-observability
+Tag range: phase2-complete..HEAD (7 commits)
+Auditor: F4 verification task
 
 ================================================================================
-VERDICT
+1. OUT-OF-SCOPE BOUNDARY CHECK
 ================================================================================
 
-Tasks:        28/31 compliant
-Contamination: 2 issues (1 scope creep + 1 missing re-exports)
-Unaccounted:   1 bonus cleanup (defensible)
+Plan (section "Out of scope", line 33-39):
+  - Prometheus metrics / OpenTelemetry tracing
+  - Rate limiting / circuit breakers
+  - DB query optimization (PHASE 4 candidate)
+  - Authentication/authorization beyond API key (PHASE 5 candidate)
+  - API versioning (URL-based)
+  - Async/scheduler concurrency hardening
 
-VERDICT: APPROVE WITH FINDINGS — minor scope drift on data_maintenance +
-        missing post-Wave service re-exports; all deliverables present, all
-        DoD checks pass except the `from services import *` smoke test.
+Plan expected touch zones:
+  ALLOWED: framework/, data_maintenance/, tests/
+  FORBIDDEN: webui/, agents/, .opencode/, start.bat, start.ps1, requirements.txt
 
-================================================================================
-TASK-BY-TASK FIDELITY (31 tasks)
-================================================================================
+RESULT:
+  [PASS] webui/        — 0 changes
+  [PASS] agents/       — 0 changes
+  [PASS] .opencode/    — 0 changes
+  [PASS] start.bat     — 0 changes
+  [PASS] start.ps1     — 0 changes
+  [PASS] requirements.txt — 0 changes
 
-WAVE 1 — Setup
---------------------------------------------------------------------------------
-[1] Git baseline (branch + tag + boulder init)        ✅ COMPLIANT
-    Evidence: branch `phase2-refactor` exists, tag `pre-phase2-baseline`
-    exists, .omo/boulder.json initialized.
-    Caveat: boulder.json says total_tasks=35 / completed=6 (out of sync with
-    plan's 31 tasks; uses different task-numbering scheme via todo:N keys).
-    Status [x]: compliant.
-
-WAVE 2 — Foundation (5 tasks)
---------------------------------------------------------------------------------
-[2] schemas/conversation.py (5 Pydantic models)        ✅ COMPLIANT
-    Created main/framework/schemas/{__init__.py, conversation.py} (39 lines).
-    5 models match spec: ConversationCreate, ConversationUpdate, MessageCreate,
-    MessageResponse, ConversationResponse.
-    Status [x]: compliant.
-
-[3] Move ConvSessionManager to services/session_manager.py
-    ⚠️ COMPLIANT — DOCUMENTED DEVIATION
-    Created main/framework/core/session_manager.py (67 lines), NOT services/.
-    Decision documented in plan: "keep in core/ (semantic fit — session
-    management is core infra, not business service)".
-    Status [x]: compliant (with documented deviation).
-
-[4] services/protocols.py (ServiceProtocol)           ✅ COMPLIANT
-    Created main/framework/services/protocols.py (27 lines). ServiceProtocol
-    is runtime_checkable Protocol with __init__(**deps) + health_check().
-    Status [x]: compliant.
-
-[5] services/__init__.py re-exports                   ❌ PARTIAL / SCOPE DEFICIT
-    Re-exports ServiceProtocol, ServiceError, NotFoundError, UnitOfWork.
-    MISSING: ConvSessionManager (relocated to core/), and the 5 services
-    (ConversationService, WorkflowService, ExecutionService, SchedulerService,
-    MessageProcessor) are NOT re-exported from services/.
-    Task 5 spec said "Do NOT import ConversationService or WorkflowService yet
-    (created in Wave 3-4)" — so 5 is internally consistent. BUT no subsequent
-    task was assigned to add these re-exports after Wave 3/4.
-    Definition of Done check:
-      python -c "from main.framework.services import ConversationService, ..."
-    → FAILS with ImportError.
-    Status [x]: marked DONE but acceptance criterion not met (deficit, not
-    scope creep — no task ever assigned the work).
-
-[6] container.py session_manager import path          ✅ COMPLIANT
-    Lazy import from main.framework.services.session_manager (resolved to
-    core/session_manager.py per task 3 deviation). 1-line change.
-    Status [x]: compliant.
-
-WAVE 3 — ConversationService + Controller
---------------------------------------------------------------------------------
-[7] ConversationService (CRUD logic)                  ✅ COMPLIANT
-    Created main/framework/services/conversation_service.py (178 lines,
-    spec ≤200). 8 methods: create, get, list, update, delete, list_messages,
-    save_user_message, start_workflow_execution.
-    Status [x]: compliant.
-
-[8] controllers/conversations.py (thin routes)        ✅ COMPLIANT
-    Created main/framework/controllers/{__init__.py, conversations.py}
-    (181 lines, spec ≤200). 7 endpoints (create/list/get/update/delete/
-    list_messages/send_message). All ≤15 line bodies via Depends DI.
-    Status [x]: compliant.
-
-[9] MessageProcessor (async background logic)         ✅ COMPLIANT
-    Created main/framework/services/message_processor.py (170 lines,
-    spec ~180). Module-level functions process_agent_message,
-    execute_workflow_async, _save_workflow_status (NOTE: not a class as
-    plan task 9 spec said; plan author note "may need to wrap functions
-    into a class OR use functions directly" — chose functions).
-    Status [x]: compliant (with implementation choice note).
-
-[10] Refactor api/conversations.py to thin re-export  ✅ COMPLIANT
-    Reduced 549 → 9 lines (spec ≤50). Pure re-export shim:
-    `from main.framework.controllers.conversations import router`.
-    Status [x]: compliant (exceeds target).
-
-[11] Unit tests ConversationService + SessionManager  ✅ COMPLIANT
-    tests/unit/test_conversation_service.py (331 lines, 12 tests pass).
-    tests/unit/test_session_manager.py (106 lines, 12 tests pass).
-    Total: 24 tests (spec ≥15).
-    Status [x]: compliant.
-
-WAVE 4 — Workflow + Execution + NodeExecutors (9 tasks)
---------------------------------------------------------------------------------
-[12] core/workflow/node_executors/base.py (ABC)       ✅ COMPLIANT
-    Created (88 lines). NodeContext + NodeResult dataclasses + NodeExecutor
-    ABC with abstract execute(ctx) -> NodeResult.
-    Status [x]: compliant.
-
-[13] 4 NodeExecutors (Input, Output, Debate, Agent)   ✅ COMPLIANT
-    Created input_executor.py (23), output_executor.py (31),
-    debate_executor.py (89), agent_executor.py (93).
-    Each implements execute(ctx) -> NodeResult; per-node commits preserved.
-    Status [x]: compliant.
-
-[14] node_executors/registry.py                        ✅ COMPLIANT
-    Created (75 lines). NodeExecutorRegistry with default_registry singleton
-    mapping {"input", "output", "debate", "default": ...}.
-    Status [x]: compliant.
-
-[15] services/prompt_builder.py                        ✅ COMPLIANT
-    Created (71 lines, spec ~80). Pure build_prompt function with 7 params.
-    Status [x]: compliant.
-
-[16] services/workflow_graph.py                        ✅ COMPLIANT
-    Created (52 lines, spec ~50). 4 pure functions: build_predecessors,
-    find_downstream, is_leaf, is_only_successor.
-    Status [x]: compliant.
-
-[17] ExecutionService                                  ✅ COMPLIANT
-    Created main/framework/services/execution_service.py (190 lines,
-    spec ~150). 5 methods: create_execution_for_workflow, update_execution_status,
-    update_node_status, mark_downstream_skipped, record_node_execution.
-    Uses find_downstream from workflow_graph (not duplicated).
-    Status [x]: compliant.
-
-[18] WorkflowService                                  ⚠️ PARTIAL (line overage)
-    Created main/framework/services/workflow_service.py (265 lines,
-    spec ≤200). 4 methods: run, _execute_in_order, execute_node, handle_failure.
-    Plan author's note says "✅ DONE (266 lines, DAG orchestration)" — so the
-    overage is accepted by the plan author. SCOPE FIDELITY: violates acceptance
-    criterion ≤200 by 33%. Treated as PARTIAL for strict F4 audit.
-    Status [x]: partial (criterion violated but author-accepted).
-
-[19] Refactor workflow_engine.py to thin wrapper     ✅ COMPLIANT
-    Reduced 561 → 242 lines (spec ≤300). Delegates to WorkflowService.
-    WorkflowRetryHandler preserved, collect_results preserved.
-    Status [x]: compliant.
-
-[20] Unit tests Workflow/Execution + 4 executors      ✅ COMPLIANT
-    6 test files created: test_workflow_service (532), test_execution_service
-    (231), test_node_executors (350), test_executor_registry (76),
-    test_workflow_graph (82), test_prompt_builder (43).
-    Total: 71+ tests across these files (spec ≥25). All pass.
-    Status [x]: compliant.
-
-WAVE 5 — Scheduler + Global cleanup (7 tasks)
---------------------------------------------------------------------------------
-[21] SchedulerService                                  ⚠️ PARTIAL (line overage)
-    Created main/framework/services/scheduler_service.py (320 lines,
-    spec ~200). 8 public methods + 2 module-level helpers (validate_cron,
-    get_next_run_times). 60% line overage. SCOPE FIDELITY: violates criterion
-    ~200 by 60%. Treated as PARTIAL.
-    Status [x]: partial.
-
-[22] DeprecationWarning shim on get_scheduler()       ✅ COMPLIANT
-    core/scheduler.py:1 docstring updated. core/scheduler.py uses
-    container.create_scheduler() in run_scheduled_workflow. _scheduler_instance
-    global removed (lines 336-348 deleted).
-    Status [x]: compliant.
-
-[23] Migrate api/scheduler_routes.py                  ✅ COMPLIANT
-    40 lines (was 33). No get_scheduler() calls; uses Depends DI.
-    Status [x]: compliant.
-
-[24] Migrate api/system.py                            ✅ COMPLIANT
-    157 lines. No get_scheduler() calls; uses Depends(get_service()).
-    Status [x]: compliant.
-
-[25] Migrate tests/integration/test_scheduled_workflow.py
-    ✅ COMPLIANT
-    tests/conftest.py: reset_container_scheduler fixture added (line ~64-130).
-    tests/integration/test_scheduled_workflow.py: 43 lines diff, no
-    _scheduler_instance references.
-    Status [x]: compliant.
-
-[26] Remove _scheduler_instance + get_scheduler()     ✅ COMPLIANT
-    core/scheduler.py: only docstring/comment refs remain (line 1, line 340).
-    No actual function/global remains.
-    Status [x]: compliant.
-
-[27] Remove all module-level configure() functions    ❌ SCOPE CREEP
-    Removed configure() from scheduler.py, session_cleanup.py, etc.
-    BUT ALSO removed configure() from main/data_maintenance/core/data_maintenance.py
-    and refactored DataMaintenanceService from static methods to instance
-    methods with constructor DI.
-    VIOLATION: Plan Must NOT Have explicitly states:
-      "**NO** touching `data_maintenance/` subsystem"
-    Affected files:
-      - main/data_maintenance/api/data_maintenance.py (94 lines diff)
-      - main/data_maintenance/core/data_maintenance.py (85 lines diff)
-      - main/framework/main.py (9 lines — startup() updated to wire DI)
-    Status [x]: compliant marker but actual scope = SCOPE CREEP.
-
-WAVE 6 — Polish (4 tasks)
---------------------------------------------------------------------------------
-[28] Consolidate _find_opencode_bin()                 ✅ COMPLIANT + BONUS
-    grep -r "_find_opencode_bin" main/ → 2 matches (config/settings.py:9 def
-    + config/__init__.py:17 re-export). Spec met.
-    BONUS: also deleted main/framework/config.py (45 lines, marked DEPRECATED
-    in own comment). Not in task scope but defensible dead-code removal.
-    Status [ ]: marked pending in plan, but work DONE.
-
-[29] Decide on UnitOfWork                              ✅ COMPLIANT
-    KEPT. main/framework/services/unit_of_work.py:25 lines (was 25, mostly
-    docstring expansion). Decision documented in plan via "kept + tested".
-    Status [ ]: marked pending in plan, but work DONE.
-
-[30] container.py register all 6 services              ✅ COMPLIANT
-    Factory methods added: create_conversation_service, create_execution_service,
-    create_workflow_service, create_scheduler_service, create_message_processor,
-    create_conv_session_manager (lines 161, 177, 191, 212, 228, 239).
-    _SERVICE_MAP contains Repositories (not services) — services use factory
-    fallback in get_service(). Both DI paths work.
-    Status [ ]: marked pending in plan, but work DONE.
-
-[31] Final ruff + line count + complexity checks      ✅ COMPLIANT
-    ruff check main/ webui/ → All checks passed!
-    conversations.py = 9 lines (spec ≤150). ✅
-    workflow_engine.py = 242 lines (spec ≤300). ✅
-    _scheduler_instance grep → only comments. ✅
-    _find_opencode_bin grep → 2 matches. ✅
-    Status [ ]: marked pending in plan, but work DONE.
+No out-of-scope application code was touched.
 
 ================================================================================
-CONTAMINATION ANALYSIS
+2. DEPENDENCY CHECK
 ================================================================================
 
-DETECTED CONTAMINATION (2 issues):
+  [PASS] requirements.txt — EMPTY diff (no new Python dependencies)
+  [PASS] pyproject.toml   — EMPTY diff (no new project dependencies)
 
-ISSUE 1: data_maintenance subsystem modified (Task 27 overreach)
---------------------------------------------------------------------------------
-Files affected:
-  - main/data_maintenance/api/data_maintenance.py (94 lines changed)
-  - main/data_maintenance/core/data_maintenance.py (85 lines changed)
-  - main/framework/main.py (9 lines — startup() updated for DI wiring)
-
-Changes:
-  - Removed module-level configure() function from DataMaintenanceService
-  - Converted static methods to instance methods (list_tasks, get_task,
-    create_task, update_task, delete_task, execute_task, get_task_data,
-    get_task_logs, sync_scheduled_tasks)
-  - Constructor: __init__(dispatcher=None, scheduler=None)
-  - Internal helper _run_task_job updated to accept service instance via
-    functools.partial
-  - API layer: replaced DataMaintenanceService.method() calls with
-    Depends(_get_service) DI pattern reading from app.state.maintenance_service
-
-Plan conflict:
-  Must NOT Have #10 (line 116): "**NO** touching `data_maintenance/` subsystem"
-  Must NOT Have #11: "**NO** MaintenanceService in this phase (deferred to PHASE 3)"
-
-Defense (developer-side reasoning):
-  Task 27 lists `data_maintenance.py:configure(dispatcher, scheduler) → DELETE
-  (if data_maintenance is in scope)`. The "(if in scope)" qualifier shows the
-  developer made the explicit choice that data_maintenance WAS in scope for
-  task 27 — contradicting the Must NOT Have guardrails. This is a deliberate
-  scope expansion by the implementer, not accidental contamination.
-
-Impact assessment:
-  - Behavior change: Static → instance methods (no API contract break, all
-    callers updated)
-  - Schema/data: no DB schema change
-  - Risk: low (correct refactor, well-tested DI pattern)
-  - Plan adherence: HIGH violation
-
-Severity: MEDIUM — the work itself is technically sound but explicitly
-forbidden by the plan. This is a process violation, not a defect.
-
-ISSUE 2: Missing post-Wave service re-exports (Task 5 / Wave 6 gap)
---------------------------------------------------------------------------------
-File: main/framework/services/__init__.py
-Current re-exports: ServiceProtocol, ServiceError, NotFoundError, UnitOfWork
-Missing: ConversationService, WorkflowService, ExecutionService,
-         SchedulerService, MessageProcessor (and ConvSessionManager)
-
-Definition of DoD check:
-  python -c "from main.framework.services import ConversationService,
-              WorkflowService, ExecutionService, SchedulerService"
-→ ImportError: cannot import name 'ConversationService' from
-  'main.framework.services'
-
-Plan conflict:
-  Task 5 spec: "main/framework/services/__init__.py re-exports
-    ConvSessionManager, ServiceProtocol, UnitOfWork"
-  Acceptance criterion: "python -c "from main.framework.services import
-    ConvSessionManager, ServiceProtocol, UnitOfWork" → exits 0"
-  → FAILS (ConvSessionManager not re-exported either, since it was moved to core/)
-
-  Definition of Done (plan line 91):
-    "python -c "from main.framework.services import *" → no ImportError"
-  → depends on what's tested. Literal `from services import *` would only
-    import __all__ = ["ServiceProtocol", "ServiceError", "NotFoundError",
-    "UnitOfWork"], all of which succeed.
-
-  Verification Commands (plan line 1725):
-    "python -c "from main.framework.services import ConversationService,
-     WorkflowService, ExecutionService, SchedulerService" → no ImportError"
-  → FAILS.
-
-Root cause:
-  Task 5 explicitly said "Do NOT import ConversationService or
-  WorkflowService yet (created in Wave 3-4)". No subsequent task was
-  assigned to add these re-exports after Wave 3/4 created the services.
-  This is a planning gap, not a developer omission — but it leaves a
-  documented DoD criterion unmet.
-
-Defense:
-  - No code actually USES `from services import ConversationService` style;
-    all callers import from full paths (services.conversation_service).
-  - So the missing re-export has zero runtime impact.
-  - The plan's own task 5 explicitly forbade this re-export at Wave 2 time.
-
-Impact assessment:
-  - Runtime impact: NONE (no callers use this pattern)
-  - Test impact: DoD verification command fails
-  - Plan adherence: DoD criterion unmet but technically consistent with task 5 spec
-
-Severity: LOW — pure cosmetic plan-vs-implementation gap, no functional impact.
+No new dependencies added in Phase 3.
 
 ================================================================================
-UNACCOUNTED CHANGES (1 finding)
+3. CONFIGURATION CHANGE CHECK
 ================================================================================
 
-CHANGE: Dead config.py deletion (commit f71b194)
---------------------------------------------------------------------------------
-File deleted: main/framework/config.py (45 lines)
+  [PASS] .opencode/  — EMPTY diff (no OpenCode config changes)
+  [PASS] .env*       — EMPTY diff (no environment variable changes)
 
-Content of deleted file (was):
-  # DEPRECATED: Use main.framework.config.settings instead.
-  Kept for backward compat.
-  def _find_opencode_bin(): ...
-  class Settings(BaseSettings): ...
-  settings = Settings()
-  if not settings.OPENCODE_BIN:
-      settings.OPENCODE_BIN = _find_opencode_bin()
-
-Justification:
-  The file was marked DEPRECATED in its own header comment.
-  Removing it is consistent with Task 28's spirit (consolidating
-  _find_opencode_bin to a single canonical definition in
-  config/settings.py) and removes a redundant Settings class that
-  shadowed the canonical one in config/settings.py.
-
-Risk: LOW — file was self-declared deprecated, no callers of the
-deleted class were observed in main/ or tests/.
-
-Verdict: DEFENSIBLE BONUS CLEANUP. Not contamination; technically out
-of Task 28 scope but justified.
+No configuration changes in Phase 3.
 
 ================================================================================
-DEFINITION OF DONE CHECKLIST
+4. PHASE 1/2 FILE STABILITY CHECK
 ================================================================================
 
-[✓] pytest tests/integration/ -v → 4 baseline pass (17 collected)
-    All 4 pre-PHASE-2 integration tests still pass unchanged. New tests
-    added during work (test_conversation_flow, test_workflow_flow,
-    test_scheduled_workflow, test_dispatch_flow) — 17 total collected.
+Plan expectation: models/ and repositories/ should be minimal/nonexistent.
 
-[✓] pytest tests/unit/ -v → 149 passed (≥50 required)
-    Confirmed: `python -m pytest tests/unit/ -v --tb=short` →
-    `149 passed, 1 warning in 0.69s`
+  [PASS] main/framework/models/         — EMPTY diff (zero ORM model changes)
 
-[✓] conversations.py ≤ 150 lines → 9 lines
+  [PASS] main/framework/repositories/   — 1 file changed: workflow_repo.py
+      Change: Added dual-mode DI support (db= parameter + _session() helper)
+      Context: Required by Wave 2 (Task 2.1) so WorkflowQueryService could
+      inject a test DB session. Matches ExecutionRepository and
+      ConversationRepository patterns from Phase 2.
+      Lines changed: +50 / -23 (net +27)
+      Verdict: EXPECTED — within Wave 2 scope for DI-compatible repos.
 
-[✓] workflow_engine.py ≤ 300 lines → 242 lines
-
-[✓] radon cc max rank B on workflow_engine.py — not run in this audit
-    but file is now thin wrapper (delegates to WorkflowService).
-
-[⚠] grep -r "_scheduler_instance" main/ → 2 matches (both comments/docs)
-    core/scheduler.py:340: "# _scheduler_instance global removed in PHASE 2"
-    services/scheduler_service.py:4: docstring reference
-    Functionally COMPLIANT (no live code references) but grep returns hits.
-
-[✓] grep -r "_find_opencode_bin" main/ → 2 matches
-    config/settings.py:9 (def)
-    config/__init__.py:17 (re-export)
-
-[✓] grep "^from main.framework.core" main/framework/api/conversations.py
-    → 0 matches (file is 9 lines, no imports from main.framework.core)
-
-[✗] python -c "from main.framework.services import ConversationService,
-                WorkflowService, ExecutionService, SchedulerService"
-    → ImportError. See Issue 2 above.
-
-[✓] ruff check main/ webui/ → "All checks passed!"
-
-[~] python scripts/check_lines.py → not run in this audit
-    (conversations.py is 9 lines, workflow_engine.py is 242, all new
-    service files ≤320 — should pass)
+  [PASS] main/framework/schemas/conversation.py — Modified
+      Change: Added Pydantic ConfigDict(json_schema_extra=...) metadata,
+      Field descriptions, and class docstrings to all 6 schema classes.
+      Context: Wave 6 Task 6.1 (OpenAPI hardening). No field/type changes.
+      Lines changed: +201 / -13 (net +188, all metadata/descriptions)
+      Verdict: EXPECTED — Wave 6 OpenAPI documentation.
 
 ================================================================================
-MUST NOT HAVE COMPLIANCE (10/10 checks)
+5. EXISTING TEST FILE MODIFICATION CHECK
 ================================================================================
 
-[✓] No new node types (only Input, Output, Debate, Agent)
-[✓] No Node dataclass or typed models (dict-based nodes preserved)
-[✓] No centralized db.commit() in base class (per-node commits preserved
-    in each executor's _commit helper)
-[✓] No sync → async conversion (async/sync boundaries preserved)
-[✓] No exception hierarchy (only ServiceError + NotFoundError in
-    services/exceptions.py, 23 lines total)
-[✓] No metrics/tracing/structured logging
-[✓] No FastAPI on_event → lifespan migration (main.py still uses
-    @app.on_event("startup"))
-[✓] No Pydantic v1 → v2 migration
-[✓] No multi-worker scheduler sync (Redis)
-[✓] No new dependencies added
+Plan expectation: "All 149+ unit tests + 35+ integration tests pass"
 
-EXCEPTIONS:
-[✗] "NO touching data_maintenance/ subsystem" — VIOLATED (see Issue 1)
-[~] "NO modifying the 4 existing integration test files" — PARTIALLY
-    tests/integration/test_scheduled_workflow.py was modified (43 line
-    diff), but only the scheduler reset logic was changed (replacing
-    _scheduler_instance = None with reset_container_scheduler fixture).
-    Test function bodies unchanged. Tests still pass. Spec intent
-    preserved (4 tests still cover same behaviors).
+Existing unit test files modified (4 files):
+  [PASS] tests/unit/test_node_executors.py
+      Change: Import reordering only (ruff auto-fix: I001)
+      Impact: NONE (import order, no logic change)
 
-================================================================================
-COMMIT STRATEGY ANALYSIS
-================================================================================
+  [PASS] tests/unit/test_scheduler_service.py
+      Change: Blank line removal (ruff auto-fix: E302)
+      Impact: NONE (whitespace only)
 
-Phase 2 commits: 11 total
-  1f55ee1 refactor(phase2-partial): extract ConvSessionManager +
-                                MessageProcessor + schemas (Wave 0/partial)
-  ae84ef5 docs(plan): PHASE 2 plan with marked completed tasks
-  3017a8e chore(phase2): start work session - init boulder state
-  97fb0ff feat(services): add ServiceProtocol marker interface (W2 Task 4)
-  ac72c2a feat(services): add ServiceError and NotFoundError exceptions
-                         (W2 — extra, not in plan task list)
-  17ae7f4 feat(services): re-export core types from services/__init__.py
-                         (W2 Task 5)
-  5fb3b2f chore(phase2-wave2): mark Wave 2 tasks complete
-  9ef1926 chore(phase2-wave3): ConversationService + controllers +
-                               thin re-export + tests (W3 Tasks 7-11)
-  575327b chore(phase2-wave4-5): workflow engine refactor +
-                                  scheduler global cleanup (W4-W5 Tasks 12-27)
-  f71b194 phase2: final verification fixes — ruff lint, global state
-                  cleanup, dead config.py removal (W6 + cleanup)
-  fea8307 docs(evidence): add W6.4 final checks evidence (W6 Task 31)
+  [PASS] tests/unit/test_workflow_graph.py
+      Change: Blank line removal (ruff auto-fix: E302)
+      Impact: NONE (whitespace only)
 
-Observations:
-- Tasks 2, 3, 6, 9 are folded into 1f55ee1 (Wave 0 partial) — committed
-  before plan finalization per plan's STATUS NOTE (lines 3-10).
-- Tasks 4, 5 each got their own commit (97fb0ff, 17ae7f4).
-- Tasks 7-11 (W3) merged into single wave commit 9ef1926.
-- Tasks 12-27 (W4+W5) merged into single wave commit 575327b.
-- W6 tasks (28-31) merged with cleanup into f71b194.
-- Plan called for per-task atomic commits; actual is per-wave commits.
+  [PASS] tests/unit/test_workflow_service.py
+      Change: Blank line removal (ruff auto-fix: E302)
+      Impact: NONE (whitespace only)
 
-This is a MINOR plan deviation but consistent with the boulder.json
-note: "commit_per_wave": true. So it's a configuration choice, not
-scope creep.
+Existing integration test files modified (1 file):
+  [PASS] tests/integration/test_workflow_flow.py
+      Context: Updated for Wave 2 pilot (new controller endpoints, RFC 7807 assertions)
+      Verdict: EXPECTED — Wave 2 Task 2.5 spec explicitly requires updating this file.
+
+Test fixture modified:
+  [PASS] tests/conftest.py
+      Change: Extended DI registrations for new services (WorkflowQueryService,
+      DispatchQueryService, SessionService, MaintenanceQueryService) + switched
+      from direct _instances["X"] to test_container.register("X", ...) pattern.
+      Context: Required by Wave 4 (DI hardening) and Wave 5 (test backfill).
+      Verdict: EXPECTED — conftest changes are the standard coupling point
+      when adding new DI-registered services.
 
 ================================================================================
-EVIDENCE FILES
+6. FULL FILE INVENTORY — PHASE 3 CHANGES
 ================================================================================
 
-Phase 2 evidence files created (in .omo/evidence/):
-  task-w2-1-protocols.txt         (T4)
-  task-w2-2-exceptions.txt        (T-extra: ServiceError/NotFoundError)
-  task-w2-3-init-reexports.txt    (T5)
-  task-w3-1-conversation-service.txt (T7)
-  task-w3-2-controllers.txt       (T8)
-  task-w3-3-thin-refactor.txt     (T10)
-  task-w3-4-service-tests.txt     (T11)
-  task-w4-1-base-executor.txt     (T12)
-  task-w4-2-input-executor.txt    (T13)
-  task-w4-3-output-executor.txt   (T13)
-  task-w4-4-debate-executor.txt   (T13)
-  task-w4-5-agent-executor.txt    (T13)
-  task-w4-6-registry.txt          (T14)
-  task-w4-7-prompt-builder.txt    (T15)
-  task-w4-8-workflow-graph.txt    (T16)
-  task-w4-9-execution-service.txt (T17)
-  task-w4-10-workflow-service.txt (T18)
-  task-w4-11-engine-refactor.txt  (T19)
-  task-w4-12-workflow-tests.txt   (T20)
-  task-w5-1-scheduler-service.txt (T21)
-  task-w5-2-scheduler-shim.txt    (T22)
-  task-w5-3-scheduler-routes.txt  (T23)
-  task-w5-4-system-migration.txt  (T24)
-  task-w5-5-test-fixture.txt      (T25)
-  task-w5-6-remove-globals.txt    (T26)
-  task-w5-7-remove-configure.txt  (T27)
-  task-w6-1-opencode-bin.txt      (T28)
-  task-w6-2-unitofwork.txt        (T29)
-  task-w6-3-container-registration.txt (T30)
-  task-w6-4-final-checks.txt      (T31)
+Total files changed: 65
 
-Gaps in evidence:
-  No evidence file for Task 1 (Git baseline), Task 2 (schemas),
-  Task 3 (session_manager), Task 6 (container.py), Task 9 (MessageProcessor).
-  These were either pre-PHASE-2 partials (1f55ee1) or implicit.
+--- NEW FILES (34) ---
+
+Controllers (11 — Waves 2-3):
+  main/framework/controllers/agents.py          (Wave 3.4)
+  main/framework/controllers/dispatch.py        (Wave 3.8)
+  main/framework/controllers/executions.py      (Wave 3.1)
+  main/framework/controllers/scheduler.py       (Wave 3.9)
+  main/framework/controllers/sessions.py        (Wave 3.2)
+  main/framework/controllers/skills.py          (Wave 3.6)
+  main/framework/controllers/system.py          (Wave 3.7)
+  main/framework/controllers/tools.py           (Wave 3.5)
+  main/framework/controllers/triggers.py        (Wave 3.3)
+  main/framework/controllers/workflows.py       (Wave 2.2)
+  main/data_maintenance/controllers/data_maintenance.py  (Wave 3.10)
+
+Services (10 — Waves 2-3):
+  main/framework/services/agent_query_service.py     (Wave 3.4)
+  main/framework/services/dispatch_query_service.py  (Wave 3.8)
+  main/framework/services/execution_query_service.py (Wave 3.1)
+  main/framework/services/session_service.py         (Wave 3.2)
+  main/framework/services/skill_query_service.py     (Wave 3.6)
+  main/framework/services/system_query_service.py    (Wave 3.7)
+  main/framework/services/tool_query_service.py      (Wave 3.5)
+  main/framework/services/workflow_query_service.py  (Wave 2.1)
+  main/data_maintenance/services/maintenance_query_service.py (Wave 3.10)
+
+Core/Infrastructure (1 — Wave 1):
+  main/framework/core/request_context.py         (Waves 1.1+1.2)
+
+API (1 — Wave 1):
+  main/framework/api/problems.py                 (Wave 1.7)
+
+Integration Tests (11 — Wave 5):
+  tests/integration/test_agents_endpoints.py     (Wave 5.6)
+  tests/integration/test_executions_endpoints.py (Wave 5.4)
+  tests/integration/test_health_endpoint.py      (Wave 5.1)
+  tests/integration/test_problem_details.py      (Wave 2.6)
+  tests/integration/test_request_id_propagation.py (Wave 5.9)
+  tests/integration/test_sessions_endpoints.py   (Wave 5.3)
+  tests/integration/test_skills_endpoints.py     (Wave 5.8)
+  tests/integration/test_system_endpoints.py     (Wave 5.2)
+  tests/integration/test_tools_endpoints.py      (Wave 5.7)
+  tests/integration/test_triggers_endpoints.py   (Wave 5.5)
+
+Unit Tests (1 — Wave 4):
+  tests/unit/test_container_service_map.py       (Wave 4.4)
+
+--- MODIFIED FILES (23) ---
+
+Core/Infrastructure (3):
+  main/framework/core/container.py               (Waves 2.4, 4.1, 4.2)
+  main/framework/core/logger.py                  (Waves 1.3, 1.4)
+  main/framework/main.py                         (Waves 1.6, 6.4)
+
+Services (3):
+  main/framework/services/__init__.py            (re-exports)
+  main/framework/services/exceptions.py          (Wave 1.5)
+  main/framework/services/session_service.py     (new, but counts as modified since re-created)
+
+API (10 — all converted to thin re-exports):
+  main/framework/api/agents.py                   (Wave 3.4)
+  main/framework/api/dispatch.py                 (Wave 3.8)
+  main/framework/api/executions.py               (Wave 3.1)
+  main/framework/api/scheduler_routes.py         (Wave 3.9)
+  main/framework/api/sessions.py                 (Wave 3.2)
+  main/framework/api/skills.py                   (Wave 3.6)
+  main/framework/api/system.py                   (Wave 3.7)
+  main/framework/api/tools.py                    (Wave 3.5)
+  main/framework/api/triggers.py                 (Wave 3.3)
+  main/framework/api/workflows.py                (Wave 2.3)
+
+Schemas (1):
+  main/framework/schemas/conversation.py         (Wave 6.1)
+
+Repositories (1):
+  main/framework/repositories/workflow_repo.py   (Wave 2 DI support)
+
+Tests (5):
+  tests/conftest.py                              (DI fixture updates)
+  tests/integration/test_workflow_flow.py        (Wave 2.5)
+  tests/unit/test_node_executors.py              (ruff auto-fix)
+  tests/unit/test_scheduler_service.py           (ruff auto-fix)
+  tests/unit/test_workflow_graph.py              (ruff auto-fix)
+  tests/unit/test_workflow_service.py            (ruff auto-fix)
+
+--- DELETED FILES (1) ---
+
+  main/framework/core/exceptions.py              (Wave 1.5: dead code removal, 5 unused classes)
+
+--- META FILES (7) ---
+
+  .omo/boulder.json                              (work session state)
+  .omo/evidence/f1-compliance-audit.txt          (Phase 3 F1 evidence)
+  .omo/evidence/f2-quality-review.txt            (Phase 3 F2 evidence)
+  .omo/evidence/f4-scope-fidelity.txt            (this file)
+  .omo/evidence/task-w6-4-final-checks.txt       (Phase 2 evidence, carried forward)
+  .omo/plans/phase2-refactor.md                  (checkbox updates only)
+  .omo/plans/phase3-api-observability.md         (plan file)
 
 ================================================================================
-FINAL SUMMARY
+7. INTERNAL API/BEHAVIOR CHANGES (DOCUMENTED)
 ================================================================================
 
-STRENGTHS:
-- All 31 planned tasks produced their intended deliverables
-- Line count targets met or exceeded (conversations.py 9/≤150,
-  workflow_engine.py 242/≤300)
-- 149 unit tests pass (3x the required minimum)
-- 17 integration tests pass (4 baseline + 13 added)
-- ruff clean
-- All 10 Must NOT Have rules respected (except #10 data_maintenance)
-- Service-layer extraction cleanly separated from API/core
-- NodeExecutor strategy pattern cleanly replaces 146-line execute_node()
-- Container-based DI replaces all module-level globals (except data_maintenance)
+CHANGE 1: _SERVICE_MAP key type changed
+  Before: dict[type, str] — keys were class objects (e.g. ExecutionRepository)
+  After:  dict[str, str]  — keys are class name strings (e.g. "ExecutionRepository")
+  Impact: get_service() now does interface.__name__ lookup instead of direct type lookup
+  Context: Wave 4 Task 4.1 — required to support string-keyed service registration
+  Risk: LOW — internal API only; all call sites use get_service(Class) which still works
 
-WEAKNESSES:
-1. data_maintenance subsystem was refactored despite explicit
-   "NO touching data_maintenance/" guardrail (medium process violation,
-   low technical risk).
-2. Post-Wave service re-exports from services/__init__.py were never added,
-   leaving one DoD verification command failing (low impact — no callers
-   use this pattern).
-3. Two service files exceed line targets: WorkflowService (265 vs ≤200),
-   SchedulerService (320 vs ~200). Acknowledged by plan author.
-4. Per-task atomic commits collapsed into per-wave commits (config choice,
-   not violation).
+CHANGE 2: core/exceptions.py deleted (5 classes removed)
+  Deleted: FrameworkException, JobNotFoundError, AgentNotFoundError,
+           SessionError, JobTimeoutError, SchedulerError
+  Context: Wave 1 Task 1.5 — all were dead code (0 call sites)
+  Risk: NONE — grep confirms zero imports from core.exceptions
 
-RECOMMENDATIONS:
-- Issue 1 (data_maintenance): either revert those changes OR add a
-  follow-up task explicitly authorizing them with a documented rationale.
-  Current state violates the guardrail.
-- Issue 2 (re-exports): add 5 lines to services/__init__.py to re-export
-  the 5 services; satisfies the DoD check with zero runtime impact.
-- Tasks 18/21 (overages): document the line-count deviation in plan
-  acceptance criteria or refactor to split into smaller modules.
-- Final-wave reviews (F1-F3) remain OPEN per plan checklist.
+CHANGE 3: NotFoundError constructor signature changed
+  Before: NotFoundError(message: str) — simple pass-through
+  After:  NotFoundError(resource: str, id: str | None = None) — structured
+  Backward compat: Still accepts single-string form via "not found" heuristic
+  Context: Wave 1 Task 1.5 — exception unification
+  Risk: LOW — backward-compatible, existing callers still work
 
 ================================================================================
-END OF SCOPE FIDELITY REPORT
+8. VERDICT
+================================================================================
+
+OUT-OF-SCOPE VIOLATIONS:    0
+DEPENDENCY ADDITIONS:       0
+CONFIG CHANGES:             0
+UNEXPECTED MODEL CHANGES:   0
+UNEXPECTED REPO CHANGES:    0 (workflow_repo.py change is expected)
+
+SCOPE FIDELITY:             [PASS] — CLEAN
+
+All 65 changed files are within the allowed scope:
+  - framework/ (41 files)     — core, controllers, services, api, schemas, repos, main.py
+  - data_maintenance/ (3 files) — controllers, services, api (explicitly in plan Task 3.10)
+  - tests/ (14 files)         — integration + unit + conftest
+  - .omo/ (7 files)           — planning metadata and evidence (not source code)
+
+The only Phase 1/2 file touched outside pure new-features is:
+  - repositories/workflow_repo.py — DI dual-mode support (expected, +27 lines net)
+  - schemas/conversation.py — OpenAPI metadata (expected, Wave 6 Task 6.1)
+  - 4 existing unit tests — ruff auto-fixes only (import order/blank lines)
+
+================================================================================
+END OF SCOPE FIDELITY AUDIT
 ================================================================================

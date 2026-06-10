@@ -143,7 +143,7 @@ async def update_conversation(
         raise HTTPException(status_code=404, detail="Conversation not found") from err
 
 
-@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, responses=_RESP_DELETE)
 async def delete_conversation(
     conversation_id: str,
     conv_repo: ConversationRepository = Depends(get_service(ConversationRepository)),

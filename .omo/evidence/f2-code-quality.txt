@@ -1,0 +1,212 @@
+================================================================================
+CODE QUALITY AUDIT REPORT
+Branch: phase3-api-observability
+Date: 2026-06-10
+Scope: main/framework/ (primary), tests/ (secondary)
+================================================================================
+
+## 1. RUFF CHECK (Default Rules) — FAIL
+
+Status: FAIL (12 errors in main/framework/, 0 auto-fixable without --unsafe-fixes)
+
+Main framework violations:
+  - UP045 (2): Use `X | None` instead of Optional[dict]
+    main/framework/controllers/skills.py:35
+    main/framework/services/skill_query_service.py:91
+  - UP035 (1): Import from collections.abc instead of typing
+    main/framework/core/logger.py:21
+  - UP017 (1): Use datetime.UTC alias instead of timezone.utc
+    main/framework/core/logger.py:33
+  - I001 (3): Import blocks un-sorted/un-formatted
+    main/framework/schemas/conversation.py:17
+    main/framework/services/execution_query_service.py:18
+    tests/integration/test_health_endpoint.py:19 (test file)
+  - UP038 (2): Use X | Y in isinstance() (test files only)
+  - SIM108 (2): Use ternary operator (test files only)
+
+================================================================================
+
+## 2. RUFF CHECK (ALL Rules) — FAIL (informational)
+
+Status: 3,954 total violations across all rules (including tests)
+Breakdown of significant categories in main/framework/:
+  - F401 (unused imports): 40 violations — NEEDS CLEANUP
+  - E501 (line too long >120): 5 violations
+  - F541 (f-string without placeholders): 1 violation
+  - F841 (unused variable): 1 violation
+  - W292 (no newline at end of file): 2 violations
+
+Test files account for the vast majority via:
+  - S101 (assert in tests): expected, not actionable
+  - D103 (missing docstring in test functions): expected
+  - ANN201/ANN202 (missing type annotations in tests): low priority
+
+================================================================================
+
+## 3. FILE SIZE ANALYSIS — FAIL
+
+### Files >300 lines (NEEDS REFACTORING):
+  1. agents/mcp/ashare/ashare_mcp_server.py         — 1,563 lines ⚠️ CRITICAL
+  2. tests/unit/test_workflow_service.py             —   689 lines
+  3. main/framework/core/container.py                —   610 lines ⚠️
+  4. agents/mcp/sec-edgar/.../document_parser.py     —   571 lines
+  5. agents/mcp/sec-edgar/.../financial.py           —   563 lines
+  6. agents/mcp/sec-edgar/.../server.py              —   545 lines
+  7. agents/mcp/cn_macro/cn_macro_mcp_server.py      —   489 lines
+  8. agents/mcp/risk/risk_mcp_server.py              —   444 lines
+  9. tests/unit/test_conversation_service.py          —   433 lines
+  10. tests/unit/test_node_executors.py               —   426 lines
+  11. tests/unit/test_scheduler_service.py            —   406 lines
+  12. main/framework/services/scheduler_service.py    —   388 lines ⚠️
+  13. main/data_maintenance/core/data_maintenance.py  —   366 lines
+  14. tests/unit/test_container_service_map.py        —   361 lines
+  15. agents/mcp/sec-edgar/.../insider_complex.py     —   359 lines
+  16. main/framework/repositories/execution_repo.py   —   358 lines ⚠️
+  17. tests/integration/test_executions_endpoints.py  —   353 lines
+  18. tests/integration/test_workflow_flow.py         —   351 lines
+  19. agents/mcp/sec-edgar/.../insider.py             —   349 lines
+  20. main/framework/core/scheduler.py                —   340 lines ⚠️
+  21. agents/mcp/sec-edgar/.../xbrl.py                —   323 lines
+  22. main/framework/services/workflow_service.py     —   316 lines ⚠️
+  23. tests/unit/test_execution_service.py            —   315 lines
+
+### Files 250-300 lines (FLAGGED):
+  24. main/framework/core/workflow_engine.py          —   293 lines
+  25. main/framework/services/workflow_query_service.py — 290 lines
+  26. tests/integration/test_triggers_endpoints.py    —   271 lines
+  27. main/framework/main.py                          —   268 lines
+  28. main/framework/services/execution_query_service.py — 266 lines
+  29. main/framework/services/system_query_service.py —   262 lines
+  30. main/framework/controllers/conversations.py     —   259 lines
+  31. main/framework/services/session_service.py      —   254 lines
+
+### Summary:
+  - >300 lines: 23 files (6 in main/framework/)
+  - 250-300 lines: 8 files
+  - Largest main/framework/ file: core/container.py (610 lines)
+  - Largest overall: agents/mcp/ashare/ashare_mcp_server.py (1,563 lines)
+
+================================================================================
+
+## 4. CYCLOMATIC COMPLEXITY — FAIL
+
+Tool: radon cc
+Average complexity: C (12.9) — above threshold of 10
+
+### Functions with CC >= 10 (ALL flagged, 14 total):
+
+  CC=16  main/framework/core/workflow_parser.py:11        validate_dag (function)
+  CC=16  main/framework/core/workflow/node_executors/debate_executor.py:62  _build_enriched_prompt (method)
+  CC=14  main/framework/services/message_processor.py:112  execute_workflow_async (function)
+  CC=14  main/framework/services/prompt_builder.py:10      build_prompt (function)
+  CC=14  main/framework/services/session_service.py:180    bulk_cleanup (method)
+  CC=14  main/framework/services/workflow_service.py:159   _execute_in_order (method)
+  CC=13  main/framework/core/debate_executor.py:107        _parse_judge_result (method)
+  CC=13  main/framework/core/workflow_parser.py:111        identify_serial_chains (function)
+  CC=12  main/framework/repositories/execution_repo.py:124 list_executions (method)
+  CC=11  main/framework/core/scheduler.py:255              run_scheduled_workflow (function)
+  CC=11  main/framework/core/workflow_parser.py:56         topological_sort (function)
+  CC=11  main/framework/services/scheduler_service.py:238  run_scheduled_workflow (method)
+  CC=11  main/framework/services/workflow_query_service.py:173  update_workflow (method)
+  CC=11  main/framework/services/workflow_service.py:98    run (method)
+
+### Top offenders (CC >= 14):
+  1. validate_dag (CC=16) — complex DAG validation logic
+  2. _build_enriched_prompt (CC=16) — debate prompt assembly
+  3. execute_workflow_async (CC=14) — workflow execution orchestration
+  4. build_prompt (CC=14) — prompt construction
+  5. bulk_cleanup (CC=14) — session cleanup
+  6. _execute_in_order (CC=14) — sequential node execution
+
+Note: radon could not parse 3 files due to BOM characters:
+  - main/framework/core/container.py
+  - main/framework/models/workflow_execution.py
+  - main/framework/repositories/conversation_repo.py
+
+================================================================================
+
+## 5. ANTI-PATTERN SCAN — PASS
+
+  TODO/FIXME/HACK/XXX:  0 found ✅
+  console.log:          0 found ✅ (Python project, expected)
+  as any / @ts-ignore:  0 found ✅ (Python project, expected)
+
+================================================================================
+
+## 6. IMPORT HEALTH — NEEDS ATTENTION
+
+### Unused Imports (F401): 40 violations
+Key offenders in main/framework/:
+  - models/__init__.py: 12 unused re-exports (should use `__all__` or `X as X`)
+  - core/scheduler.py: 4 unused (asyncio, warnings, timezone, Optional)
+  - core/__init__.py: 4 unused re-exports
+  - core/agent_registry.py: 2 unused (field, Optional)
+  - models/conversation.py: 2 unused (timezone, Integer)
+  - models/database.py: 2 unused (ForeignKey, Table)
+  - models/workflow.py: 1 unused (timezone)
+  - models/workflow_execution.py: 1 unused (timezone)
+  - config/settings.py: 1 unused (Path)
+  - core/log_collector.py: 1 unused (Optional)
+  - core/session_manager.py: 1 unused (Optional)
+  - core/workflow_engine.py: 1 unused (Session, in TYPE_CHECKING)
+  - core/workflow/node_executors/base.py: 1 unused (WorkflowEngine, in TYPE_CHECKING)
+  - main.py: 1 unused (timezone)
+  - repositories/base.py: 1 unused (Optional)
+  - repositories/execution_repo.py: 1 unused (timezone)
+  - services/message_processor.py: 2 unused (AgentBackend, WorkflowEngine)
+  - services/unit_of_work.py: 1 unused (Optional)
+  - services/workflow_query_service.py: 2 unused (case, ExecutionNode)
+
+### BOM Characters in Source Files: 3 files
+  - main/framework/core/container.py
+  - main/framework/models/workflow_execution.py
+  - main/framework/repositories/conversation_repo.py
+
+### Circular Imports:
+  - No circular import errors detected via pylint (rated 10.00/10)
+  - Note: TYPE_CHECKING guard used in workflow_engine.py and node_executors/base.py
+    to avoid circular dependency — correct pattern
+
+================================================================================
+
+## 7. OTHER CODE SMELL ISSUES
+
+### f-string without placeholders (F541):
+  - main/framework/core/performance.py:106 — `f"Execution timed out"` → use plain string
+
+### Unused variable (F841):
+  - main/framework/core/workflow_parser.py:17 — `node_map` assigned but never used
+
+### No newline at end of file (W292):
+  - main/framework/models/conversation.py:44
+  - main/framework/models/workflow_execution.py:40
+
+================================================================================
+
+## 8. VERDICT
+
+| Check                        | Status | Details                           |
+|------------------------------|--------|-----------------------------------|
+| ruff check (default)         | FAIL   | 12 errors (2 UP045, 1 UP035, etc) |
+| ruff check (ALL rules)       | FAIL   | 40 unused imports, 5 E501, etc   |
+| Files >300 lines             | FAIL   | 6 main/framework/ files >300 LOC |
+| Complexity >10               | FAIL   | 14 functions, avg CC=12.9        |
+| TODO/FIXME/HACK/XXX          | PASS   | 0 found                           |
+| console.log                  | PASS   | 0 found                           |
+| Circular imports             | PASS   | None detected                     |
+| BOM characters               | WARN   | 3 files with BOM                  |
+
+### Priority Fixes (main/framework/ only):
+1. HIGH: Remove 40 unused imports (F401) — 25 auto-fixable via `ruff --fix`
+2. HIGH: Refactor 6 files >300 lines (container.py, scheduler_service.py, etc.)
+3. HIGH: Reduce complexity in 14 functions (CC >= 10)
+4. MEDIUM: Fix 2 UP045 (Optional → X | None)
+5. MEDIUM: Fix 1 UP035 (typing.MutableMapping → collections.abc)
+6. MEDIUM: Fix 1 UP017 (timezone.utc → datetime.UTC)
+7. LOW: Fix 3 I001 (import sorting)
+8. LOW: Remove BOM from 3 files
+9. LOW: Fix f-string without placeholders in performance.py
+
+================================================================================
+END OF AUDIT
+================================================================================
