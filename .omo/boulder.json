@@ -147,7 +147,7 @@
       "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\phase2-refactor.md",
       "plan_name": "phase2-refactor",
       "started_at": "2026-06-09T20:55:00",
-      "updated_at": "2026-06-10T01:36:29.638Z",
+      "updated_at": "2026-06-10T01:41:10.771Z",
       "session_ids": [
         "opencode:ses_154ca0c3effegImMjNJ5tFDIdu",
         "opencode:ses_1538ac38fffeO5ZhQfhWV6vdCF",
@@ -265,9 +265,15 @@
           "status": "running",
           "updated_at": "2026-06-10T01:36:29.638Z"
         }
-      }
+      },
+      "ended_at": "2026-06-10T01:41:10.771Z",
+      "elapsed_ms": 45970771,
+      "status": "completed"
     }
   },
   "active_work_id": "phase2-refactor-legacy",
-  "updated_at": "2026-06-10T01:36:29.638Z"
+  "updated_at": "2026-06-10T01:41:10.771Z",
+  "status": "completed",
+  "ended_at": "2026-06-10T01:41:10.771Z",
+  "elapsed_ms": 45970771
 }

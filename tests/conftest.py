@@ -93,6 +93,8 @@ def client(db_session, test_session_factory):
             from main.framework.repositories.workflow_repo import WorkflowRepository
             from main.framework.services.conversation_service import ConversationService
             from main.framework.services.scheduler_service import SchedulerService
+            from main.framework.services.session_service import SessionService
+            from main.framework.services.workflow_crud_service import WorkflowCrudService
 
             test_settings = Settings()
             test_container = Container(test_settings)
@@ -121,6 +123,18 @@ def client(db_session, test_session_factory):
             test_container._instances["SchedulerService"] = SchedulerService(
                 session_factory=test_session_factory,
                 workflow_service=None,
+            )
+
+            # Phase 2 fix: Register WorkflowCrudService and SessionService
+            # so Depends(get_service(...)) resolves in the refactored controllers.
+            test_container._instances["WorkflowCrudService"] = WorkflowCrudService(
+                workflow_repo=test_container._instances["workflow_repo"],
+                exec_repo=test_container._instances["execution_repo"],
+            )
+            test_container._instances["SessionService"] = SessionService(
+                exec_repo=test_container._instances["execution_repo"],
+                conv_repo=test_container._instances["conversation_repo"],
+                backend=None,  # no real backend in tests
             )
 
             configure(test_container)

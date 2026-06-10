@@ -36,7 +36,6 @@ from main.framework.services.scheduler_service import (
     validate_cron_expression,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

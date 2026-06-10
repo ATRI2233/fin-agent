@@ -236,6 +236,36 @@ class Container:
         """
         return None
 
+    def create_workflow_crud_service(self):
+        """@singleton — WorkflowCrudService(workflow_repo, exec_repo).
+
+        CRUD + stats for workflow management.  Separate from WorkflowService
+        which handles DAG orchestration/execution.
+        """
+        from main.framework.services.workflow_crud_service import WorkflowCrudService
+
+        if "workflow_crud_service" not in self._instances:
+            self._instances["workflow_crud_service"] = WorkflowCrudService(
+                workflow_repo=self.workflow_repo,
+                exec_repo=self.execution_repo,
+            )
+        return self._instances["workflow_crud_service"]
+
+    def create_session_service(self):
+        """@singleton — SessionService(exec_repo, conv_repo, backend).
+
+        Session listing, lookup, and cleanup.
+        """
+        from main.framework.services.session_service import SessionService
+
+        if "session_service" not in self._instances:
+            self._instances["session_service"] = SessionService(
+                exec_repo=self.execution_repo,
+                conv_repo=self.conversation_repo,
+                backend=self.backend,
+            )
+        return self._instances["session_service"]
+
     def create_conv_session_manager(self):
         """@singleton — ConvSessionManager(backend).
 

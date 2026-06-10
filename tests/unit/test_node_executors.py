@@ -12,12 +12,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from main.framework.core.workflow.node_executors.agent_executor import (
+    AgentNodeExecutor,
+)
 from main.framework.core.workflow.node_executors.base import (
     NodeContext,
     NodeResult,
-)
-from main.framework.core.workflow.node_executors.agent_executor import (
-    AgentNodeExecutor,
 )
 from main.framework.core.workflow.node_executors.debate_executor import (
     DebateNodeExecutor,
@@ -28,7 +28,6 @@ from main.framework.core.workflow.node_executors.input_executor import (
 from main.framework.core.workflow.node_executors.output_executor import (
     OutputNodeExecutor,
 )
-
 
 # ---------------------------------------------------------------------------
 # InputNodeExecutor (W4.2)

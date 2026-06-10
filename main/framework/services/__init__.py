@@ -12,7 +12,9 @@ from .exceptions import NotFoundError, ServiceError
 from .execution_service import ExecutionService
 from .protocols import ServiceProtocol
 from .scheduler_service import SchedulerService
+from .session_service import SessionService
 from .unit_of_work import UnitOfWork
+from .workflow_crud_service import WorkflowCrudService
 from .workflow_service import WorkflowService
 
 __all__ = [
@@ -22,6 +24,8 @@ __all__ = [
     "SchedulerService",
     "ServiceError",
     "ServiceProtocol",
+    "SessionService",
     "UnitOfWork",
+    "WorkflowCrudService",
     "WorkflowService",
 ]
