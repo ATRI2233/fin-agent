@@ -1,0 +1,22 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  envPrefix: 'VITE_',
+  server: {
+    port: 5173,
+    proxy: {
+      // Python FastAPI framework (main/)
+      '/api/v1': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      // OpenCode API (agents/)
+      '/api': {
+        target: 'http://localhost:9876',
+        changeOrigin: true,
+      },
+    },
+  },
+});
