@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import re
-import warnings
 from collections.abc import Callable
-from datetime import UTC, datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger

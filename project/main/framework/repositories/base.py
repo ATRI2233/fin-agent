@@ -10,7 +10,7 @@ should extend this class and add domain-specific queries.
 from __future__ import annotations
 
 import builtins
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from sqlalchemy.orm import Session
 

@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 if TYPE_CHECKING:
     # Imported only for type checking to avoid a circular import:
     # WorkflowEngine will eventually depend on these executors.
-    from main.framework.core.workflow_engine import WorkflowEngine
+    pass
 
 
 @dataclass

@@ -1,9 +1,9 @@
 """Conversation and Message models."""
 
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 
 from main.framework.models.database import Base
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 

@@ -48,7 +48,6 @@ async def process_agent_message(
     session_manager: ConvSessionManager,
 ):
     """Process agent message in background."""
-    from main.framework.core.protocols import AgentBackend
 
     with get_session() as db:
         try:
@@ -113,7 +112,6 @@ async def execute_workflow_async(conversation_id: str, execution_id: str, workfl
     """Execute workflow in background and save results to conversation."""
     with get_session() as db:
         try:
-            from main.framework.core.workflow_engine import WorkflowEngine
 
             workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
             if not workflow:

@@ -18,7 +18,7 @@ import json
 import logging
 import sys
 from collections.abc import MutableMapping
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from main.framework.core.request_context import get_request_id

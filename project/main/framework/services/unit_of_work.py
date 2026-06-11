@@ -1,6 +1,5 @@
 """UnitOfWork pattern for cross-Repository transaction management."""
 
-from typing import Optional
 
 from main.framework.config.database import SessionLocal
 from sqlalchemy.orm import Session

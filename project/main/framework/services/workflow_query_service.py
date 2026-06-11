@@ -31,12 +31,12 @@ import logging
 from typing import Any
 
 from main.framework.core.workflow_parser import validate_dag
-from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
+from main.framework.models.workflow_execution import WorkflowExecution
 from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.repositories.workflow_repo import WorkflowRepository
 from main.framework.services.exceptions import NotFoundError, ServiceError
-from sqlalchemy import case, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)

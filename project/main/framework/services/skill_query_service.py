@@ -19,7 +19,6 @@ engine.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from main.framework.services.exceptions import NotFoundError
 

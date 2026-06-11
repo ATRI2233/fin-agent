@@ -8,7 +8,6 @@ The re-export shim at ``api/skills.py`` re-publishes this ``router`` so
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from main.framework.core.container import get_service

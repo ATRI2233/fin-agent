@@ -22,7 +22,6 @@ from main.framework.services.workflow_service import WorkflowService
 
 if TYPE_CHECKING:
     from main.framework.core.agent_dispatcher import AgentDispatcher
-    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
