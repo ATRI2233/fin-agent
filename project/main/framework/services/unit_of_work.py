@@ -2,9 +2,8 @@
 
 from typing import Optional
 
-from sqlalchemy.orm import Session
-
 from main.framework.config.database import SessionLocal
+from sqlalchemy.orm import Session
 
 
 class UnitOfWork:

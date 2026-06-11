@@ -14,9 +14,8 @@ from main.framework.models.workflow_execution import ExecutionNode
 from main.framework.services.workflow_graph import is_only_successor
 
 if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
     from main.framework.core.agent_dispatcher import AgentDispatcher
+    from sqlalchemy.orm import Session
 
 
 class AgentNodeExecutor(NodeExecutor):

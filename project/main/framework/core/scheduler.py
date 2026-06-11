@@ -11,7 +11,6 @@ from typing import Any, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-
 from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import WorkflowExecution
 

@@ -1,10 +1,9 @@
 ﻿from datetime import UTC, datetime, timezone
 from uuid import uuid4
 
+from main.framework.models.database import Base
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-
-from main.framework.models.database import Base
 
 
 class WorkflowExecution(Base):

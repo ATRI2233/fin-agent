@@ -1,7 +1,6 @@
 from fastapi import HTTPException, Request
-from starlette.middleware.base import BaseHTTPMiddleware
-
 from main.framework.config import settings
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):

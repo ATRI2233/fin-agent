@@ -27,7 +27,6 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-
 from main.framework.api.problems import ProblemDetail
 from main.framework.core.container import get_container, get_service
 from main.framework.repositories.conversation_repo import ConversationRepository

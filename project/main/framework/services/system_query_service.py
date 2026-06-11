@@ -43,13 +43,12 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from main.framework.config import settings
 from main.framework.core.log_collector import current_job_id, get_log_collector
 from main.framework.core.session_cleanup import get_active_executions
 from main.framework.models.workflow_execution import ExecutionNode
 from main.framework.services.scheduler_service import SchedulerService
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 

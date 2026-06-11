@@ -3,10 +3,9 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+from main.framework.config.settings import Settings
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
-
-from main.framework.config.settings import Settings
 
 settings = Settings()
 

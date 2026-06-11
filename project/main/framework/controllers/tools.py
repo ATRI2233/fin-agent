@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-
 from main.framework.core.container import get_service
 from main.framework.services.exceptions import NotFoundError
 from main.framework.services.tool_query_service import ToolQueryService

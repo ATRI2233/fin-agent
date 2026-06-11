@@ -27,11 +27,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
-
 from main.framework.repositories.agent_repo import AgentRepository
 from main.framework.services.exceptions import NotFoundError
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 

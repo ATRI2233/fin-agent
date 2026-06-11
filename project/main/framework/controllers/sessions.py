@@ -16,11 +16,10 @@ unchanged.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 from main.framework.core.container import get_service
 from main.framework.services.exceptions import NotFoundError, ServiceError
 from main.framework.services.session_service import SessionService
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 

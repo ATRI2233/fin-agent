@@ -24,10 +24,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-
 from main.framework.core.container import get_service
 from main.framework.repositories.execution_repo import ExecutionRepository
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 

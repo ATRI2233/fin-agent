@@ -11,7 +11,6 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-
 from main.framework.core.container import get_service
 from main.framework.services.exceptions import NotFoundError
 from main.framework.services.skill_query_service import SkillQueryService

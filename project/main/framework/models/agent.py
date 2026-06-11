@@ -1,6 +1,5 @@
-from sqlalchemy import JSON, Column, String
-
 from main.framework.models.database import Base
+from sqlalchemy import JSON, Column, String
 
 
 class Agent(Base):

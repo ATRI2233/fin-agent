@@ -2,10 +2,9 @@
 
 from datetime import UTC, datetime, timezone
 
+from main.framework.models.database import Base
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
-
-from main.framework.models.database import Base
 
 
 class Conversation(Base):

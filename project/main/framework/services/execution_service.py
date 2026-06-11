@@ -12,12 +12,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.services.exceptions import NotFoundError
 from main.framework.services.workflow_graph import find_downstream
+from sqlalchemy.orm import Session
 
 
 class ExecutionService:

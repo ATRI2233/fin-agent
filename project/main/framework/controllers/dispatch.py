@@ -30,10 +30,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-
 from main.framework.core.container import get_service
 from main.framework.services.dispatch_query_service import DispatchQueryService
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 

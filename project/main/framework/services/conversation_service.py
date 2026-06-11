@@ -23,8 +23,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy.orm import Session
-
 from main.framework.models.conversation import Conversation, Message
 from main.framework.models.workflow_execution import WorkflowExecution
 from main.framework.repositories.conversation_repo import ConversationRepository
@@ -36,6 +34,7 @@ from main.framework.schemas.conversation import (
     MessageResponse,
 )
 from main.framework.services.exceptions import NotFoundError
+from sqlalchemy.orm import Session
 
 
 class ConversationService:

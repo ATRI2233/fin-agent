@@ -18,11 +18,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import cast
 
-from sqlalchemy.orm import Session
-
 from main.framework.models.conversation import Conversation, Message
 from main.framework.models.database import SessionLocal
 from main.framework.repositories.base import BaseRepository
+from sqlalchemy.orm import Session
 
 
 class ConversationRepository(BaseRepository[Conversation]):

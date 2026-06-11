@@ -22,9 +22,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy.orm import Session
-
 from main.framework.core.agent_dispatcher import AgentDispatcher
+from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
     # Imported only for type checking to avoid a circular import:

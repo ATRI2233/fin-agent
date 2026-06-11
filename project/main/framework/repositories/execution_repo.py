@@ -7,11 +7,10 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timezone
 from typing import Any, cast
 
-from sqlalchemy.orm import Session
-
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 from main.framework.repositories.base import BaseRepository
+from sqlalchemy.orm import Session
 
 
 class ExecutionRepository(BaseRepository[WorkflowExecution]):

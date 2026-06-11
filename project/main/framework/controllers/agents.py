@@ -33,7 +33,6 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-
 from main.framework.core.container import get_service
 from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.services.agent_query_service import AgentQueryService

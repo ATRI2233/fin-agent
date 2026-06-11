@@ -6,10 +6,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any, cast
 
-from sqlalchemy.orm import Session
-
 from main.framework.models.database import SessionLocal
 from main.framework.models.workflow import Workflow
+from sqlalchemy.orm import Session
 
 
 class WorkflowRepository:
