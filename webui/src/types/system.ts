@@ -32,30 +32,52 @@ export interface SystemStatus {
   /** OpenCode backend liveness. */
   opencode: {
     /** Whether the OpenCode binary is reachable / responding. */
+    online: boolean;
+    /** Path to the OpenCode binary. */
+    binary?: string;
+  };
+  /** Job executor status. */
+  jobExecutor: {
+    /** Whether the executor is running. */
     running: boolean;
-    /** Reported OpenCode version, when discoverable. */
-    version?: string;
-    /** Port the OpenCode backend is listening on. */
-    port?: number;
+    /** Worker thread status. */
+    workerThread: string;
+  };
+  /** Concurrency limiter status. */
+  concurrency: {
+    /** Current active executions. */
+    current: number;
+    /** Maximum concurrent executions. */
+    max: number;
+    /** Available execution slots. */
+    available: number;
   };
   /** APScheduler liveness + registered job count. */
   scheduler: {
     /** Whether the scheduler is currently running. */
     running: boolean;
     /** Number of registered cron jobs. */
-    jobs: number;
+    scheduledJobs: number;
+    /** Next scheduled run time. */
+    nextRun: string | null;
   };
   /** Session subsystem counters. */
   sessions: {
-    /** Number of sessions currently active in-process. */
-    active: number;
+    /** List of active sessions. */
+    active: Array<{
+      sessionId: string;
+      status: string;
+      agent: string;
+      startedAt: string | null;
+      updatedAt: string | null;
+    }>;
+    /** Number of active sessions. */
+    count: number;
     /** Total sessions known to the system (DB-backed historical count). */
     total: number;
   };
-  /** Seconds since the framework process started. */
-  uptime_seconds: number;
-  /** Framework semantic version (e.g. `0.4.0`). */
-  version: string;
+  /** ISO-8601 UTC timestamp. */
+  timestamp: string;
 }
 
 /** Per-job log-collector counts returned by `GET /api/v1/system/logs`. */

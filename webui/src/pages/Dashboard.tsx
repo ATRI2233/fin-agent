@@ -239,7 +239,7 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="stat-card-label" style={{ marginBottom: 0 }}>
-              {systemStatus ? `v${systemStatus.version}` : 'System'}
+              {systemStatus ? 'System' : 'System'}
             </div>
           </div>
         </Col>

@@ -22,7 +22,7 @@ from main.framework.api.triggers import router as triggers_router
 from main.framework.api.workflows import router as workflows_router
 from main.framework.config import settings as settings
 from main.framework.core.auth import APIKeyMiddleware
-from main.framework.core.container import Container
+from main.framework.core.container import Container, configure
 from main.framework.core.logger import get_logger
 from main.framework.core.request_context import RequestContextMiddleware, get_request_id
 from main.framework.services.exceptions import NotFoundError, ServiceError
@@ -36,6 +36,7 @@ logger = get_logger(__name__)
 # DI container — single source of truth
 # ------------------------------------------------------------------
 container = Container(settings)
+configure(container)
 
 app = FastAPI(title="fin-agent-framework")
 
