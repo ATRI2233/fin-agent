@@ -146,16 +146,26 @@ async def execute_workflow_async(conversation_id: str, execution_id: str, workfl
             db.commit()
 
             async def status_callback(st: str, detail: str, agent: str = ""):
-                with get_session() as db2:
-                    _save_workflow_status(
-                        db2,
-                        conversation_id,
-                        execution_id,
-                        workflow_id,
-                        st,
-                        detail,
-                        agent,
-                    )
+                import asyncio
+                for attempt in range(5):
+                    try:
+                        with get_session() as db2:
+                            _save_workflow_status(
+                                db2,
+                                conversation_id,
+                                execution_id,
+                                workflow_id,
+                                st,
+                                detail,
+                                agent,
+                            )
+                        return
+                    except Exception as e:
+                        if "database is locked" in str(e) and attempt < 4:
+                            await asyncio.sleep(0.5 * (attempt + 1))
+                        else:
+                            logger.warning("status_callback failed after %d attempts: %s", attempt + 1, e)
+                            return
 
             engine = container.create_workflow_engine(
                 workflow_id, params, db=db, status_callback=status_callback, execution_id=execution_id
