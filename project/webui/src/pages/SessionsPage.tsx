@@ -9,6 +9,7 @@ import {
   PauseCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { getSystemStatus } from '../api/system';
 
 const { Text } = Typography;
 
@@ -77,9 +78,8 @@ export default function SessionsPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/system/status', { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setStatus(await res.json());
+      const data = await getSystemStatus();
+      setStatus(data as unknown as SystemStatus);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch status');

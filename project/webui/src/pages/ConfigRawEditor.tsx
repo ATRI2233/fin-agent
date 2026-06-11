@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Typography, Select, Button, Space, Spin, Alert, message } from 'antd';
 import { SaveOutlined, ReloadOutlined } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
+import { opencodeGet, opencodePut } from '../api/opencode';
 
 const { Title } = Typography;
 
@@ -42,9 +43,7 @@ export default function ConfigRawEditor() {
     setError(null);
     try {
       const apiPath = buildApiPath(file, scope);
-      const res = await fetch(apiPath);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodeGet<Record<string, unknown>>(apiPath);
       setContent(JSON.stringify(data, null, 2));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '加载配置失败');
@@ -60,12 +59,7 @@ export default function ConfigRawEditor() {
     try {
       const parsed = JSON.parse(content);
       const apiPath = buildApiPath(file, scope);
-      const res = await fetch(apiPath, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut(apiPath, parsed);
       message.success('配置已保存');
     } catch (err: unknown) {
       if (err instanceof SyntaxError) message.error('无效的 JSON');

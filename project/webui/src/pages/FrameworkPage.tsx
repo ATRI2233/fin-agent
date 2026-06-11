@@ -16,6 +16,8 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { getSystemStatus } from '../api/system';
+import { listWorkflows, getWorkflowStats, triggerWorkflow } from '../api/workflows';
 
 const { Text } = Typography;
 
@@ -63,13 +65,13 @@ export default function FrameworkPage() {
     setLoading(true);
     try {
       const [healthRes, wfRes, statsRes] = await Promise.allSettled([
-        fetch('/api/v1/health').then((r) => r.json()),
-        fetch('/api/v1/workflows').then((r) => r.json()),
-        fetch('/api/v1/workflows/stats').then((r) => r.json()),
+        getSystemStatus(),
+        listWorkflows(),
+        getWorkflowStats(),
       ]);
-      if (healthRes.status === 'fulfilled') setHealth(healthRes.value);
-      if (wfRes.status === 'fulfilled') setWorkflows(Array.isArray(wfRes.value) ? wfRes.value : []);
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+      if (healthRes.status === 'fulfilled') setHealth(healthRes.value as unknown as { status: string });
+      if (wfRes.status === 'fulfilled') setWorkflows((Array.isArray(wfRes.value) ? wfRes.value : []) as unknown as WorkflowMeta[]);
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value as unknown as WorkflowStats);
     } catch {
       // ignore
     } finally {
@@ -81,12 +83,7 @@ export default function FrameworkPage() {
 
   const handleTrigger = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/workflows/${id}/trigger`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ params: {} }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await triggerWorkflow(id);
       message.success('工作流已触发');
       fetchData();
     } catch {

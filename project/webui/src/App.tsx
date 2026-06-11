@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Layout, Menu, ConfigProvider, theme, Tooltip } from 'antd';
+import { Layout, Menu, ConfigProvider, theme, Tooltip, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import { useUiStore } from './store/useUiStore';
 import {
@@ -19,25 +19,27 @@ import {
   SendOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons';
-import FrameworkPage from './pages/FrameworkPage';
-import SessionsPage from './pages/SessionsPage';
-import AgentsPage from './pages/AgentsPage';
-import SkillsPage from './pages/SkillsPage';
-import MCPServersPage from './pages/MCPServersPage';
-import ProvidersPage from './pages/ProvidersPage';
-import ToolsPage from './pages/ToolsPage';
-import PermissionsPage from './pages/PermissionsPage';
-import Dashboard from './pages/Dashboard';
-import ConfigRawEditor from './pages/ConfigRawEditor';
-import RulesEditor from './pages/RulesEditor';
-import WorkflowList from './pages/WorkflowList';
-import WorkflowEditor from './pages/WorkflowEditor';
-import WorkflowSettings from './pages/WorkflowSettings';
-import WorkflowMonitor from './pages/WorkflowMonitor';
-import ChatPage from './pages/ChatPage';
-import InfoPage from './pages/InfoPage';
-import InfoSettingsPage from './pages/InfoSettingsPage';
 import './styles/theme.css';
+
+/* ─── Lazy-loaded page chunks ───────────────────────────────────────── */
+const FrameworkPage = React.lazy(() => import('./pages/FrameworkPage'));
+const SessionsPage = React.lazy(() => import('./pages/SessionsPage'));
+const AgentsPage = React.lazy(() => import('./pages/AgentsPage'));
+const SkillsPage = React.lazy(() => import('./pages/SkillsPage'));
+const MCPServersPage = React.lazy(() => import('./pages/MCPServersPage'));
+const ProvidersPage = React.lazy(() => import('./pages/ProvidersPage'));
+const ToolsPage = React.lazy(() => import('./pages/ToolsPage'));
+const PermissionsPage = React.lazy(() => import('./pages/PermissionsPage'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const ConfigRawEditor = React.lazy(() => import('./pages/ConfigRawEditor'));
+const RulesEditor = React.lazy(() => import('./pages/RulesEditor'));
+const WorkflowList = React.lazy(() => import('./pages/WorkflowList'));
+const WorkflowEditor = React.lazy(() => import('./pages/WorkflowEditor'));
+const WorkflowSettings = React.lazy(() => import('./pages/WorkflowSettings'));
+const WorkflowMonitor = React.lazy(() => import('./pages/WorkflowMonitor'));
+const ChatPage = React.lazy(() => import('./pages/ChatPage'));
+const InfoPage = React.lazy(() => import('./pages/InfoPage'));
+const InfoSettingsPage = React.lazy(() => import('./pages/InfoSettingsPage'));
 
 const { Header, Sider, Content } = Layout;
 
@@ -337,27 +339,29 @@ const AppLayout: React.FC = () => {
             background: '#121212',
           }}
         >
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/framework" element={<FrameworkPage />} />
-            <Route path="/sessions" element={<SessionsPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="/agents" element={<AgentsPage />} />
-            <Route path="/skills" element={<SkillsPage />} />
-            <Route path="/mcp" element={<MCPServersPage />} />
-            <Route path="/providers" element={<ProvidersPage />} />
-            <Route path="/tools" element={<ToolsPage />} />
-            <Route path="/permissions" element={<PermissionsPage />} />
-            <Route path="/config" element={<ConfigRawEditor />} />
-            <Route path="/rules" element={<RulesEditor />} />
-            <Route path="/workflows" element={<WorkflowList />} />
-            <Route path="/workflows/new/edit" element={<WorkflowEditor />} />
-            <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
-            <Route path="/workflows/settings" element={<WorkflowSettings />} />
-            <Route path="/workflow/:executionId?" element={<WorkflowMonitor />} />
-            <Route path="/info" element={<InfoPage />} />
-            <Route path="/info/settings" element={<InfoSettingsPage />} />
-          </Routes>
+          <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}><Spin size="large" /></div>}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/framework" element={<FrameworkPage />} />
+              <Route path="/sessions" element={<SessionsPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/skills" element={<SkillsPage />} />
+              <Route path="/mcp" element={<MCPServersPage />} />
+              <Route path="/providers" element={<ProvidersPage />} />
+              <Route path="/tools" element={<ToolsPage />} />
+              <Route path="/permissions" element={<PermissionsPage />} />
+              <Route path="/config" element={<ConfigRawEditor />} />
+              <Route path="/rules" element={<RulesEditor />} />
+              <Route path="/workflows" element={<WorkflowList />} />
+              <Route path="/workflows/new/edit" element={<WorkflowEditor />} />
+              <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
+              <Route path="/workflows/settings" element={<WorkflowSettings />} />
+              <Route path="/workflow/:executionId?" element={<WorkflowMonitor />} />
+              <Route path="/info" element={<InfoPage />} />
+              <Route path="/info/settings" element={<InfoSettingsPage />} />
+            </Routes>
+          </Suspense>
         </Content>
       </Layout>
     </Layout>

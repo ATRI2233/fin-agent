@@ -15,7 +15,6 @@ import {
    CONSTANTS & API
    ═══════════════════════════════════════════════════════════════════ */
 
-import { API_V1_BASE } from '../config/env';
 import { getSystemStatus, getLogsStats, getCacheState } from '../api/system';
 import { listAgents, getAgentStats } from '../api/agents';
 import { getWorkflowStats } from '../api/workflows';
@@ -32,18 +31,6 @@ import type { Agent, ToolItem } from '../types/agent';
 import type { Skill } from '../api/skills';
 import type { AgentStatsEntry } from '../api/agents';
 
-/**
- * Health / liveness snapshot for the raw `/api/v1/health` endpoint.
- *
- * The backend currently has no `/api/v1/health` route (latent bug),
- * so the fetch below is left as a raw `fetch` and always 404s. The
- * shape is defined here as a defensive cast for when the route lands.
- */
-interface HealthStatus {
-  status: string;
-  timestamp: string;
-}
-
 interface ServerGroup {
   name: string;
   tools: ToolItem[];
@@ -55,7 +42,6 @@ interface ServerGroup {
 
 export default function Dashboard() {
   /* ─── State ─── */
-  const [health, setHealth] = useState<HealthStatus | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [workflowStats, setWorkflowStats] = useState<WorkflowStats | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -70,40 +56,29 @@ export default function Dashboard() {
   /* ─── Fetch all data once ─── */
   const fetchAll = useCallback(async () => {
     try {
-      // TODO: backend has no `/api/v1/health` route — latent bug. Left as
-      // a raw `fetch` until the backend exposes the route. The 404 means
-      // `health` is always null and `isOnline` is always false today.
-      const fetchHealth = async (): Promise<HealthStatus | null> => {
-        const r = await fetch(`${API_V1_BASE}/health`);
-        if (!r.ok) return null;
-        return (await r.json()) as HealthStatus;
-      };
-
       const results = await Promise.allSettled([
-        fetchHealth(),         // 0  — raw fetch (latent bug, see TODO above)
-        getSystemStatus(),     // 1
-        getWorkflowStats(),    // 2
-        listAgents(),          // 3
-        listTools(),           // 4
-        listSkills(),          // 5
-        getAgentStats(),       // 6
-        getLogsStats(),        // 7
-        getCacheState(),       // 8
+        getSystemStatus(),     // 0
+        getWorkflowStats(),    // 1
+        listAgents(),          // 2
+        listTools(),           // 3
+        listSkills(),          // 4
+        getAgentStats(),       // 5
+        getLogsStats(),        // 6
+        getCacheState(),       // 7
       ]);
 
       const val = (r: PromiseSettledResult<unknown>) =>
         r.status === 'fulfilled' && r.value != null ? r.value : undefined;
 
       const v = results.map(val);
-      if (v[0]) setHealth(v[0] as HealthStatus);
-      if (v[1]) setSystemStatus(v[1] as SystemStatus);
-      if (v[2]) setWorkflowStats(v[2] as WorkflowStats);
-      if (Array.isArray(v[3])) setAgents(v[3] as Agent[]);
-      if (Array.isArray(v[4])) setTools(v[4] as ToolItem[]);
-      if (Array.isArray(v[5])) setSkills(v[5] as Skill[]);
-      if (v[6] && typeof v[6] === 'object') setAgentStats(v[6] as Record<string, AgentStatsEntry>);
-      if (v[7]) setLogStats(v[7] as LogStats);
-      if (v[8]) setCacheStats(v[8] as CacheState);
+      if (v[0]) setSystemStatus(v[0] as SystemStatus);
+      if (v[1]) setWorkflowStats(v[1] as WorkflowStats);
+      if (Array.isArray(v[2])) setAgents(v[2] as Agent[]);
+      if (Array.isArray(v[3])) setTools(v[3] as ToolItem[]);
+      if (Array.isArray(v[4])) setSkills(v[4] as Skill[]);
+      if (v[5] && typeof v[5] === 'object') setAgentStats(v[5] as Record<string, AgentStatsEntry>);
+      if (v[6]) setLogStats(v[6] as LogStats);
+      if (v[7]) setCacheStats(v[7] as CacheState);
     } catch (err) {
       console.error('[Dashboard] fetchAll failed:', err);
     } finally {
@@ -175,7 +150,7 @@ export default function Dashboard() {
     return Object.values(map).sort((a, b) => b.tools.length - a.tools.length);
   }, [tools]);
 
-  const isOnline = health?.status === 'ok' || health?.status === 'healthy';
+  const isOnline = systemStatus !== null;
 
   // `agentStats` is already keyed by agent name; expose the same alias
   // the rest of the component uses for indexing.

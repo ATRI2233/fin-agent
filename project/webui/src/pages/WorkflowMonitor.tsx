@@ -4,6 +4,10 @@ import { Typography, Card, Progress, Tag, Spin, Alert, Tooltip, Badge } from 'an
 import { ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ForwardOutlined } from '@ant-design/icons';
 import { ReactFlow, MiniMap, Background, BackgroundVariant, useNodesState, useEdgesState, type Node, type Edge, type NodeTypes, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { getExecution, getExecutionTimeline } from '../api/executions';
+import { getWorkflow } from '../api/workflows';
+import type { Execution, TimelineResponse, NodeExec as ApiNodeExec } from '../types/execution';
+import type { Workflow } from '../types/workflow';
 import NodeDataPanel from './NodeDataPanel';
 import ExecutionTimeline from './ExecutionTimeline';
 
@@ -114,13 +118,56 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
   const [view, setView] = useState<'dag' | 'timeline'>('dag');
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Cache workflow data (edges don't change between polls)
+  const workflowCacheRef = useRef<Workflow | null>(null);
+
   const fetchStatus = useCallback(async () => {
     if (!executionId) return;
     try {
-      const res = await fetch(`/api/v1/workflow/executions/${executionId}/status`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: WorkflowExec = await res.json();
-      setExec(data);
+      // Fetch execution + timeline in parallel
+      const [execution, timeline] = await Promise.all([
+        getExecution(executionId) as Promise<Execution>,
+        getExecutionTimeline(executionId) as Promise<TimelineResponse>,
+      ]);
+
+      // Fetch workflow only once (edges are static)
+      if (!workflowCacheRef.current) {
+        workflowCacheRef.current = await getWorkflow(execution.workflow_id) as Workflow;
+      }
+      const workflow = workflowCacheRef.current;
+
+      // Merge timeline nodes + workflow edges into the local WorkflowExec shape
+      const nodes: NodeExec[] = timeline.nodes.map((n: ApiNodeExec) => ({
+        id: n.node_id,
+        name: n.agent,
+        status: n.status,
+        inputs: n.inputs,
+        outputs: n.outputs,
+        error: n.error,
+        agentResponse: n.agent_response,
+        startedAt: n.started_at,
+        completedAt: n.completed_at,
+      }));
+
+      const edges = (workflow.edges ?? []).map((e) => ({
+        id: e.id ?? `${e.source}-${e.target}`,
+        source: e.source,
+        target: e.target,
+        label: typeof e.label === 'string' ? e.label : undefined,
+      }));
+
+      const merged: WorkflowExec = {
+        id: execution.id,
+        name: (execution as Execution & { workflow_name?: string }).workflow_name ?? workflow.name ?? '',
+        status: execution.status === 'cancelled' ? 'failed' : execution.status as WorkflowExec['status'],
+        nodes,
+        edges,
+        startedAt: execution.started_at,
+        completedAt: execution.ended_at,
+        estimatedMs: execution.duration_ms,
+      };
+
+      setExec(merged);
       setError(null);
     } catch (err: unknown) {
       // non-fatal on subsequent polls

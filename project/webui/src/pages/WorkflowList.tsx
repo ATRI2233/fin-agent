@@ -3,10 +3,10 @@ import { Typography, Table, Button, Tag, Space, Modal, Spin, Alert, message, Pop
 import { EditOutlined, PlayCircleOutlined, CopyOutlined, DeleteOutlined, ReloadOutlined, PlusOutlined, SettingOutlined, BranchesOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
+import { listWorkflows, getWorkflow, createWorkflow, deleteWorkflow, triggerWorkflow } from '../api/workflows';
+import type { WorkflowStatus } from '../types/workflow';
 
 const { Text } = Typography;
-
-type WorkflowStatus = 'draft' | 'running' | 'completed';
 
 interface WorkflowMeta {
   id: string;
@@ -21,12 +21,16 @@ const statusColors: Record<WorkflowStatus, string> = {
   draft: 'default',
   running: 'processing',
   completed: 'success',
+  failed: 'error',
+  paused: 'warning',
 };
 
 const statusLabels: Record<WorkflowStatus, string> = {
   draft: '草稿',
   running: '运行中',
   completed: '已完成',
+  failed: '失败',
+  paused: '暂停',
 };
 
 const tabItems = [
@@ -48,19 +52,14 @@ export default function WorkflowList() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/v1/workflows');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      // FIX: list_workflows returns an array, not {workflows: [...]}
-      // FIX: backend uses snake_case (node_count, created_at) but frontend expects camelCase
-      const rawWorkflows = Array.isArray(data) ? data : (data.workflows ?? []);
-      const workflows: WorkflowMeta[] = rawWorkflows.map((w: any) => ({
+      const data = await listWorkflows();
+      const workflows: WorkflowMeta[] = (Array.isArray(data) ? data : []).map((w) => ({
         id: w.id,
         name: w.name,
         status: w.status,
         nodeCount: w.node_count ?? 0,
         createdAt: w.created_at ?? '',
-        lastRunAt: w.last_run_at,
+        lastRunAt: w.last_run_at ?? undefined,
       }));
       setWorkflows(workflows);
     } catch (err: unknown) {
@@ -73,8 +72,7 @@ export default function WorkflowList() {
 
   const handleRun = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/workflows/${id}/trigger`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await triggerWorkflow(id);
       message.success('Workflow started');
       fetchWorkflows();
     } catch { message.error('Failed to run'); }
@@ -82,8 +80,16 @@ export default function WorkflowList() {
 
   const handleCopy = async (id: string, name: string) => {
     try {
-      const res = await fetch(`/api/v1/workflows/${id}/copy`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // No dedicated copy endpoint — fetch full workflow then create a duplicate
+      const source = await getWorkflow(id);
+      await createWorkflow({
+        name: `${name} (Copy)`,
+        description: source.description,
+        nodes: source.nodes,
+        edges: source.edges,
+        trigger_type: source.trigger_type,
+        config: source.config,
+      });
       message.success(`"${name}" copied`);
       fetchWorkflows();
     } catch { message.error('Failed to copy'); }
@@ -91,8 +97,7 @@ export default function WorkflowList() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/workflows/${id}`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+      await deleteWorkflow(id);
       message.success('Deleted');
       fetchWorkflows();
     } catch { message.error('Failed to delete'); }

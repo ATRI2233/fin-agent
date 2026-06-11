@@ -25,6 +25,7 @@ import {
   deleteTask,
   type Task,
 } from '../api/maintenance';
+import { opencodeGet } from '../api/opencode';
 
 export default function InfoSettingsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -54,11 +55,8 @@ export default function InfoSettingsPage() {
 
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch('/api/agents');
-      if (res.ok) {
-        const data = await res.json();
-        setAgents((data.agents || []).map((a: any) => a.name));
-      }
+      const data = await opencodeGet<{ agents?: { name: string }[] }>('/agents');
+      setAgents((data.agents || []).map((a) => a.name));
     } catch {}
   }, []);
 

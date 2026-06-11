@@ -108,10 +108,14 @@ export interface Workflow {
  * `Pick<>` of the canonical `Workflow`; extend cautiously — list responses
  * are unbounded and shape growth directly inflates payload size.
  */
-export type WorkflowMeta = Pick<
-  Workflow,
-  'id' | 'name' | 'status' | 'trigger_type'
->;
+export interface WorkflowMeta extends Pick<Workflow, 'id' | 'name' | 'status' | 'trigger_type'> {
+  /** Number of nodes in the workflow DAG. */
+  node_count?: number;
+  /** ISO-8601 creation timestamp (list endpoint includes this). */
+  created_at?: string;
+  /** ISO-8601 timestamp of the most recent execution, or null. */
+  last_run_at?: string | null;
+}
 
 /* ─── Execution shapes ─────────────────────────────────────────────────── */
 

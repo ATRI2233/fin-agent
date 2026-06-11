@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Select, Switch, Alert, Spin, message, Card } from 'antd';
 import { ReloadOutlined, EditOutlined, ToolOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { opencodeGet, opencodePut } from '../api/opencode';
 
 const { Text } = Typography;
 
@@ -32,43 +33,34 @@ export default function ToolsPage() {
     setError(null);
     let allRows: ToolRow[] = [];
     try {
-      const res = await fetch('/api/tools');
-      if (res.ok) {
-        const data: Record<string, ToolConfig> = await res.json();
-        allRows = [...allRows, ...Object.entries(data).map(([k, c]) => ({ ...c, key: k }))];
-      }
+      const data = await opencodeGet<Record<string, ToolConfig>>('/tools');
+      allRows = [...allRows, ...Object.entries(data).map(([k, c]) => ({ ...c, key: k }))];
     } catch {}
     try {
-      const mcpRes = await fetch('/api/mcp');
-      if (mcpRes.ok) {
-        const mcpData: Record<string, any> = await mcpRes.json();
-        // 展开每个 MCP 服务器的 tools 列表
-        for (const [serverName, serverConfig] of Object.entries(mcpData)) {
-          const serverEnabled = serverConfig.enabled !== false;
-          const mcpTools = serverConfig.tools || [];
-          if (Array.isArray(mcpTools) && mcpTools.length > 0) {
-            // 有 tools 字段：展开每个 tool
-            for (const tool of mcpTools) {
-              allRows.push({
-                key: `${serverName}_${tool.name}`,
-                name: tool.name,
-                description: tool.description || '',
-                enabled: serverEnabled,
-                source: 'mcp' as const,
-                mcpServer: serverName,
-              });
-            }
-          } else {
-            // 没有 tools 字段：显示 MCP 服务器本身
+      const mcpData = await opencodeGet<Record<string, { enabled?: boolean; description?: string; tools?: { name: string; description?: string }[] }>>('/mcp');
+      for (const [serverName, serverConfig] of Object.entries(mcpData)) {
+        const serverEnabled = serverConfig.enabled !== false;
+        const mcpTools = serverConfig.tools || [];
+        if (Array.isArray(mcpTools) && mcpTools.length > 0) {
+          for (const tool of mcpTools) {
             allRows.push({
-              key: `mcp:${serverName}`,
-              name: serverName,
-              description: serverConfig.description || `MCP server: ${serverName}`,
+              key: `${serverName}_${tool.name}`,
+              name: tool.name,
+              description: tool.description || '',
               enabled: serverEnabled,
               source: 'mcp' as const,
               mcpServer: serverName,
             });
           }
+        } else {
+          allRows.push({
+            key: `mcp:${serverName}`,
+            name: serverName,
+            description: serverConfig.description || `MCP server: ${serverName}`,
+            enabled: serverEnabled,
+            source: 'mcp' as const,
+            mcpServer: serverName,
+          });
         }
       }
     } catch {}
@@ -99,8 +91,7 @@ export default function ToolsPage() {
     try {
       const v = await form.validateFields();
       setSaving(true);
-      const res = await fetch(`/api/tools/${editTarget.key}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v.name, description: v.description || undefined, enabled: v.enabled, source: v.source, mcpServer: v.mcpServer || undefined }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut(`/tools/${editTarget.key}`, { name: v.name, description: v.description || undefined, enabled: v.enabled, source: v.source, mcpServer: v.mcpServer || undefined });
       message.success(`${editTarget.key} 已更新`);
       setEditVisible(false);
       setEditTarget(null);

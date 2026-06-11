@@ -11,7 +11,7 @@ import {
 
 const { Text, Title } = Typography;
 
-import { MAINTENANCE_API_BASE } from '../config/env';
+import { getStatus, getTaskData, runTask } from '../api/maintenance';
 
 interface TaskStatus {
   id: string;
@@ -25,10 +25,10 @@ interface TaskStatus {
 }
 
 interface DataRecord {
-  id: string;
+  id: number;
   data_key: string;
-  content: any;
-  fetched_at: string;
+  content: unknown;
+  fetched_at: string | null;
 }
 
 interface StatusOverview {
@@ -48,8 +48,8 @@ export default function InfoPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/status`);
-      if (res.ok) setOverview(await res.json());
+      const data = await getStatus();
+      setOverview(data);
     } catch (e) {
       console.error('Failed to fetch maintenance status', e);
     } finally {
@@ -67,11 +67,8 @@ export default function InfoPage() {
     setSelectedTask(taskId);
     setDataLoading(true);
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks/${taskId}/data?limit=50`);
-      if (res.ok) {
-        const data = await res.json();
-        setTaskData(data.data || []);
-      }
+      const data = await getTaskData(taskId, 50);
+      setTaskData(data.data || []);
     } catch {
       message.error('Failed to load data');
     } finally {
@@ -79,10 +76,9 @@ export default function InfoPage() {
     }
   };
 
-  const runTask = async (taskId: string) => {
+  const handleRunTask = async (taskId: string) => {
     try {
-      const res = await fetch(`${MAINTENANCE_API_BASE}/tasks/${taskId}/run`, { method: 'POST' });
-      const result = await res.json();
+      const result = await runTask(taskId);
       if (result.success) {
         message.success(`更新完成: ${result.records_updated} 条数据`);
         fetchStatus();
@@ -163,7 +159,7 @@ export default function InfoPage() {
           <Button size="small" onClick={() => fetchTaskData(record.id)}>
             查看数据
           </Button>
-          <Button size="small" type="primary" onClick={() => runTask(record.id)}>
+          <Button size="small" type="primary" onClick={() => handleRunTask(record.id)}>
             立即更新
           </Button>
         </Space>

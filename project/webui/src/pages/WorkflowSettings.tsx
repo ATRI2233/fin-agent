@@ -183,8 +183,7 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
   const handleRemoveSchedule = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/workflows/${w.id}/schedule`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+      await unscheduleWorkflow(w.id);
       message.success('已移除定时任务');
       setTriggerType('manual');
       setCronExpression('');

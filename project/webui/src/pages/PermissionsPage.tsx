@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Select, Card, Alert, Spin, message, Popconfirm } from 'antd';
 import { ReloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, SafetyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { opencodeGet, opencodePut } from '../api/opencode';
 
 const { Title, Text } = Typography;
 
@@ -32,9 +33,7 @@ export default function PermissionsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/permissions');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: PermissionsConfig = await res.json();
+      const data = await opencodeGet<PermissionsConfig>('/permissions');
       setPermissions(data);
       setDefaultAction(data.defaultAction);
     } catch (err: unknown) {
@@ -47,8 +46,7 @@ export default function PermissionsPage() {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/permissions', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rules: permissions.rules, defaultAction }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut('/permissions', { rules: permissions.rules, defaultAction });
       message.success('权限已保存');
       fetchPermissions();
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '保存失败'); } finally { setSaving(false); }

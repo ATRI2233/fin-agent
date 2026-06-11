@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Typography, Button, Space, Spin, Alert, message } from 'antd';
 import { SaveOutlined, ReloadOutlined } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
+import { opencodeGet, opencodePut } from '../api/opencode';
 
 const { Title, Text } = Typography;
 
@@ -15,9 +16,7 @@ export default function RulesEditor() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/rules');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodeGet<{ content?: string }>('/rules');
       setContent(data.content ?? '');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '加载规则失败');
@@ -30,12 +29,7 @@ export default function RulesEditor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/rules', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut('/rules', { content });
       message.success('规则已保存');
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : '保存失败');
