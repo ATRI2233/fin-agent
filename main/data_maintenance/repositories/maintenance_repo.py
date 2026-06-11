@@ -9,12 +9,11 @@ from __future__ import annotations
 from datetime import UTC, datetime, timezone
 from typing import Optional
 
-from sqlalchemy.orm import Session
-
 from main.data_maintenance.models.maintenance_db import (
     MaintenanceData,
     MaintenanceTask,
 )
+from sqlalchemy.orm import Session
 
 # Sentinel task_id used to store key-value settings in MaintenanceData.
 _SETTINGS_TASK_ID = "__settings__"

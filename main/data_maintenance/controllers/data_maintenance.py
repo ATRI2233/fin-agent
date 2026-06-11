@@ -33,13 +33,12 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-
 from main.data_maintenance.services.maintenance_query_service import (
     MaintenanceQueryService,
 )
 from main.framework.core.container import get_service
 from main.framework.services.exceptions import NotFoundError
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
