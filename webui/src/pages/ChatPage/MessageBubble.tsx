@@ -24,9 +24,14 @@
  * `Record<string, unknown>` and narrowed per call site — never typed as
  * `any`.
  */
+import { useEffect, useState } from 'react';
 import { Tag, Typography } from 'antd';
 import {
   BranchesOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CloseCircleOutlined,
+  ForwardOutlined,
   RobotOutlined,
   SyncOutlined,
   ThunderboltOutlined,
@@ -49,6 +54,58 @@ function getExtraType(msg: Message): string | undefined {
   return typeof extra?.type === 'string' ? extra.type : undefined;
 }
 
+// ── Node status for workflow display ─────────────────────────────────────────
+interface NodeStatus {
+  node_id: string;
+  agent: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+}
+
+const NODE_ICON: Record<NodeStatus['status'], React.ReactNode> = {
+  pending: <ClockCircleOutlined style={{ color: '#6B6B6B', fontSize: 11 }} />,
+  running: <SyncOutlined spin style={{ color: '#8B9DC3', fontSize: 11 }} />,
+  completed: <CheckCircleOutlined style={{ color: '#6B8E7B', fontSize: 11 }} />,
+  failed: <CloseCircleOutlined style={{ color: '#C47C7C', fontSize: 11 }} />,
+  skipped: <ForwardOutlined style={{ color: '#C4A882', fontSize: 11 }} />,
+};
+
+const NODE_TAG_COLOR: Record<NodeStatus['status'], string> = {
+  pending: 'default',
+  running: 'processing',
+  completed: 'success',
+  failed: 'error',
+  skipped: 'warning',
+};
+
+/** Fetch node statuses for a given execution_id. Returns null while loading. */
+function useNodeStatuses(executionId: string | undefined): NodeStatus[] | null {
+  const [nodes, setNodes] = useState<NodeStatus[] | null>(null);
+
+  useEffect(() => {
+    if (!executionId) { setNodes([]); return; }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/v1/executions/${executionId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && Array.isArray(data.nodes)) {
+          setNodes(data.nodes.map((n: Record<string, unknown>) => ({
+            node_id: String(n.node_id ?? ''),
+            agent: String(n.agent ?? ''),
+            status: String(n.status ?? 'pending') as NodeStatus['status'],
+          })));
+        }
+      } catch { /* ignore */ }
+    };
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [executionId]);
+
+  return nodes;
+}
+
 export default function MessageBubble({ message: msg }: MessageBubbleProps) {
   const isUser = msg.role === 'user';
   const isSystem = msg.role === 'system';
@@ -58,6 +115,11 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
   const isWorkflowResult = msgType === 'workflow_result';
   const isWorkflowError = msgType === 'workflow_error';
   const isStruck = msg._struck;
+
+  // Poll node statuses for workflow_start messages
+  const executionId = (msg.extra_data as Record<string, unknown>)?.execution_id as string | undefined
+    ?? msg.execution_id ?? undefined;
+  const nodeStatuses = (isWorkflowStart || isWorkflowStatus) ? useNodeStatuses(executionId) : null;
 
   // Compact inline row for workflow status / start — no avatar/bubble chrome.
   if (isWorkflowStatus || isWorkflowStart) {
@@ -76,51 +138,99 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
           opacity: isStruck ? 0.5 : 1,
         }}
       >
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 12px' }}>
-          {isStruck ? (
-            <span style={{ position: 'relative', display: 'inline-flex', width: 12, height: 12 }}>
-              <SyncOutlined style={{ color: '#555', fontSize: 12 }} />
-              <span
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 12px' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {isStruck ? (
+              <span style={{ position: 'relative', display: 'inline-flex', width: 12, height: 12 }}>
+                <SyncOutlined style={{ color: '#555', fontSize: 12 }} />
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: -1,
+                    right: -1,
+                    height: 1,
+                    background: '#555',
+                  }}
+                />
+              </span>
+            ) : isFailed ? (
+              <ThunderboltOutlined style={{ color: iconColor, fontSize: 12 }} />
+            ) : isCompleted ? (
+              <BranchesOutlined style={{ color: iconColor, fontSize: 12 }} />
+            ) : (
+              <SyncOutlined spin style={{ color: iconColor, fontSize: 12 }} />
+            )}
+            {msg.agent && (
+              <Tag
+                color={
+                  isStruck ? 'default' : isFailed ? 'error' : isCompleted ? 'success' : 'blue'
+                }
                 style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: -1,
-                  right: -1,
-                  height: 1,
-                  background: '#555',
+                  fontSize: 10,
+                  margin: 0,
+                  textDecoration: isStruck ? 'line-through' : 'none',
                 }}
-              />
-            </span>
-          ) : isFailed ? (
-            <ThunderboltOutlined style={{ color: iconColor, fontSize: 12 }} />
-          ) : isCompleted ? (
-            <BranchesOutlined style={{ color: iconColor, fontSize: 12 }} />
-          ) : (
-            <SyncOutlined spin style={{ color: iconColor, fontSize: 12 }} />
-          )}
-          {msg.agent && (
-            <Tag
-              color={
-                isStruck ? 'default' : isFailed ? 'error' : isCompleted ? 'success' : 'blue'
-              }
+              >
+                {msg.agent}
+              </Tag>
+            )}
+            <Text
               style={{
-                fontSize: 10,
-                margin: 0,
+                color: isStruck ? '#555' : isFailed ? '#ff7875' : '#888',
+                fontSize: 12,
                 textDecoration: isStruck ? 'line-through' : 'none',
               }}
             >
-              {msg.agent}
-            </Tag>
+              {msg.content}
+            </Text>
+          </div>
+
+          {/* Node-level status display */}
+          {nodeStatuses && nodeStatuses.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 20, marginTop: 4 }}>
+              {nodeStatuses.map((n) => (
+                <div
+                  key={n.node_id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    background: n.status === 'completed' ? 'rgba(107,142,123,0.12)'
+                      : n.status === 'running' ? 'rgba(139,157,195,0.12)'
+                      : n.status === 'failed' ? 'rgba(196,124,124,0.12)'
+                      : n.status === 'skipped' ? 'rgba(196,168,130,0.12)'
+                      : 'rgba(107,107,107,0.08)',
+                    border: `1px solid ${
+                      n.status === 'completed' ? 'rgba(107,142,123,0.3)'
+                      : n.status === 'running' ? 'rgba(139,157,195,0.3)'
+                      : n.status === 'failed' ? 'rgba(196,124,124,0.3)'
+                      : n.status === 'skipped' ? 'rgba(196,168,130,0.3)'
+                      : 'rgba(107,107,107,0.15)'
+                    }`,
+                  }}
+                >
+                  {NODE_ICON[n.status]}
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: n.status === 'completed' ? '#6B8E7B'
+                        : n.status === 'running' ? '#8B9DC3'
+                        : n.status === 'failed' ? '#C47C7C'
+                        : n.status === 'skipped' ? '#C4A882'
+                        : '#888',
+                      textDecoration: n.status === 'completed' ? 'line-through' : 'none',
+                      fontWeight: n.status === 'running' ? 600 : 400,
+                    }}
+                  >
+                    {n.agent || n.node_id}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
-          <Text
-            style={{
-              color: isStruck ? '#555' : isFailed ? '#ff7875' : '#888',
-              fontSize: 12,
-              textDecoration: isStruck ? 'line-through' : 'none',
-            }}
-          >
-            {msg.content}
-          </Text>
         </div>
       </div>
     );
