@@ -145,7 +145,7 @@ async def execute_workflow_async(conversation_id: str, execution_id: str, workfl
                 db.add(exec_node)
             db.commit()
 
-            def status_callback(st: str, detail: str, agent: str = ""):
+            async def status_callback(st: str, detail: str, agent: str = ""):
                 with get_session() as db2:
                     _save_workflow_status(
                         db2,
