@@ -102,7 +102,7 @@ export default function FrameworkPage() {
     </div>
   );
 
-  const isConnected = health?.status === 'ok';
+  const isConnected = health !== null && 'timestamp' in health;
   const runningCount = stats?.running ?? 0;
   const completedCount = stats?.completed ?? 0;
   const failedCount = stats?.failed ?? 0;
