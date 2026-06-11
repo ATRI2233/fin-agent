@@ -1,0 +1,127 @@
+TASK: W3-2 Create controllers/conversations.py
+DATE: 2026-06-09
+BRANCH: phase2-refactor
+WORKDIR: D:\github_place\fin-agent
+
+================================================================================
+EVIDENCE: task-w3-2-controllers
+================================================================================
+
+[1] FILES CREATED
+    Path  : D:\github_place\fin-agent\main\framework\controllers\__init__.py
+    Lines : 0  (empty file) ✓
+
+    Path  : D:\github_place\fin-agent\main\framework\controllers\conversations.py
+    Lines : 181  (limit: 200) ✓
+
+[2] ENDPOINTS DEFINED (7 — required count met)
+    POST   /api/v1/conversations                 -> 201 ConversationResponse
+    GET    /api/v1/conversations                 -> 200 list[ConversationResponse]
+    GET    /api/v1/conversations/{id}            -> 200 ConversationResponse
+    PUT    /api/v1/conversations/{id}            -> 200 {"success": bool}
+    DELETE /api/v1/conversations/{id}            -> 204
+    GET    /api/v1/conversations/{id}/messages   -> 200 list[MessageResponse]
+    POST   /api/v1/conversations/{id}/messages   -> 202 async processing
+
+[3] ENDPOINT BODY LINE COUNTS (limit: 15 per endpoint)
+    create_conversation   :  2 lines ✓
+    list_conversations    :  2 lines ✓
+    get_conversation      :  5 lines ✓
+    update_conversation   :  5 lines ✓
+    delete_conversation   :  5 lines ✓
+    list_messages         :  5 lines ✓
+    send_message          : 10 lines ✓  (workflow + agent branches factored into _dispatch_* helpers)
+
+[4] DEPENDENCY INJECTION
+    All 7 endpoints use:
+        service: ConversationService = Depends(get_service(ConversationService))
+    Plus db: Session = Depends(get_db) for the SQLAlchemy session. ✓
+
+[5] RESPONSE SHAPES PRESERVED
+    - ConversationResponse fields: id, title, current_agent, created_at, updated_at, message_count ✓
+    - MessageResponse fields: id, role, content, agent, workflow_id, execution_id, extra_data, created_at ✓
+    - send_message agent branch returns {user_message, status: "processing"} ✓
+    - send_message workflow branch returns {user_message, status: "workflow_started", execution_id} ✓
+    - update returns {"success": True/False} ✓
+    - delete returns 204 No Content ✓
+    - All status codes match the original (201/200/200/200/204/200/202) ✓
+
+[6] NOTFOUNDERROR HANDLING
+    get_conversation       : try/except NotFoundError -> 404 ✓
+    update_conversation    : try/except NotFoundError -> 404 ✓
+    delete_conversation    : try/except NotFoundError -> 404 ✓
+    list_messages          : try/except NotFoundError -> 404 ✓
+    send_message (conv)    : try/except NotFoundError -> 404 ✓
+    send_message (workflow): try/except NotFoundError -> 404 ✓
+
+[7] SEND_MESSAGE BRANCHES
+    Workflow branch:
+      - service.start_workflow_execution(conv_id, workflow_id, db) -> WorkflowExecution
+        (raises NotFoundError if workflow missing; controller maps to 404)
+      - background_tasks.add_task(execute_workflow_async, ..., container=container)
+      - Returns {user_message, status: "workflow_started", execution_id}
+    Agent branch:
+      - agent = payload.agent or conv_resp.current_agent or "fin-orchestrator"
+      - background_tasks.add_task(process_agent_message, ..., backend=container.backend,
+        session_manager=container.session_manager)
+      - Returns {user_message, status: "processing"}
+
+[8] VERIFICATION COMMANDS + OUTPUT
+
+    > python -c "from main.framework.controllers.conversations import router; print(len(router.routes))"
+    7
+
+    > python -c "from main.framework.controllers.conversations import router; \
+                  [print(r.methods, r.path) for r in router.routes]"
+    {'POST'}   /api/v1/conversations
+    {'GET'}    /api/v1/conversations
+    {'GET'}    /api/v1/conversations/{conversation_id}
+    {'PUT'}    /api/v1/conversations/{conversation_id}
+    {'DELETE'} /api/v1/conversations/{conversation_id}
+    {'GET'}    /api/v1/conversations/{conversation_id}/messages
+    {'POST'}   /api/v1/conversations/{conversation_id}/messages
+
+    > (Get-Content main/framework/controllers/conversations.py | Measure-Object -Line).Lines
+    181
+
+    > (Get-Content main/framework/controllers/__init__.py | Measure-Object -Line).Lines
+    0
+
+    > python -m py_compile main\framework\controllers\conversations.py
+    Compile OK
+
+[9] INTEGRATION TEST STATUS (BLOCKED — see [10])
+    > pytest tests/integration/test_conversation_flow.py -v
+    4 failed
+      - test_create_conversation
+      - test_list_conversations
+      - test_get_conversation_by_id
+      - test_send_agent_message_endpoint
+    Failure mode: ValueError: No service registered for ConversationService
+
+[10] KNOWN ISSUE (NOT W3-2's responsibility)
+    The integration tests fail because ConversationService is NOT yet registered
+    in the DI container. Root cause:
+      - W3.1 created main/framework/services/conversation_service.py with the
+        class ConversationService(conv_repo, workflow_repo).
+      - W3.1 did NOT call container.register_singleton(ConversationService, ...) or
+        container.register_factory(ConversationService, ...) anywhere.
+      - get_service(ConversationService) in core/container.py raises
+        ValueError when no factory/instance is registered.
+      - The test conftest.py (tests/conftest.py) also does not register
+        ConversationService in its test Container instance.
+    Resolution path (out of W3-2 scope):
+      - W3.1 (or W3.4) must add a container.register_factory(ConversationService, ...)
+        call, e.g. in main/framework/main.py or a dedicated wiring module.
+      - W3.4 must mirror that registration in the test conftest's Container override.
+    Per task instructions ("Do NOT modify any other file"), W3-2 deliberately did
+    not touch the container or conftest.
+
+[11] LSP DIAGNOSTICS
+    main/framework/controllers/conversations.py: clean ✓
+    main/framework/controllers/__init__.py: clean ✓
+    (Phantom diagnostics in main/framework/api/conversations.py about
+     "controllers" import are stale LSP cache — file is now a 9-line re-export
+     per W3.3 and does not import controllers.)
+
+[12] NOT COMMITTED (per instructions — orchestrator commits per-wave)

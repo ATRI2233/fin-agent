@@ -1,0 +1,425 @@
+================================================================================
+F1 — PLAN COMPLIANCE AUDIT REPORT
+================================================================================
+Plan: .omo/plans/phase2-refactor.md
+Branch: phase2-refactor
+Commit audited: f71b194 (phase2-complete tag)
+Audit date: 2026-06-10
+Auditor: Sisyphus-Junior (plan-compliance)
+
+================================================================================
+SUMMARY
+================================================================================
+
+Must Have         [5/7]   (2 violations)
+Must NOT Have     [11/12] (1 violation — integration test file modified)
+Tasks             [27/35] (77% per plan checkboxes)
+Definition of Done[8/11]  (2 violations, 1 partial)
+
+VERDICT: REJECT
+
+Rationale:
+  - 2 "Must Have" guardrails violated (SQLAlchemy queries in services,
+    integration test file modified)
+  - 1 "Must NOT Have" guardrail violated (no modifying integration tests)
+  - DoD violation: test_workflow_service.py = 690 lines (exceeds 500)
+  - DoD partial violation: test_dispatch_flow::test_sync_dispatch hangs
+  - Plan checkboxes out of sync with reality: Tasks 28-31 are
+    functionally complete in code but plan checkboxes are unchecked
+
+The `phase2-complete` tag exists at f71b194, but the implementation
+does not match the plan's own acceptance criteria in three concrete
+ways. A clean APPROVE would require resolving the violations and
+updating plan checkboxes + boulder.json.
+
+================================================================================
+CHECKBOX COUNT (raw)
+================================================================================
+
+Total plan checkboxes:        56
+  - [x] completed:            27
+  - [ ] incomplete:           29
+
+Of the 29 unchecked items:
+  - Definition of Done items:    11 (completion-verification bullets)
+  - Final Checklist items:        9 (success-criteria bullets)
+  - Wave 6 tasks (28-31):        4 (unchecked in plan, but DONE in code)
+  - Final Wave tasks (F1-F4):    4 (F1 = this audit; F2-F4 not yet run)
+  - Task-1 sub-acceptance (4):  ~included in 11 DoD
+
+================================================================================
+TASKS — 35 total (1-31 + F1-F4)
+================================================================================
+
+Wave 1 (1 task)         [1/1]   ✓ done
+Wave 2 (5 tasks)        [5/5]   ✓ done
+Wave 3 (5 tasks)        [5/5]   ✓ done
+Wave 4 (9 tasks)        [9/9]   ✓ done
+Wave 5 (7 tasks)        [7/7]   ✓ done
+Wave 6 (4 tasks)        [0/4]   ✗ unchecked in plan; functionally complete
+Final Wave (4 tasks)    [0/4]   ✗ F1 (this audit); F2-F4 not yet executed
+
+Plan checkbox state:
+  Marked [x]:  27/35 (77%)
+  Marked [ ]:   8/35 (23%)
+
+Wave 6 implementation reality (code inspection):
+  Task 28 (_find_opencode_bin consolidation):
+    - settings.py:9    — definition only
+    - config/__init__.py:17 — re-export only
+    - main/session/process_pool.py — now imports from config.settings (no dup)
+    Code is consolidated: 1 def + 1 re-export + 1 internal self-call.
+    Status: CODE DONE, plan checkbox UNCHECKED.
+
+  Task 29 (UnitOfWork decision):
+    - main/framework/services/unit_of_work.py kept (38 lines)
+    - tests/unit/test_unit_of_work.py exists
+    Decision: KEPT (per plan's "If USED: keep it" branch).
+    Status: CODE DONE, plan checkbox UNCHECKED.
+
+  Task 30 (Container registration of 6 services):
+    - container.py:161  create_conversation_service
+    - container.py:177  create_execution_service
+    - container.py:191  create_workflow_service
+    - container.py:212  create_scheduler_service
+    - container.py:228  create_message_processor (no-op for functions)
+    - container.py:239  create_conv_session_manager
+    Verified live: `Container(Settings()).create_conversation_service()` returns
+    a ConversationService instance. Status: CODE DONE, plan checkbox UNCHECKED.
+
+  Task 31 (Final ruff + line count + complexity):
+    - ruff check main/ webui/ → All checks passed!
+    - radon cc -s -n B workflow_engine.py → max rank B (only)
+    - conversations.py = 9 lines (≤150 ✓)
+    - workflow_engine.py = 242 lines (≤300 ✓)
+    - check_lines.py: FAILS (see DoD section below)
+    Status: PARTIAL — ruff/radon/line-counts pass; check_lines.py fails.
+
+================================================================================
+MUST HAVE — 7 items (from plan section "Must Have")
+================================================================================
+
+[✓] 1. All 6 services registered in Container
+    Evidence: container.py exposes create_conversation_service,
+    create_workflow_service, create_execution_service,
+    create_scheduler_service, create_message_processor,
+    create_conv_session_manager.
+    Verified live: `c.create_conversation_service()` returns
+    ConversationService instance.
+
+[✓] 2. ConvSessionManager remains a singleton (process-local state)
+    Evidence: container.session_manager property caches in
+    self._instances["session_manager"] (container.py:111-117).
+    Class lives in main.framework.core.session_manager (decision
+    documented in plan task 3).
+
+[✓] 3. Per-node db.commit() semantics preserved exactly
+    Evidence: workflow_engine.py preserved original commit boundaries;
+    executors in node_executors/* each commit independently. No
+    base class commit method exists.
+
+[✓] 4. Async/sync mixing preserved
+    Evidence: MessageProcessor methods are `async def`; service
+    CRUD methods remain sync. No sync→async conversion detected.
+
+[?] 5. Each Service has ≥5 unit tests
+    Aggregate test count for `pytest tests/unit/ -k "service or executor"`:
+    96 passed, 53 deselected, 1 warning.
+    Per-service tests (file-by-file):
+      test_conversation_service.py:   12 tests
+      test_session_manager.py:        12 tests
+      test_workflow_service.py:       22 tests
+      test_execution_service.py:       8 tests
+      test_scheduler_service.py:      23 tests
+      test_node_executors.py:         12 tests
+      test_executor_registry.py:       4 tests
+      test_workflow_graph.py:          6 tests
+      test_prompt_builder.py:          5 tests
+    All services have ≥5 tests. Status: PASS in aggregate.
+
+[✗] 6. No new SQLAlchemy imports in services/ (use repositories only)
+    Evidence of violation — services/ uses .query() directly:
+      services/conversation_service.py:115  db.query(Message).filter(...)...
+      services/conversation_service.py:124  db.query(Message).filter(...)...
+      services/conversation_service.py:145  db.query(Message).filter(...).delete()
+      services/execution_service.py:128    db.query(ExecutionNode)
+      services/execution_service.py:168    db.query(ExecutionNode)
+      services/execution_service.py:199    db.query(ExecutionNode)
+      services/message_processor.py:55,94,118,123,165,169,189
+        multiple db.query(Conversation/Workflow/WorkflowExecution/ExecutionNode)
+      services/scheduler_service.py:148,178,200,258,298,305
+        multiple db.query(Workflow/WorkflowExecution)
+    Status: VIOLATED. Services access DB directly via SQLAlchemy .query()
+    instead of going through Repository abstractions. This violates the
+    "single source of truth = repositories" architectural intent.
+
+[✗] 7. All 4 integration tests pass with NO test file modifications
+    Evidence of violation — test_scheduled_workflow.py was modified:
+      git diff pre-phase2-baseline phase2-refactor -- tests/integration/
+        tests/integration/test_scheduled_workflow.py | 43 ++-----
+        1 file changed, 2 insertions(+), 41 deletions(-)
+      The autouse `_reset_scheduler_singleton` fixture (41 lines) was
+      DELETED; docstring was updated; `import asyncio` was removed.
+      This was done to migrate to container-based reset (Task 25),
+      but the plan explicitly required "NO modifying the 4 existing
+      integration test files".
+    Tests themselves still pass:
+      test_conversation_flow.py   → 4 passed
+      test_workflow_flow.py       → 5 passed
+      test_dispatch_flow.py       → test_sync_dispatch HANGS (timeout)
+      test_scheduled_workflow.py  → 4 passed (1 skipped)
+    Status: VIOLATED on file modification. Test outcomes are mostly
+    healthy but at least one dispatch test hangs.
+
+================================================================================
+MUST NOT HAVE — 12 guardrails (from plan section "Must NOT Have")
+================================================================================
+
+[✓] 1. NO new node types or retry policy changes
+    Evidence: node_executors/registry.py maps 4 types:
+    input, output, debate, default→agent. WorkflowRetryHandler
+    untouched in core/retry_handler.py.
+
+[✓] 2. NO Node dataclass or typed models (keep dict-based nodes)
+    Evidence: No `class Node` exists. NodeContext/NodeResult
+    dataclasses are executor input/output types, not workflow
+    node definitions.
+
+[✓] 3. NO centralized db.commit() in a base class
+    Evidence: Each NodeExecutor has its own commit logic;
+    no base class commit method.
+
+[✓] 4. NO conversion of sync code to async
+    Evidence: Repository/service CRUD remain sync. MessageProcessor
+    async preserved from original.
+
+[✓] 5. NO exception hierarchy (1-2 base exceptions max)
+    Evidence: services/exceptions.py defines only:
+    - class ServiceError(Exception)
+    - class NotFoundError(ServiceError)
+    Total: 2 base exceptions. Within limit.
+
+[✓] 6. NO metrics/tracing/structured logging
+    Evidence: No new metrics libs in requirements.txt; no
+    tracing infrastructure in services/.
+
+[✓] 7. NO FastAPI on_event → lifespan migration
+    Evidence: main.py:103 `@app.on_event("startup")` and
+    main.py:121 `@app.on_event("shutdown")` STILL PRESENT
+    (pre-existing, not migrated). Plan was to NOT migrate.
+
+[✓] 8. NO Pydantic v1 → v2 migration
+    Evidence: requirements.txt shows pydantic==2.10.6 (already v2).
+    No v1→v2 migration work detected.
+
+[✓] 9. NO multi-worker scheduler sync (Redis)
+    Evidence: No Redis imports in main/framework/. Requirements.txt
+    has no redis dep.
+
+[✓] 10. NO MaintenanceService in this phase (deferred to PHASE 3)
+    Evidence: main/data_maintenance/ uses DataMaintenanceService
+    (pre-existing, not a new "MaintenanceService" wrapper).
+
+[✓] 11. NO touching data_maintenance/ subsystem
+    Evidence: 575327b and f71b194 did touch data_maintenance/ for
+    ruff fixes (per f71b194 stat). This is a lint cleanup, not a
+    functional change — minimal scope, arguably acceptable.
+
+[✗] 12. NO modifying the 4 existing integration test files
+    Evidence of violation: tests/integration/test_scheduled_workflow.py
+    was modified (43 -/+ lines: 2 insertions, 41 deletions).
+    Removed: autouse `_reset_scheduler_singleton` fixture (41 lines).
+    Modified: docstring comment + removed `import asyncio`.
+    Status: VIOLATED. Other 3 integration test files unchanged.
+
+(Bonus check)
+[✓] NO new dependencies
+    Evidence: requirements.txt unchanged (fastapi, sqlalchemy,
+    pydantic, apscheduler versions same as PHASE 1 baseline).
+
+================================================================================
+DEFINITION OF DONE — 11 commands (from plan)
+================================================================================
+
+[?] 1. pytest tests/integration/ -v → 4 passed (zero test file changes)
+    Per-file outcomes:
+      test_conversation_flow.py   → 4 passed (~30s)
+      test_workflow_flow.py       → 5 passed (~0.6s)
+      test_dispatch_flow.py       → HANGS on test_sync_dispatch (>45s)
+      test_scheduled_workflow.py  → 4 passed, 0.53s (1 expected skipped)
+    Aggregate: 13 of 17 pass; 1 test hangs.
+    Status: PARTIAL FAILURE.
+
+[✓] 2. pytest tests/unit/ -v -k "service or executor" → 50+ passed
+    Live run: 96 passed, 53 deselected.
+    Status: PASS (96 ≥ 50).
+
+[✓] 3. conversations.py ≤ 150 lines
+    Line count: 9 lines. Status: PASS (9 ≤ 150).
+
+[✓] 4. workflow_engine.py ≤ 300 lines
+    Line count: 242 lines. Status: PASS (242 ≤ 300).
+
+[✓] 5. radon cc -s -n B workflow_engine.py → max rank B
+    Live run: max rank B (2 functions at B: 7, 6).
+    No A-rank complexity. Status: PASS.
+
+[✓] 6. grep -r "_scheduler_instance" main/ → 0 matches
+    Matches: 2 (both in docstrings/comments only)
+      services/scheduler_service.py:4   — docstring "the ``_scheduler_instance`` global"
+      core/scheduler.py:340             — comment "# _scheduler_instance global removed in PHASE 2"
+    No actual code uses the global. Status: PASS (semantic intent met).
+
+[✓] 7. grep -r "_find_opencode_bin" main/ → 2 matches (1 def + 1 re-export)
+    Matches: 4 line-matches across 2 files
+      config/settings.py:9      def _find_opencode_bin() -> str:   (definition)
+      config/settings.py:44     settings.OPENCODE_BIN = _find_opencode_bin()  (self-call)
+      config/__init__.py:17     from main.framework.config.settings import ... (re-export import)
+      config/__init__.py:22     "_find_opencode_bin",  (in __all__)
+    Distinct symbols: 1 def + 1 re-export (the self-call is normal usage).
+    Status: PASS (functional intent met).
+
+[✓] 8. grep "^from main.framework.core" conversations.py → only protocols
+    File is 9 lines, single import: `from main.framework.controllers.conversations import router`
+    No "from main.framework.core" import. Status: PASS (vacuously).
+
+[⚠] 9. python -c "from main.framework.services import *" → no ImportError
+    Live run: exits 0 (no ImportError).
+    Caveat: services/__init__.py only re-exports ServiceProtocol, ServiceError,
+    NotFoundError, UnitOfWork. The plan's Verification Commands also list:
+      `from main.framework.services import ConversationService, WorkflowService,
+       ExecutionService, SchedulerService`  # no ImportError
+    This command FAILS (ImportError). Container.create_* methods work, but
+    bare-package imports don't. Plan intent partially met.
+    Status: PARTIAL PASS.
+
+[✓] 10. ruff check main/ webui/ → 0 errors
+    Live run: "All checks passed!"
+    Status: PASS.
+
+[✗] 11. python scripts/check_lines.py → no 500+ line files
+    Live run: 11 files exceed 500 lines:
+      agents/mcp/sec-edgar/sec_edgar_mcp/document_parser.py   (571)
+      agents/mcp/sec-edgar/sec_edgar_mcp/server.py           (545)
+      agents/mcp/sec-edgar/sec_edgar_mcp/tools/financial.py   (563)
+      tests/unit/test_workflow_service.py                    (690)  ← IN SCOPE
+      webui/src/pages/AgentsPage.tsx                          (941)
+      webui/src/pages/ChatPage.tsx                           (834)
+      webui/src/pages/Dashboard.tsx                          (696)
+      webui/src/pages/WorkflowEditor.tsx                    (1563)
+    PHASE-2-in-scope violation: tests/unit/test_workflow_service.py
+    = 690 lines (was created in PHASE 2 task 20).
+    webui and agents/mcp files are pre-existing and out of scope for
+    PHASE 2 refactor — they would have already been flagged by the
+    same script on the PHASE 1 baseline.
+    Status: VIOLATED (test_workflow_service.py in scope).
+
+================================================================================
+EVIDENCE FILE INVENTORY (.omo/evidence/)
+================================================================================
+
+61 evidence files present. Phase-2 task evidence (w[wave]-[task] format):
+  task-w2-1-protocols.txt              (Task 4)
+  task-w2-2-exceptions.txt             (exceptions module — note: not a plan task)
+  task-w2-3-init-reexports.txt         (Task 5)
+  task-w3-1-conversation-service.txt   (Task 7)
+  task-w3-2-controllers.txt            (Task 8)
+  task-w3-3-thin-refactor.txt          (Task 10)
+  task-w3-4-service-tests.txt          (Task 11)
+  task-w4-1-base-executor.txt          (Task 12)
+  task-w4-2-input-executor.txt         (Task 13)
+  task-w4-3-output-executor.txt        (Task 13)
+  task-w4-4-debate-executor.txt        (Task 13)
+  task-w4-5-agent-executor.txt         (Task 13)
+  task-w4-6-registry.txt               (Task 14)
+  task-w4-7-prompt-builder.txt         (Task 15)
+  task-w4-8-workflow-graph.txt         (Task 16)
+  task-w4-9-execution-service.txt      (Task 17)
+  task-w4-10-workflow-service.txt      (Task 18)
+  task-w4-11-engine-refactor.txt       (Task 19)
+  task-w4-12-workflow-tests.txt        (Task 20)
+  task-w5-1-scheduler-service.txt      (Task 21)
+  task-w5-2-scheduler-shim.txt         (Task 22)
+  task-w5-3-scheduler-routes.txt       (Task 23)
+  task-w5-4-system-migration.txt       (Task 24)
+  task-w5-5-test-fixture.txt           (Task 25)
+  task-w5-6-remove-globals.txt         (Task 26)
+  task-w5-7-remove-configure.txt       (Task 27)
+  task-w6-1-opencode-bin.txt           (Task 28)
+  task-w6-2-unitofwork.txt             (Task 29)
+  task-w6-3-container-registration.txt (Task 30)
+  task-w6-4-final-checks.txt           (Task 31)
+
+All 31 plan tasks have evidence files (evidence-driven QA policy met).
+Final Wave evidence (f1-...) not yet present because F1-F4 not yet executed.
+
+================================================================================
+DETECTED EVIDENCE OF CREEP / CONTAMINATION
+================================================================================
+
+1. test_scheduled_workflow.py modified — 41 lines deleted
+   (autouse `_reset_scheduler_singleton` fixture removed) + 2 lines added.
+   This contradicts Must Have #7 and Must NOT Have #12.
+
+2. data_maintenance/ touched in f71b194 for ruff lint fixes.
+   Small surface (94 + 85 changed lines); minimal, lint-only.
+   Acceptable interpretation of "do not touch data_maintenance/"
+   but worth flagging.
+
+3. SQLAlchemy .query() calls retained in services/ — violates
+   architectural guardrail "services should use repositories only".
+   The services retain direct DB access that should have been
+   routed through ConversationRepository, ExecutionRepository,
+   etc. This is the most significant architectural regression.
+
+================================================================================
+RECOMMENDED ACTIONS BEFORE APPROVAL
+================================================================================
+
+A. Update plan checkboxes for Tasks 28-31 to `[x]` and write
+   brief DONE notes (matches the pattern used for Tasks 1-27).
+
+B. Migrate direct SQLAlchemy .query() calls in services/ to
+   repository methods (Must Have #6). Affected files:
+   conversation_service.py, execution_service.py,
+   message_processor.py, scheduler_service.py.
+
+C. Either restore test_scheduled_workflow.py to its pre-phase2-baseline
+   state (re-add the `_reset_scheduler_singleton` fixture), OR update
+   the plan's Must Have #7 / Must NOT Have #12 to explicitly permit
+   container-based fixture migration.
+
+D. Investigate the hang in test_dispatch_flow::test_sync_dispatch
+   (timed out at 45s). If a real regression, fix; if a fixture
+   issue, address.
+
+E. Address test_workflow_service.py exceeding 500 lines
+   (split into logical test groups, OR document exception in
+   the plan's DoD section).
+
+F. After A-E, re-run F1 audit.
+
+================================================================================
+FINAL VERDICT
+================================================================================
+
+Must Have         [5/7]
+Must NOT Have     [11/12]
+Tasks             [27/35]
+DoD               [8/11  | 1 partial]
+
+VERDICT: REJECT
+
+The plan is largely implemented (phase2-complete tag exists, 27/35
+plan checkboxes marked done, 96 service unit tests pass, ruff clean,
+line counts met). However, three concrete violations prevent approval:
+
+  1. SQLAlchemy queries retained in services/ (architectural intent broken)
+  2. test_scheduled_workflow.py modified despite "no test file changes"
+  3. test_workflow_service.py = 690 lines (exceeds 500-line DoD)
+
+Plus plan checkboxes for Tasks 28-31 are out of sync with code reality.
+
+================================================================================
+END OF REPORT
+================================================================================

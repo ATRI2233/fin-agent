@@ -12,10 +12,13 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-# Ensure project root is in path
+# Ensure project root and project/ subdirectory are in path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_SUBDIR = PROJECT_ROOT / "project"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+if str(PROJECT_SUBDIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_SUBDIR))
 
 
 @pytest.fixture(scope="session")
@@ -91,15 +94,112 @@ def client(db_session, test_session_factory):
             from main.framework.repositories.conversation_repo import ConversationRepository
             from main.framework.repositories.execution_repo import ExecutionRepository
             from main.framework.repositories.workflow_repo import WorkflowRepository
+            from main.framework.services.conversation_service import ConversationService
+            from main.framework.services.dispatch_query_service import DispatchQueryService
+            from main.framework.services.scheduler_service import SchedulerService
+            from main.framework.services.session_service import SessionService
+            from main.framework.services.workflow_query_service import WorkflowQueryService
 
             test_settings = Settings()
             test_container = Container(test_settings)
 
-            # Override repositories to use test session factory
-            test_container._instances["execution_repo"] = ExecutionRepository(session_factory=test_session_factory)
-            test_container._instances["agent_repo"] = AgentRepository(session_factory=test_session_factory)
-            test_container._instances["workflow_repo"] = WorkflowRepository(session_factory=test_session_factory)
-            test_container._instances["conversation_repo"] = ConversationRepository(session_factory=test_session_factory)
+            # Override repositories to use test session factory.  Repos are
+            # registered under their property name (``execution_repo`` etc.)
+            # because the Container's lazy properties read ``_instances`` at
+            # that key — a class-name key would be bypassed by the property
+            # path and the test factory would be silently ignored.
+            test_container.register(
+                "execution_repo",
+                ExecutionRepository(session_factory=test_session_factory),
+            )
+            test_container.register(
+                "agent_repo",
+                AgentRepository(session_factory=test_session_factory),
+            )
+            test_container.register(
+                "workflow_repo",
+                WorkflowRepository(session_factory=test_session_factory),
+            )
+            test_container.register(
+                "conversation_repo",
+                ConversationRepository(session_factory=test_session_factory),
+            )
+
+            # Register business-logic / query services under their CLASS
+            # NAME so the factory fallback (``_from_factory``) in
+            # ``get_service`` resolves them by ``interface.__name__``.  After
+            # Wave 4 added these entries to ``_SERVICE_MAP``, the property
+            # path takes precedence — these explicit registrations then
+            # serve as a documentation safety net and a fallback for tests
+            # that exercise a code path bypassing the property (e.g.
+            # direct ``container._instances[...]`` access).  The repos
+            # above are still functional via the property path because
+            # they use the property name.
+            #
+            # W3.4 fix: ConversationService resolves in controllers.
+            test_container.register(
+                "ConversationService",
+                ConversationService(
+                    conv_repo=test_container._instances["conversation_repo"],
+                    workflow_repo=test_container._instances["workflow_repo"],
+                ),
+            )
+
+            # W5.3 fix: SchedulerService resolves in scheduler_routes.
+            # ``workflow_service`` is None because the route tests only
+            # exercise add/remove/list — they never let APScheduler fire
+            # a job (the test fixture never calls start()).
+            test_container.register(
+                "SchedulerService",
+                SchedulerService(
+                    session_factory=test_session_factory,
+                    workflow_service=None,
+                ),
+            )
+
+            # Phase 2 fix: WorkflowQueryService (Wave 2 pilot) and
+            # SessionService resolve in refactored controllers.
+            test_container.register(
+                "WorkflowQueryService",
+                WorkflowQueryService(
+                    workflow_repo=test_container._instances["workflow_repo"],
+                    exec_repo=test_container._instances["execution_repo"],
+                    conv_repo=test_container._instances["conversation_repo"],
+                ),
+            )
+
+            # Phase 3 fix: DispatchQueryService resolves in the refactored
+            # dispatch controller.
+            test_container.register(
+                "DispatchQueryService",
+                DispatchQueryService(dispatcher=test_container.dispatcher),
+            )
+
+            test_container.register(
+                "SessionService",
+                SessionService(
+                    exec_repo=test_container._instances["execution_repo"],
+                    conv_repo=test_container._instances["conversation_repo"],
+                    backend=None,  # no real backend in tests
+                ),
+            )
+
+            # W7.x fix: MaintenanceQueryService resolves in the
+            # data-maintenance controller.  We use a mock core service (no
+            # dispatcher) — controllers that exercise business logic will
+            # override this with a real DataMaintenanceService bound to the
+            # test session.
+            from main.data_maintenance.core.data_maintenance import (
+                DataMaintenanceService,
+            )
+            from main.data_maintenance.services.maintenance_query_service import (
+                MaintenanceQueryService,
+            )
+
+            test_container.register(
+                "MaintenanceQueryService",
+                MaintenanceQueryService(DataMaintenanceService(dispatcher=None, scheduler=None)),
+            )
 
             configure(test_container)
             app.state.container = test_container
@@ -110,6 +210,20 @@ def client(db_session, test_session_factory):
         return AsyncClient(transport=transport, base_url="http://test")
     except ImportError as e:
         pytest.skip(f"FastAPI app not importable: {e}")
+
+
+@pytest.fixture(autouse=True)
+def reset_container_scheduler():
+    """Reset container scheduler between tests."""
+    yield
+    try:
+        from main.framework.core.container import get_container
+
+        container = get_container()
+        if container and hasattr(container, "_instances"):
+            container._instances.pop("scheduler", None)
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="function")

@@ -1,182 +1,37 @@
-{
-  "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\phase1-foundation.md",
-  "started_at": "2026-06-09T07:56:09.383Z",
-  "session_ids": [
-    "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
-  ],
-  "plan_name": "phase1-foundation",
-  "session_origins": {
-    "opencode:ses_154ca0c3effegImMjNJ5tFDIdu": "direct"
-  },
-  "task_sessions": {
-    "todo:0": {
-      "task_key": "todo:0",
-      "task_label": "0",
-      "task_title": "**Git 基线设置（PATH、分支、.gitignore、uncommitted docs）**",
-      "session_id": "opencode:ses_1549b4b46ffeE9guemD1AC07sN",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-06-09T08:11:53.243Z",
-      "started_at": "2026-06-09T08:08:59.764Z",
-      "status": "completed",
-      "ended_at": "2026-06-09T08:11:53.243Z",
-      "elapsed_ms": 173479
-    },
-    "todo:1": {
-      "task_key": "todo:1",
-      "task_label": "1",
-      "task_title": "**pyproject.toml + pytest + ruff 配置**",
-      "session_id": "opencode:ses_1548e1193ffeyAm7P3e3HMcDF6",
-      "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-06-09T08:28:11.099Z",
-      "started_at": "2026-06-09T08:27:04.086Z",
-      "status": "completed",
-      "ended_at": "2026-06-09T08:28:11.099Z",
-      "elapsed_ms": 67013
-    },
-    "todo:7": {
-      "task_key": "todo:7",
-      "task_label": "7",
-      "task_title": "**BaseRepository[T] 泛型基类**",
-      "session_id": "opencode:ses_154800ef4ffej7PTpNCFl6saiD",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "updated_at": "2026-06-09T08:35:50.248Z",
-      "started_at": "2026-06-09T08:35:16.909Z",
-      "status": "completed",
-      "ended_at": "2026-06-09T08:35:50.248Z",
-      "elapsed_ms": 33339
-    },
-    "todo:8": {
-      "task_key": "todo:8",
-      "task_label": "8",
-      "task_title": "**集成测试: conversation flow**",
-      "session_id": "opencode:ses_153ad96feffeB4Y1k9B3WRBTZI",
-      "agent": "Sisyphus-Junior",
-      "category": "unspecified-high",
-      "started_at": "2026-06-09T08:44:58.353Z",
-      "status": "running",
-      "updated_at": "2026-06-09T12:19:41.796Z"
-    }
-  },
-  "schema_version": 2,
-  "works": {
-    "workflow-orchestration-legacy": {
-      "work_id": "workflow-orchestration-legacy",
-      "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\workflow-orchestration.md",
-      "plan_name": "workflow-orchestration",
-      "started_at": "2026-06-02T03:31:29.857Z",
-      "updated_at": "2026-06-02T04:00:44.106Z",
-      "session_ids": [
-        "opencode:ses_17effe1afffeRBjLcZ52WVy4i8"
-      ],
-      "session_origins": {
-        "opencode:ses_17effe1afffeRBjLcZ52WVy4i8": "direct"
-      },
-      "worktree_path": null,
-      "task_sessions": {
-        "todo:1": {
-          "task_key": "todo:1",
-          "task_label": "1",
-          "task_title": "`retry_on_failure(max_attempts=3, delay=1.0, backoff=2.0)` decorator:",
-          "session_id": "opencode:ses_17989e98dffe3HDJx24eOSENeU",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "started_at": "2026-06-02T03:34:49.555Z",
-          "ended_at": "2026-06-02T03:54:39.460Z",
-          "elapsed_ms": 1189905,
-          "status": "completed",
-          "updated_at": "2026-06-02T03:54:39.460Z"
-        },
-        "final-wave:f1": {
-          "task_key": "final-wave:f1",
-          "task_label": "F1",
-          "task_title": "**Plan Compliance Audit** — `oracle`",
-          "session_id": "opencode:ses_179852312ffeFDNRxD7HCcLWib",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "started_at": "2026-06-02T03:57:24.054Z",
-          "status": "completed",
-          "updated_at": "2026-06-02T04:00:13.357Z",
-          "ended_at": "2026-06-02T04:00:13.357Z",
-          "elapsed_ms": 169303
-        }
-      },
-      "ended_at": "2026-06-02T04:00:44.106Z",
-      "elapsed_ms": 1754249,
-      "status": "completed"
-    },
-    "phase1-foundation-09a390a2": {
-      "work_id": "phase1-foundation-09a390a2",
-      "active_plan": "D:\\github_place\\fin-agent\\.omo\\plans\\phase1-foundation.md",
-      "plan_name": "phase1-foundation",
-      "status": "active",
-      "started_at": "2026-06-09T07:56:09.383Z",
-      "updated_at": "2026-06-09T12:19:41.796Z",
-      "session_ids": [
-        "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
-      ],
-      "session_origins": {
-        "opencode:ses_154ca0c3effegImMjNJ5tFDIdu": "direct"
-      },
-      "agent": "atlas",
-      "task_sessions": {
-        "todo:0": {
-          "task_key": "todo:0",
-          "task_label": "0",
-          "task_title": "**Git 基线设置（PATH、分支、.gitignore、uncommitted docs）**",
-          "session_id": "opencode:ses_1549b4b46ffeE9guemD1AC07sN",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-06-09T08:11:53.243Z",
-          "started_at": "2026-06-09T08:08:59.764Z",
-          "status": "completed",
-          "ended_at": "2026-06-09T08:11:53.243Z",
-          "elapsed_ms": 173479
-        },
-        "todo:1": {
-          "task_key": "todo:1",
-          "task_label": "1",
-          "task_title": "**pyproject.toml + pytest + ruff 配置**",
-          "session_id": "opencode:ses_1548e1193ffeyAm7P3e3HMcDF6",
-          "agent": "Sisyphus-Junior",
-          "category": "quick",
-          "updated_at": "2026-06-09T08:28:11.099Z",
-          "started_at": "2026-06-09T08:27:04.086Z",
-          "status": "completed",
-          "ended_at": "2026-06-09T08:28:11.099Z",
-          "elapsed_ms": 67013
-        },
-        "todo:7": {
-          "task_key": "todo:7",
-          "task_label": "7",
-          "task_title": "**BaseRepository[T] 泛型基类**",
-          "session_id": "opencode:ses_154800ef4ffej7PTpNCFl6saiD",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "updated_at": "2026-06-09T08:35:50.248Z",
-          "started_at": "2026-06-09T08:35:16.909Z",
-          "status": "completed",
-          "ended_at": "2026-06-09T08:35:50.248Z",
-          "elapsed_ms": 33339
-        },
-        "todo:8": {
-          "task_key": "todo:8",
-          "task_label": "8",
-          "task_title": "**集成测试: conversation flow**",
-          "session_id": "opencode:ses_153ad96feffeB4Y1k9B3WRBTZI",
-          "agent": "Sisyphus-Junior",
-          "category": "unspecified-high",
-          "started_at": "2026-06-09T08:44:58.353Z",
-          "status": "running",
-          "updated_at": "2026-06-09T12:19:41.796Z"
-        }
-      }
-    }
-  },
-  "active_work_id": "phase1-foundation-09a390a2",
-  "updated_at": "2026-06-09T12:19:41.796Z",
-  "status": "active",
-  "agent": "atlas"
+﻿{
+    "completed_tasks":  0,
+    "partial_tasks":  0,
+    "user_requirements":  {
+                              "commit_per_wave":  true,
+                              "max_parallel_agents":  10,
+                              "min_parallel_agents":  4
+                          },
+    "plan_name":  "phase4-frontend-refactor",
+    "active_plan":  "D:\\github_place\\fin-agent\\.omo\\plans\\phase4-frontend-refactor.md",
+    "phase3_complete":  true,
+    "worktree_path":  null,
+    "notes":  [
+                  "PHASE 3 backend: 100% complete (tag phase3-complete)",
+                  "PHASE 4 frontend: 0% complete (about to start)",
+                  "Plan: .omo/plans/phase4-frontend-refactor.md (50 tasks, 6 waves + Final Wave)"
+              ],
+    "pre_phase4_tag":  "phase3-complete",
+    "session_ids":  [
+                        "opencode:ses_154ca0c3effegImMjNJ5tFDIdu"
+                    ],
+    "updated_at":  "2026-06-10T12:31:39Z",
+    "started_at":  "2026-06-10T12:31:39Z",
+    "branch":  "phase4-frontend-refactor",
+    "phase3_branch":  "phase3-api-observability",
+    "total_tasks":  50,
+    "current_wave":  0,
+    "schema_version":  2,
+    "phase3_tag":  "phase3-complete",
+    "status":  "active",
+    "decisions":  {
+                      "w2_fetch_wrapper":  "native fetch + custom typed wrapper",
+                      "w4_zustand_version":  "v4.5.7 (transitive, stable)",
+                      "w1_4_workflow_block_scope":  "include",
+                      "w6_split_granularity":  "full split (8/9/14 files)"
+                  }
 }

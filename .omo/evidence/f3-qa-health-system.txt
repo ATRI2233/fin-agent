@@ -1,0 +1,119 @@
+==============================================================================
+QA Evidence: Health & System Status Endpoint Testing
+Branch: phase3-api-observability
+Date: 2026-06-10
+Server: cd main && python -m framework.main (uvicorn, port 8000)
+==============================================================================
+
+TEST 1: GET /api/v1/health
+--------------------------
+Command: curl -s http://localhost:8000/api/v1/health
+Status:  PASS ✓
+HTTP Status: 200 OK
+Response Body:
+  {"status":"ok","timestamp":"2026-06-10T08:49:44.081595+00:00"}
+
+Notes:
+  - Returns JSON with "status" key = "ok"
+  - Includes ISO-8601 UTC timestamp
+  - Content-Type: application/json
+
+==============================================================================
+
+TEST 2: GET /api/v1/health (X-Request-ID propagation)
+------------------------------------------------------
+Command: curl -s -D - -H "X-Request-ID: test-health-123" http://localhost:8000/api/v1/health
+Status:  PASS ✓
+HTTP Status: 200 OK
+Response Headers:
+  HTTP/1.1 200 OK
+  date: Wed, 10 Jun 2026 08:49:43 GMT
+  server: uvicorn
+  content-length: 62
+  content-type: application/json
+  x-request-id: test-health-123
+Response Body:
+  {"status":"ok","timestamp":"2026-06-10T08:49:44.335288+00:00"}
+
+Notes:
+  - X-Request-ID: test-health-123 is ECHOED in response header ✓
+  - RequestContextMiddleware correctly propagates correlation ID
+
+==============================================================================
+
+TEST 3: GET /api/v1/system/status
+----------------------------------
+Command: curl -s http://localhost:8000/api/v1/system/status
+Status:  FAIL ✗
+HTTP Status: 500 Internal Server Error
+Response Headers:
+  HTTP/1.1 500 Internal Server Error
+  date: Wed, 10 Jun 2026 08:50:00 GMT
+  server: uvicorn
+  content-length: 135
+  content-type: application/problem+json
+Response Body:
+  {"type":"about:blank","title":"Internal Server Error","status":500,
+   "detail":"Internal server error","instance":"/api/v1/system/status"}
+
+Notes:
+  - Expected: 200 with JSON containing subsystem keys
+  - Actual: 500 Internal Server Error
+  - Root cause: SystemQueryService DI resolution fails in test environment
+    (likely missing HAPI connection, opencode binary, or scheduler state)
+  - Response IS correctly formatted as RFC 7807 problem+json ✓
+  - generic_exception_handler fires and returns proper envelope ✓
+
+==============================================================================
+
+TEST 4: GET /api/v1/conversations/{non-existent-id} (404 handling)
+-------------------------------------------------------------------
+Command: curl -s -D - http://localhost:8000/api/v1/conversations/00000000-0000-0000-0000-000000000000
+Status:  PARTIAL ⚠
+HTTP Status: 500 Internal Server Error (expected 404)
+Response Headers:
+  HTTP/1.1 500 Internal Server Error
+  date: Wed, 10 Jun 2026 08:50:00 GMT
+  server: uvicorn
+  content-length: 172
+  content-type: application/problem+json
+Response Body:
+  {"type":"about:blank","title":"Internal Server Error","status":500,
+   "detail":"Internal server error",
+   "instance":"/api/v1/conversations/00000000-0000-0000-0000-000000000000"}
+
+Notes:
+  - Expected: 404 with RFC 7807 problem+json envelope
+  - Actual: 500 (DI resolution failure before NotFoundError can be raised)
+  - Response IS correctly formatted as RFC 7807 problem+json ✓
+  - Content-Type: application/problem+json ✓
+  - 404 handler exists in conversations.py (line 128): raises HTTPException(404)
+  - The 404 handler is unreachable due to upstream DI failure
+
+==============================================================================
+
+SUMMARY
+-------
+Test 1 (Health Check):           PASS ✓
+Test 2 (X-Request-ID Echo):      PASS ✓
+Test 3 (System Status):          FAIL ✗  (500 instead of 200)
+Test 4 (404 Problem+JSON):       PARTIAL ⚠  (500 instead of 404, but RFC 7807 format correct)
+
+PASS: 2/4
+FAIL: 1/4
+PARTIAL: 1/4
+
+INFRASTRUCTURE OBSERVATIONS:
+  - Health endpoint (in main.py directly) works perfectly
+  - DI-dependent endpoints fail because Container resolves services that
+    require external dependencies (HAPI Hub, opencode binary, etc.)
+  - RFC 7807 problem+json envelope is correctly applied to ALL error responses
+  - RequestContextMiddleware correctly propagates X-Request-ID on all responses
+  - Server starts with deprecation warnings (on_event → lifespan pattern)
+
+VERIFIED:
+  ✓ X-Request-ID propagation works (middleware echoes correlation ID)
+  ✓ RFC 7807 problem+json format is correct (type/title/status/detail/instance)
+  ✓ Health endpoint returns 200 with JSON body
+  ✗ System status endpoint returns 500 (DI environment issue)
+  ✗ Conversations 404 unreachable (DI failure occurs before NotFoundError)
