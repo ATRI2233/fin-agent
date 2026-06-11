@@ -80,26 +80,42 @@ export interface SystemStatus {
   timestamp: string;
 }
 
-/** Per-job log-collector counts returned by `GET /api/v1/system/logs`. */
+/** Per-job log-collector counts returned by `GET /api/v1/system/logs/stats`. */
 export interface LogStats {
-  /** Number of `INFO`-level entries across all jobs. */
-  info: number;
-  /** Number of `WARN`-level entries across all jobs. */
-  warn: number;
-  /** Number of `ERROR`-level entries across all jobs. */
-  error: number;
-  /** Number of `DEBUG`-level entries across all jobs. */
-  debug: number;
+  /** Number of jobs that have log entries. */
+  active_jobs_with_logs: number;
   /** Total log entries across all levels and jobs. */
-  total: number;
+  total_log_entries: number;
+  /** Maximum number of jobs the collector can track. */
+  max_jobs: number;
+  /** Maximum entries per job buffer. */
+  max_entries_per_job: number;
+  /** Top jobs by log count. */
+  top_jobs: Record<string, number>;
+  /** Currently active job ID. */
+  current_job_id: string | null;
 }
 
 /** Workflow cache snapshot returned by `GET /api/v1/system/cache`. */
 export interface CacheState {
-  /** Number of entries currently in the in-memory workflow cache. */
-  entries: number;
-  /** Approximate size of the workflow cache in bytes. */
-  size_bytes: number;
-  /** Cache hit rate in `[0, 1]`. Absent when no lookups recorded yet. */
-  hit_rate?: number;
+  /** Workflow cache info. */
+  workflow_cache: {
+    /** Number of entries currently in the cache. */
+    size: number;
+    /** Maximum cache size. */
+    max_size: number;
+    /** Cache usage percentage. */
+    usage_pct: number;
+  };
+  /** Concurrency limiter info. */
+  concurrency: {
+    /** Currently active executions. */
+    active: number;
+    /** Maximum concurrent executions. */
+    max: number;
+    /** Available execution slots. */
+    available: number;
+    /** Usage percentage. */
+    usage_pct: number;
+  };
 }

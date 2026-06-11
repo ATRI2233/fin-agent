@@ -47,7 +47,7 @@ export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tools, setTools] = useState<ToolItem[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [agentStats, setAgentStats] = useState<Record<string, AgentStatsEntry>>({});
+  const [agentStats, setAgentStats] = useState<AgentStatsEntry[]>([]);
   const [logStats, setLogStats] = useState<LogStats | null>(null);
   const [cacheStats, setCacheStats] = useState<CacheState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,7 +76,7 @@ export default function Dashboard() {
       if (Array.isArray(v[2])) setAgents(v[2] as Agent[]);
       if (Array.isArray(v[3])) setTools(v[3] as ToolItem[]);
       if (Array.isArray(v[4])) setSkills(v[4] as Skill[]);
-      if (v[5] && typeof v[5] === 'object') setAgentStats(v[5] as Record<string, AgentStatsEntry>);
+      if (Array.isArray(v[5])) setAgentStats(v[5] as AgentStatsEntry[]);
       if (v[6]) setLogStats(v[6] as LogStats);
       if (v[7]) setCacheStats(v[7] as CacheState);
     } catch (err) {
@@ -152,9 +152,14 @@ export default function Dashboard() {
 
   const isOnline = systemStatus !== null;
 
-  // `agentStats` is already keyed by agent name; expose the same alias
-  // the rest of the component uses for indexing.
-  const agentStatsMap = useMemo(() => agentStats, [agentStats]);
+  // Convert agentStats array to a map keyed by agent name for easy lookup.
+  const agentStatsMap = useMemo(() => {
+    const map: Record<string, AgentStatsEntry> = {};
+    for (const stat of agentStats) {
+      map[stat.name] = stat;
+    }
+    return map;
+  }, [agentStats]);
 
   /* ─── Loading gate ─── */
   if (loading) {
@@ -323,7 +328,7 @@ export default function Dashboard() {
                               >
                                 {agent.mode}
                               </span>
-                              <span title="Total executions">{stats.executions}</span>
+                              <span title="Total executions">{stats.executions_total}</span>
                               <span style={{ color: 'var(--accent-warm)', fontWeight: 600 }} title="Success rate">
                                 {stats.success_rate}%
                               </span>
@@ -532,11 +537,11 @@ export default function Dashboard() {
                     }}
                   >
                     {cacheStats
-                      ? `${cacheStats.entries} entries`
+                      ? `${cacheStats.workflow_cache.size} entries`
                       : '加载中...'}
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Cache{cacheStats ? ` (${(cacheStats.size_bytes / 1024).toFixed(1)} KB)` : ''}
+                    Cache{cacheStats ? ` (${cacheStats.workflow_cache.usage_pct}%)` : ''}
                   </div>
                 </div>
               </div>
@@ -567,12 +572,12 @@ export default function Dashboard() {
                       lineHeight: 1,
                     }}
                   >
-                    {cacheStats?.hit_rate != null
-                      ? `${(cacheStats.hit_rate * 100).toFixed(1)}%`
+                    {cacheStats
+                      ? `${cacheStats.concurrency.usage_pct}%`
                       : '加载中...'}
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Hit Rate
+                    Concurrency
                   </div>
                 </div>
               </div>
@@ -604,12 +609,12 @@ export default function Dashboard() {
                     }}
                   >
                     {logStats
-                      ? `${logStats.total.toLocaleString()} entries`
+                      ? `${logStats.total_log_entries.toLocaleString()} entries`
                       : '加载中...'}
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
                     {logStats
-                      ? `${logStats.info} info · ${logStats.warn} warn · ${logStats.error} err`
+                      ? `${logStats.active_jobs_with_logs} active jobs`
                       : 'Logs'}
                   </div>
                 </div>

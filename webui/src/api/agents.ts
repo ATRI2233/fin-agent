@@ -26,13 +26,21 @@ import type { Agent, AgentDetail } from '../types/agent';
 /**
  * Per-agent execution telemetry returned by `/api/v1/agents/stats`.
  *
- * Keys are agent registry names (e.g. `"Macro-Scout"`). `success_rate`
- * is a percent in the `0..100` range, matching the convention used by
- * `AgentDetail` in `../types/agent`.
+ * Each entry contains agent name, description, mode, and execution stats.
  */
 export interface AgentStatsEntry {
-  /** Total number of completed or in-flight executions for the agent. */
-  executions: number;
+  /** Agent name. */
+  name: string;
+  /** Agent description. */
+  description: string;
+  /** Agent mode (agent, fusion, orchestrator). */
+  mode: string;
+  /** Total number of executions. */
+  executions_total: number;
+  /** Number of completed executions. */
+  executions_completed: number;
+  /** Number of failed executions. */
+  executions_failed: number;
   /** Percent of executions that completed without error (0–100). */
   success_rate: number;
 }
@@ -55,16 +63,16 @@ export async function listAgents(): Promise<Agent[]> {
 /**
  * Fetch execution telemetry for all agents in one round-trip.
  *
- * `GET /api/v1/agents/stats` → `Record<agent_name, AgentStatsEntry>`
+ * `GET /api/v1/agents/stats` → `AgentStatsEntry[]`
  */
-export async function getAgentStats(): Promise<Record<string, AgentStatsEntry>> {
+export async function getAgentStats(): Promise<AgentStatsEntry[]> {
   const res = await fetch(`${API_V1_BASE}/agents/stats`);
   if (!res.ok) {
     throw new Error(
       `getAgentStats failed: ${res.status} ${res.statusText}`,
     );
   }
-  return (await res.json()) as Record<string, AgentStatsEntry>;
+  return (await res.json()) as AgentStatsEntry[];
 }
 
 /**

@@ -53,7 +53,7 @@ export function useAgentStats() {
     (_signal: AbortSignal) => getAgentStats(),
     [],
   );
-  return useFetch<Record<string, AgentStatsEntry>>(fetcher, []);
+  return useFetch<AgentStatsEntry[]>(fetcher, []);
 }
 
 /**
