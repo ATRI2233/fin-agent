@@ -77,13 +77,14 @@ _RESP_DELETE: dict[int | str, Any] = {404: _ERROR_404, 500: _ERROR_500}
 # ---------------------------------------------------------------------------
 
 
-def _user_message_response(user_msg) -> MessageResponse:
+def _user_message_response(user_msg: dict) -> MessageResponse:
     """Build a MessageResponse for a persisted user message."""
+    created = user_msg["created_at"]
     return MessageResponse(
-        id=user_msg.id,
-        role=user_msg.role,
-        content=user_msg.content,
-        created_at=user_msg.created_at.isoformat(),
+        id=user_msg["id"],
+        role=user_msg["role"],
+        content=user_msg["content"],
+        created_at=created.isoformat() if hasattr(created, "isoformat") else str(created),
     )
 
 
@@ -187,11 +188,23 @@ async def send_message(
         raise HTTPException(status_code=404, detail="Conversation not found") from err
     with conv_repo._session() as db:
         user_msg = service.save_user_message(conversation_id, payload.content, db)
+        # Eagerly load all attributes before the session closes
+        user_msg_id = str(user_msg.id)
+        user_msg_role = user_msg.role
+        user_msg_content = user_msg.content
+        user_msg_created_at = user_msg.created_at
+    # Build a detached dict to pass to dispatch helpers
+    user_msg_data = {
+        "id": user_msg_id,
+        "role": user_msg_role,
+        "content": user_msg_content,
+        "created_at": user_msg_created_at,
+    }
     if payload.mode == "workflow" and payload.workflow_id:
         return await _dispatch_workflow(
-            background_tasks, container, service, conversation_id, payload, user_msg, conv_repo
+            background_tasks, container, service, conversation_id, payload, user_msg_data, conv_repo
         )
-    return await _dispatch_agent(background_tasks, container, conversation_id, payload, user_msg, conv_resp)
+    return await _dispatch_agent(background_tasks, container, conversation_id, payload, user_msg_data, conv_resp)
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +219,7 @@ async def _dispatch_workflow(
     service: ConversationService,
     conversation_id: str,
     payload: MessageCreate,
-    user_msg,
+    user_msg: dict,
     conv_repo: ConversationRepository,
 ):
     """Workflow branch: create execution record, then schedule background task."""
@@ -216,12 +229,14 @@ async def _dispatch_workflow(
     try:
         with conv_repo._session() as db:
             execution = service.start_workflow_execution(conversation_id, workflow_id, db)
+            # Eagerly load execution id before session closes
+            execution_id = str(execution.id)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Workflow not found") from err
     background_tasks.add_task(
         execute_workflow_async,
         conversation_id=conversation_id,
-        execution_id=str(execution.id),
+        execution_id=execution_id,
         workflow_id=workflow_id,
         params={"question": payload.content},
         container=container,
@@ -229,7 +244,7 @@ async def _dispatch_workflow(
     return {
         "user_message": _user_message_response(user_msg),
         "status": "workflow_started",
-        "execution_id": str(execution.id),
+        "execution_id": execution_id,
     }
 
 
@@ -238,7 +253,7 @@ async def _dispatch_agent(
     container,
     conversation_id: str,
     payload: MessageCreate,
-    user_msg,
+    user_msg: dict,
     conv_resp: ConversationResponse,
 ):
     """Agent branch: resolve target agent, then schedule background task."""
@@ -246,7 +261,7 @@ async def _dispatch_agent(
     background_tasks.add_task(
         process_agent_message,
         conversation_id=conversation_id,
-        message_id=str(user_msg.id),
+        message_id=user_msg["id"],
         content=payload.content,
         agent=agent,
         backend=container.backend,
