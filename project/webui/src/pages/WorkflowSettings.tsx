@@ -17,17 +17,18 @@ import {
 import { SaveOutlined, ReloadOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { CronEditor } from '../components/CronEditor';
+import {
+  listWorkflows,
+  listScheduled,
+  scheduleWorkflow,
+  unscheduleWorkflow,
+  updateWorkflow,
+} from '../api/workflows';
+import type { ScheduledJob } from '../api/workflows';
 
 const { Title, Text } = Typography;
 
 type WorkflowTriggerType = 'manual' | 'schedule' | 'command';
-
-interface ScheduledJob {
-  workflow_id: string;
-  cron_expression: string;
-  job_id: string;
-  next_run_times: string[];
-}
 
 interface WorkflowSettings {
   id: string;
@@ -49,30 +50,29 @@ export default function WorkflowSettings() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const [wfRes, scheduledRes] = await Promise.all([
-        fetch('/api/v1/workflows'),
-        fetch('/api/v1/workflows/scheduled'),
+      const [wfData, scheduledJobs] = await Promise.all([
+        listWorkflows(),
+        // The scheduled listing is best-effort: if it fails, fall back to an empty
+        // array so the page still renders the workflow list (preserves the original
+        // behavior where the scheduled fetch was checked with `if (scheduledRes.ok)`).
+        listScheduled().catch(() => [] as ScheduledJob[]),
       ]);
-      if (!wfRes.ok) throw new Error(`HTTP ${wfRes.status}`);
-      // FIX: list_workflows returns an array, not {workflows: [...]}
-      const wfData = await wfRes.json();
-      const workflows: WorkflowSettings[] = Array.isArray(wfData) ? wfData : [];
+      // The api `WorkflowMeta` type is a slim view-model (id/name/status/trigger_type),
+      // but the backend actually returns the full payload (description, created_at,
+      // updated_at, etc.). Cast to the richer local view-model so the form's
+      // commandString/description/createdAt/updatedAt fields keep populating.
+      const workflows = wfData as unknown as WorkflowSettings[];
 
-      if (scheduledRes.ok) {
-        const scheduledData = await scheduledRes.json();
-        const scheduledJobs: ScheduledJob[] = Array.isArray(scheduledData) ? scheduledData : [];
-        const scheduleMap = new Map<string, ScheduledJob>();
-        for (const job of scheduledJobs) {
-          scheduleMap.set(job.workflow_id, job);
-        }
-        for (const wf of workflows) {
-          const job = scheduleMap.get(wf.id);
-          if (job) {
-            wf.triggerType = 'schedule';
-            wf.cronExpression = job.cron_expression;
-            // FIX: backend returns next_run_times (array), not next_run
-            wf.nextRun = job.next_run_times?.[0];
-          }
+      const scheduleMap = new Map<string, ScheduledJob>();
+      for (const job of scheduledJobs) {
+        scheduleMap.set(job.workflow_id, job);
+      }
+      for (const wf of workflows) {
+        const job = scheduleMap.get(wf.id);
+        if (job) {
+          wf.triggerType = 'schedule';
+          wf.cronExpression = job.cron_expression;
+          wf.nextRun = job.next_run_times?.[0];
         }
       }
 
@@ -160,24 +160,15 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
           setSaving(false);
           return;
         }
-        const res = await fetch(`/api/v1/workflows/${w.id}/schedule`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cron_expression: cronExpression }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || `HTTP ${res.status}`);
-        }
+        await scheduleWorkflow(w.id, cronExpression);
         message.success('已设置定时任务');
       } else {
-        await fetch(`/api/v1/workflows/${w.id}/schedule`, { method: 'DELETE' });
+        // Original code fired a bare DELETE and ignored the response. Preserve that
+        // tolerance (404 when no schedule exists, or any transient failure) by
+        // swallowing the error so switching to manual still succeeds.
+        await unscheduleWorkflow(w.id).catch(() => {});
         if (triggerType === 'command') {
-          await fetch(`/api/v1/workflows/${w.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ trigger_type: 'command' }),
-          });
+          await updateWorkflow(w.id, { trigger_type: 'command' });
         }
         message.success(triggerType === 'manual' ? '已切换为手动触发' : '已切换为命令触发');
       }

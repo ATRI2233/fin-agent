@@ -26,6 +26,7 @@ import {
   FolderOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
+import { opencodeDelete, opencodeGet, opencodePost, opencodePut } from '../api/opencode';
 
 const { Text, Paragraph } = Typography;
 
@@ -60,8 +61,7 @@ export default function SkillsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch('/api/config/scope')
-      .then((res) => res.json())
+    opencodeGet<{ skills: Scope }>('/config/scope')
       .then((data) => {
         if (data.skills) setScope(data.skills);
       })
@@ -72,9 +72,7 @@ export default function SkillsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/skills?scope=${scope}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodeGet<{ skills?: SkillMeta[] }>(`/skills?scope=${scope}`);
       setSkills(data.skills ?? []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '加载技能失败';
@@ -90,11 +88,7 @@ export default function SkillsPage() {
   const handleScopeChange = async (newScope: Scope) => {
     setScope(newScope);
     try {
-      await fetch('/api/config/scope', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skills: newScope }),
-      });
+      await opencodePut<void>('/config/scope', { skills: newScope });
     } catch {}
   };
 
@@ -103,9 +97,8 @@ export default function SkillsPage() {
     setViewLoading(true);
     setViewContent(null);
     try {
-      const res = await fetch(`/api/skills/${name}/content?scope=${scope}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setViewContent(await res.json());
+      const data = await opencodeGet<SkillContent>(`/skills/${name}/content?scope=${scope}`);
+      setViewContent(data);
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : '加载失败');
       setViewVisible(false);
@@ -117,9 +110,8 @@ export default function SkillsPage() {
     setEditLoading(true);
     setEditContent(null);
     try {
-      const res = await fetch(`/api/skills/${name}/content?scope=${scope}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setEditContent(await res.json());
+      const data = await opencodeGet<SkillContent>(`/skills/${name}/content?scope=${scope}`);
+      setEditContent(data);
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : '加载失败');
       setEditVisible(false);
@@ -130,12 +122,9 @@ export default function SkillsPage() {
     if (!editContent) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/skills/${editContent.name}/content?scope=${scope}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent.content }),
+      await opencodePut<void>(`/skills/${editContent.name}/content?scope=${scope}`, {
+        content: editContent.content,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       message.success('技能已保存');
       setEditVisible(false);
     } catch (err: unknown) {
@@ -145,8 +134,7 @@ export default function SkillsPage() {
 
   const handleDelete = async (name: string) => {
     try {
-      const res = await fetch(`/api/skills/${name}?scope=${scope}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodeDelete<void>(`/skills/${name}?scope=${scope}`);
       message.success(`技能 ${name} 已删除`);
       fetchSkills();
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
@@ -154,13 +142,7 @@ export default function SkillsPage() {
 
   const handleMove = async (name: string) => {
     try {
-      const res = await fetch(`/api/skills/${name}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: scope }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodePost<{ to: Scope }>(`/skills/${name}/move`, { from: scope });
       message.success(`已移至 ${data.to}`);
       fetchSkills();
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
@@ -168,9 +150,7 @@ export default function SkillsPage() {
 
   const handleToggle = async (name: string) => {
     try {
-      const res = await fetch(`/api/skills/${name}/toggle?scope=${scope}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodePost<{ enabled: boolean }>(`/skills/${name}/toggle?scope=${scope}`, {});
       setSkills((prev) => prev.map((s) => (s.name === name ? { ...s, enabled: data.enabled } : s)));
       message.success(`${name} ${data.enabled ? '已启用' : '已禁用'}`);
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }

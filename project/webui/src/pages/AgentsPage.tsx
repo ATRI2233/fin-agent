@@ -13,6 +13,13 @@ import {
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import type { ColumnsType } from 'antd/es/table';
+import { listAgents } from '../api/agents';
+import {
+  opencodeGet,
+  opencodePost,
+  opencodePut,
+  opencodeDelete,
+} from '../api/opencode';
 
 const { Text } = Typography;
 
@@ -80,12 +87,13 @@ export default function AgentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/agents');
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      setAgents(data.agents ?? []);
+      const data = await listAgents();
+      // listAgents() returns the framework `Agent[]`; the local `AgentMeta`
+      // table row includes `filePath` which the framework does not surface.
+      // Cast preserves the existing column shape without forcing a refactor
+      // of the table props; a follow-up can either drop the column or
+      // extend the framework summary to include the source path.
+      setAgents(data as unknown as AgentMeta[]);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load agents';
       setError(msg);
@@ -103,24 +111,24 @@ export default function AgentsPage() {
 
   const fetchAgentModels = async () => {
     try {
-      const res = await fetch('/api/agents/models');
-      if (res.ok) {
-        const data = await res.json();
-        setAgentModels(data.models || {});
-      }
-    } catch {}
+      const data = await opencodeGet<{ models?: Record<string, string> }>(
+        '/agents/models',
+      );
+      setAgentModels(data.models || {});
+    } catch {
+      // Proxy may not be ready yet; leave the previous model map in place.
+    }
   };
 
   const fetchAvailableTools = async () => {
     try {
-      // Fetch MCP tools
-      const mcpRes = await fetch('/api/mcp');
-      const toolsRes = await fetch('/api/tools');
       const tools: ToolItem[] = [];
 
-      if (mcpRes.ok) {
-        const mcpData = await mcpRes.json();
-        for (const [serverName, serverConfig] of Object.entries(mcpData as Record<string, any>)) {
+      // Fetch MCP tools — failures are isolated so a missing MCP endpoint
+      // does not take down the custom/builtin list.
+      try {
+        const mcpData = await opencodeGet<Record<string, any>>('/mcp');
+        for (const [serverName, serverConfig] of Object.entries(mcpData)) {
           const mcpTools = serverConfig.tools || [];
           if (Array.isArray(mcpTools)) {
             for (const tool of mcpTools) {
@@ -135,11 +143,14 @@ export default function AgentsPage() {
             }
           }
         }
+      } catch (mcpErr) {
+        console.error('Failed to fetch MCP tools:', mcpErr);
       }
 
-      if (toolsRes.ok) {
-        const toolsData = await toolsRes.json();
-        for (const [name, config] of Object.entries(toolsData as Record<string, any>)) {
+      // Fetch custom (non-MCP) tools.
+      try {
+        const toolsData = await opencodeGet<Record<string, any>>('/tools');
+        for (const [name, config] of Object.entries(toolsData)) {
           tools.push({
             key: name,
             title: name,
@@ -148,6 +159,8 @@ export default function AgentsPage() {
             category: config.category || '自定义',
           });
         }
+      } catch (toolsErr) {
+        console.error('Failed to fetch custom tools:', toolsErr);
       }
 
       // Add builtin tools
@@ -172,14 +185,12 @@ export default function AgentsPage() {
   const fetchToolsWhitelist = async (agentName: string) => {
     setWhitelistLoading(true);
     try {
-      const res = await fetch(`/api/agents/${agentName}/tools-whitelist`);
-      if (res.ok) {
-        const data = await res.json();
-        setEditWhitelist(data.tools_whitelist || []);
-      } else {
-        setEditWhitelist([]);
-      }
+      const data = await opencodeGet<{ tools_whitelist?: string[] }>(
+        `/agents/${encodeURIComponent(agentName)}/tools-whitelist`,
+      );
+      setEditWhitelist(data.tools_whitelist || []);
     } catch {
+      // No whitelist configured for this agent — treat as "allow all".
       setEditWhitelist([]);
     } finally {
       setWhitelistLoading(false);
@@ -190,13 +201,10 @@ export default function AgentsPage() {
     try {
       const values = await batchModelForm.validateFields();
       setBatchModelLoading(true);
-      const res = await fetch('/api/agents/batch-model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: values.model }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodePost<{ agentCount: number }>(
+        '/agents/batch-model',
+        { model: values.model },
+      );
       message.success(`Model set for ${data.agentCount} agents`);
       setBatchModelVisible(false);
       batchModelForm.resetFields();
@@ -215,11 +223,9 @@ export default function AgentsPage() {
     setViewLoading(true);
     setViewContent(null);
     try {
-      const res = await fetch(`/api/agents/${name}/content`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data: AgentContent = await res.json();
+      const data: AgentContent = await opencodeGet<AgentContent>(
+        `/agents/${encodeURIComponent(name)}/content`,
+      );
       setViewContent(data);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load agent content';
@@ -239,11 +245,9 @@ export default function AgentsPage() {
     setToolFilterServer('all');
     setToolFilterCategory('all');
     try {
-      const res = await fetch(`/api/agents/${name}/content`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data: AgentContent = await res.json();
+      const data: AgentContent = await opencodeGet<AgentContent>(
+        `/agents/${encodeURIComponent(name)}/content`,
+      );
       setEditContent(data);
       setEditDescription(data.description || '');
       setEditMode(data.mode || 'subagent');
@@ -274,24 +278,16 @@ export default function AgentsPage() {
       }
       
       // Save agent content
-      const res = await fetch(`/api/agents/${editContent.name}/content`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      await opencodePut(
+        `/agents/${encodeURIComponent(editContent.name)}/content`,
+        { content },
+      );
 
       // Save tools whitelist
-      const whitelistRes = await fetch(`/api/agents/${editContent.name}/tools-whitelist`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tools_whitelist: editWhitelist }),
-      });
-      if (!whitelistRes.ok) {
-        throw new Error(`Failed to save tools whitelist: HTTP ${whitelistRes.status}`);
-      }
+      await opencodePut(
+        `/agents/${encodeURIComponent(editContent.name)}/tools-whitelist`,
+        { tools_whitelist: editWhitelist },
+      );
 
       message.success('Agent saved');
       setEditVisible(false);
@@ -311,11 +307,21 @@ export default function AgentsPage() {
 
   const handleDelete = async (name: string) => {
     try {
-      const res = await fetch(`/api/agents/${name}`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
+      await opencodeDelete(`/agents/${encodeURIComponent(name)}`);
       message.success(`Agent ${name} deleted`);
       fetchAgents();
-    } catch {
+    } catch (err: unknown) {
+      // 404 is acceptable — the agent is already gone from the proxy's
+      // perspective. Re-throw for any other failure so the user sees
+      // the toast.
+      if (err && typeof err === 'object' && 'problem' in err) {
+        const problem = (err as { problem: { status?: number } }).problem;
+        if (problem?.status === 404) {
+          message.success(`Agent ${name} deleted`);
+          fetchAgents();
+          return;
+        }
+      }
       message.error('Failed to delete agent');
     }
   };
@@ -325,12 +331,10 @@ export default function AgentsPage() {
       const values = await createForm.validateFields();
       setCreateLoading(true);
       const content = `---\ndescription: ${values.description}\nmode: ${values.mode}\n---\n\n# ${values.name}\n\nNew agent system prompt.\n`;
-      const res = await fetch(`/api/agents/${values.name}/content`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut(
+        `/agents/${encodeURIComponent(values.name)}/content`,
+        { content },
+      );
       message.success(`Agent ${values.name} created`);
       setCreateVisible(false);
       createForm.resetFields();
@@ -352,12 +356,14 @@ export default function AgentsPage() {
       const counts: Record<string, number> = {};
       for (const agent of agents) {
         try {
-          const res = await fetch(`/api/agents/${agent.name}/tools-whitelist`);
-          if (res.ok) {
-            const data = await res.json();
-            counts[agent.name] = data.tools_whitelist?.length || 0;
-          }
-        } catch {}
+          const data = await opencodeGet<{ tools_whitelist?: string[] }>(
+            `/agents/${encodeURIComponent(agent.name)}/tools-whitelist`,
+          );
+          counts[agent.name] = data.tools_whitelist?.length || 0;
+        } catch {
+          // No whitelist configured for this agent — leave the count undefined
+          // so the table renders the "..." placeholder.
+        }
       }
       setAgentWhitelistCounts(counts);
     };

@@ -5,6 +5,7 @@ import {
 } from 'antd';
 import { ReloadOutlined, EditOutlined, DeleteOutlined, SwapOutlined, GlobalOutlined, FolderOutlined, CloudServerOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { opencodeGet, opencodePost, opencodePut, opencodeDelete } from '../api/opencode';
 
 const { Text } = Typography;
 
@@ -35,16 +36,14 @@ export default function MCPServersPage() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    fetch('/api/config/scope').then((r) => r.json()).then((d) => { if (d.mcp) setScope(d.mcp); }).catch(() => {});
+    opencodeGet<{ mcp?: Scope }>('/config/scope').then((d) => { if (d.mcp) setScope(d.mcp); }).catch(() => {});
   }, []);
 
   const fetchServers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/mcp?scope=${scope}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: Record<string, McpServerConfig> = await res.json();
+      const data = await opencodeGet<Record<string, McpServerConfig>>(`/mcp?scope=${scope}`);
       setServers(Object.entries(data).map(([name, cfg]) => ({ ...cfg, name })));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '加载失败');
@@ -56,14 +55,12 @@ export default function MCPServersPage() {
 
   const handleScopeChange = async (s: Scope) => {
     setScope(s);
-    try { await fetch('/api/config/scope', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mcp: s }) }); } catch {}
+    try { await opencodePut<void>('/config/scope', { mcp: s }); } catch {}
   };
 
   const handleToggle = async (name: string) => {
     try {
-      const res = await fetch(`/api/mcp/${name}/toggle?scope=${scope}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodePost<{ enabled: boolean }>(`/mcp/${name}/toggle?scope=${scope}`, {});
       setServers((p) => p.map((s) => (s.name === name ? { ...s, enabled: data.enabled } : s)));
       message.success(`${name} ${data.enabled ? '已启用' : '已禁用'}`);
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
@@ -71,8 +68,7 @@ export default function MCPServersPage() {
 
   const handleDelete = async (name: string) => {
     try {
-      const res = await fetch(`/api/mcp/${name}?scope=${scope}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodeDelete<void>(`/mcp/${name}?scope=${scope}`);
       message.success(`${name} 已删除`);
       fetchServers();
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
@@ -80,9 +76,7 @@ export default function MCPServersPage() {
 
   const handleMove = async (name: string) => {
     try {
-      const res = await fetch(`/api/mcp/${name}/move`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: scope }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await opencodePost<{ to: Scope }>(`/mcp/${name}/move`, { from: scope });
       message.success(`已移至 ${data.to}`);
       fetchServers();
     } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
@@ -100,8 +94,7 @@ export default function MCPServersPage() {
       const values = await form.validateFields();
       setSaving(true);
       const payload: McpServerConfig = { type: values.type, command: values.command, args: values.args ? values.args.split(/\s+/) : [], enabled: editTarget.enabled, description: values.description || undefined };
-      const res = await fetch(`/api/mcp/${editTarget.name}?scope=${scope}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut<void>(`/mcp/${editTarget.name}?scope=${scope}`, payload);
       message.success(`${editTarget.name} 已更新`);
       setEditVisible(false);
       setEditTarget(null);

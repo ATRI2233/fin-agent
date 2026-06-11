@@ -2,12 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Alert, Spin, message, Popconfirm, Select, Card, Radio } from 'antd';
 import { ReloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined, CheckCircleFilled } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { opencodeGet, opencodePut, opencodeDelete } from '../api/opencode';
 
 const { Title, Text } = Typography;
 
 interface ProviderModelConfig { name: string; }
 interface ProviderConfig { name: string; npm: string; options?: Record<string, unknown>; models?: Record<string, ProviderModelConfig>; }
 interface ProviderRow extends ProviderConfig { key: string; }
+interface Provider { providers?: Record<string, ProviderConfig>; active?: { provider: string; model: string } }
 
 export default function ProvidersPage() {
   const [providers, setProviders] = useState<ProviderRow[]>([]);
@@ -30,10 +32,8 @@ export default function ProvidersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/providers');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const provMap: Record<string, ProviderConfig> = data.providers || data;
+      const data = await opencodeGet<Provider>('/providers');
+      const provMap: Record<string, ProviderConfig> = data.providers || (data as unknown as Record<string, ProviderConfig>);
       setProviders(Object.entries(provMap).map(([k, c]) => ({ ...(c as ProviderConfig), key: k })));
       if (data.active) {
         setActiveProvider(data.active.provider || '');
@@ -49,12 +49,7 @@ export default function ProvidersPage() {
 
   const handleSetActive = async (provider: string, model: string) => {
     try {
-      const res = await fetch('/api/providers/active', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, model }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut('/providers/active', { provider, model });
       setActiveProvider(provider);
       setActiveModel(model);
       message.success(`已切换到 ${provider}${model ? ` / ${model}` : ''}`);
@@ -74,8 +69,7 @@ export default function ProvidersPage() {
     try {
       const v = await form.validateFields();
       setSaving(true);
-      const res = await fetch(`/api/providers/${editTarget.key}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v.name, npm: v.npm, options: { apiKey: v.apiKey, baseURL: v.baseURL, setCacheKey: true }, models: editTarget.models }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut(`/providers/${editTarget.key}`, { name: v.name, npm: v.npm, options: { apiKey: v.apiKey, baseURL: v.baseURL, setCacheKey: true }, models: editTarget.models });
       message.success(`${editTarget.key} 已更新`);
       setEditVisible(false); setEditTarget(null); form.resetFields(); fetchProviders();
     } catch (err: unknown) {
@@ -86,8 +80,7 @@ export default function ProvidersPage() {
 
   const handleDelete = async (name: string) => {
     try {
-      const res = await fetch(`/api/providers/${name}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodeDelete(`/providers/${name}`);
       if (activeProvider === name) {
         setActiveProvider('');
         setActiveModel('');
@@ -101,8 +94,7 @@ export default function ProvidersPage() {
     try {
       const v = await addForm.validateFields();
       setAddSaving(true);
-      const res = await fetch(`/api/providers/${v.key}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: v.name, npm: v.npm, options: { apiKey: v.apiKey || '', baseURL: v.baseURL || '', setCacheKey: true }, models: {} }) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await opencodePut(`/providers/${v.key}`, { name: v.name, npm: v.npm, options: { apiKey: v.apiKey || '', baseURL: v.baseURL || '', setCacheKey: true }, models: {} });
       message.success('提供商已创建');
       setAddVisible(false); addForm.resetFields(); fetchProviders();
     } catch (err: unknown) {

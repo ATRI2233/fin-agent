@@ -62,67 +62,10 @@ interface Agent {
 }
 
 // ���� API Helpers ����������������������������������������������������������������������������������������������������������
-import { API_V1_BASE } from '../config/env';
-
-async function fetchConversations(): Promise<Conversation[]> {
-  const res = await fetch(`${API_V1_BASE}/conversations`);
-  if (!res.ok) throw new Error('Failed to fetch conversations');
-  return res.json();
-}
-
-async function createConversation(title?: string): Promise<Conversation> {
-  const res = await fetch(`${API_V1_BASE}/conversations`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: title || 'New Conversation' }),
-  });
-  if (!res.ok) throw new Error('Failed to create conversation');
-  return res.json();
-}
-
-async function deleteConversation(id: string): Promise<void> {
-  const res = await fetch(`${API_V1_BASE}/conversations/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete conversation');
-}
-
-async function fetchMessages(conversationId: string): Promise<Message[]> {
-  const res = await fetch(`${API_V1_BASE}/conversations/${conversationId}/messages`);
-  if (!res.ok) throw new Error('Failed to fetch messages');
-  return res.json();
-}
-
-async function sendMessage(
-  conversationId: string,
-  content: string,
-  mode: 'agent' | 'workflow',
-  agent?: string,
-  workflowId?: string
-): Promise<any> {
-  const res = await fetch(`${API_V1_BASE}/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content,
-      mode,
-      agent: mode === 'agent' ? agent : undefined,
-      workflow_id: mode === 'workflow' ? workflowId : undefined,
-    }),
-  });
-  if (!res.ok) throw new Error('Failed to send message');
-  return res.json();
-}
-
-async function fetchWorkflows(): Promise<Workflow[]> {
-  const res = await fetch(`${API_V1_BASE}/workflows`);
-  if (!res.ok) throw new Error('Failed to fetch workflows');
-  return res.json();
-}
-
-async function fetchAgents(): Promise<Agent[]> {
-  const res = await fetch(`${API_V1_BASE}/agents`);
-  if (!res.ok) throw new Error('Failed to fetch agents');
-  return res.json();
-}
+import { listConversations, createConversation, deleteConversation, listMessages, createMessage } from '../api/conversations';
+import { listAgents } from '../api/agents';
+import { listWorkflows } from '../api/workflows';
+import { useConversationStore } from '../store/useConversationStore';
 
 // ���� Message Bubble Component ��������������������������������������������������������������������������������
 function MessageBubble({ msg }: { msg: Message }) {
@@ -280,10 +223,17 @@ function MessageBubble({ msg }: { msg: Message }) {
 export default function ChatPage() {
   // State
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+
+  // Shared conversation state (migrated to zustand store, Wave 4 task 4.5)
+  const currentConversation = useConversationStore((s) => s.currentConversation);
+  const setCurrentConversation = useConversationStore((s) => s.setCurrentConversation);
+  const clearCurrentConversation = useConversationStore((s) => s.clearCurrentConversation);
+  // Cast to local Message (adds UI-only `_struck?` flag used by MessageBubble)
+  const messages = useConversationStore((s) => s.messages) as Message[];
+  const setMessages = useConversationStore((s) => s.setMessages);
+  const appendMessage = useConversationStore((s) => s.appendMessage);
 
   const [inputValue, setInputValue] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -331,7 +281,7 @@ export default function ChatPage() {
 
   const loadConversations = async () => {
     try {
-      const data = await fetchConversations();
+      const data = await listConversations();
       setConversations(data);
     } catch (err) {
       console.error('Failed to load conversations:', err);
@@ -340,7 +290,7 @@ export default function ChatPage() {
 
   const loadAgents = async () => {
     try {
-      const data = await fetchAgents();
+      const data = await listAgents();
       setAgents(data);
     } catch (err) {
       console.error('Failed to load agents:', err);
@@ -349,7 +299,7 @@ export default function ChatPage() {
 
   const loadWorkflows = async () => {
     try {
-      const data = await fetchWorkflows();
+      const data = await listWorkflows();
       setWorkflows(data);
     } catch (err) {
       console.error('Failed to load workflows:', err);
@@ -358,7 +308,7 @@ export default function ChatPage() {
 
   const loadMessages = async (conversationId: string) => {
     try {
-      const data = await fetchMessages(conversationId);
+      const data = await listMessages(conversationId);
       setMessages(data);
     } catch (err) {
       console.error('Failed to load messages:', err);
@@ -392,7 +342,7 @@ export default function ChatPage() {
       }
 
       try {
-        const msgs = await fetchMessages(conversationId);
+        const msgs = await listMessages(conversationId);
         setMessages(msgs);
 
         // Find the user message index to only look at messages AFTER it
@@ -429,7 +379,7 @@ export default function ChatPage() {
   // ���� Conversation Management ��������������������������������������������������������������������������
   const handleNewConversation = async () => {
     try {
-      const conv = await createConversation();
+      const conv = await createConversation({ title: 'New Conversation' });
       setConversations(prev => [conv, ...prev]);
       setCurrentConversation(conv);
       setMessages([]);
@@ -443,8 +393,7 @@ export default function ChatPage() {
       await deleteConversation(id);
       setConversations(prev => prev.filter(c => c.id !== id));
       if (currentConversation?.id === id) {
-        setCurrentConversation(null);
-        setMessages([]);
+        clearCurrentConversation();
       }
     } catch (err) {
       message.error('Failed to delete conversation');
@@ -462,13 +411,12 @@ export default function ChatPage() {
     shouldAutoScroll.current = true;
 
     try {
-      const result = await sendMessage(
-        currentConversation.id,
+      const result = await createMessage(currentConversation.id, {
         content,
         mode,
-        mode === 'agent' ? selectedAgent : undefined,
-        mode === 'workflow' ? selectedWorkflow || undefined : undefined
-      );
+        agent: mode === 'agent' ? selectedAgent : undefined,
+        workflow_id: mode === 'workflow' ? selectedWorkflow || undefined : undefined,
+      });
 
       // Get the user message ID from the response
       const userMessageId = result.user_message?.id;
@@ -482,7 +430,7 @@ export default function ChatPage() {
           content,
           created_at: new Date().toISOString(),
         };
-        setMessages(prev => [...prev, tempUserMsg]);
+        appendMessage(tempUserMsg);
 
         // Start polling for response
         startPolling(currentConversation.id, userMessageId, mode);

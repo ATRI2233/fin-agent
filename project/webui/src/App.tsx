@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Layout, Menu, ConfigProvider, theme, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
+import { useUiStore } from './store/useUiStore';
 import {
   DashboardOutlined,
   RobotOutlined,
@@ -89,7 +90,8 @@ const menuItems: MenuItem[] = [
 
 const AppLayout: React.FC = () => {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(location.pathname === '/chat');
+  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
   const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows', '/info/settings'];
   const openKeys = agentsPaths.includes(location.pathname) ? ['agents-group'] : [];
@@ -120,7 +122,7 @@ const AppLayout: React.FC = () => {
       <Sider
         collapsible
         collapsed={collapsed}
-        onCollapse={setCollapsed}
+        onCollapse={toggleSidebar}
         width={260}
         collapsedWidth={72}
         style={{
@@ -278,7 +280,7 @@ const AppLayout: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
               <div
-                onClick={() => setCollapsed(!collapsed)}
+                onClick={toggleSidebar}
                 style={{
                   cursor: 'pointer',
                 color: '#6B6B6B',

@@ -16,84 +16,37 @@ import {
    ═══════════════════════════════════════════════════════════════════ */
 
 import { API_V1_BASE } from '../config/env';
+import { getSystemStatus, getLogsStats, getCacheState } from '../api/system';
+import { listAgents, getAgentStats } from '../api/agents';
+import { getWorkflowStats } from '../api/workflows';
+import { listTools } from '../api/tools';
+import { listSkills } from '../api/skills';
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
    ═══════════════════════════════════════════════════════════════════ */
 
+import type { SystemStatus, LogStats, CacheState } from '../types/system';
+import type { WorkflowStats } from '../types/workflow';
+import type { Agent, ToolItem } from '../types/agent';
+import type { Skill } from '../api/skills';
+import type { AgentStatsEntry } from '../api/agents';
+
+/**
+ * Health / liveness snapshot for the raw `/api/v1/health` endpoint.
+ *
+ * The backend currently has no `/api/v1/health` route (latent bug),
+ * so the fetch below is left as a raw `fetch` and always 404s. The
+ * shape is defined here as a defensive cast for when the route lands.
+ */
 interface HealthStatus {
   status: string;
   timestamp: string;
 }
 
-interface SystemStatus {
-  jobExecutor: string;
-  concurrency: number;
-  scheduler: { pending: number; scheduled: number };
-  sessions: number;
-  timestamp: string;
-}
-
-interface WorkflowStats {
-  running: number;
-  completed: number;
-  failed: number;
-  successRate: string;
-}
-
-interface AgentInfo {
-  name: string;
-  description: string;
-  capabilities: string[];
-  tools: string[];
-  mode: string;
-}
-
-interface ToolInfo {
-  name: string;
-  description: string;
-  server: string;
-}
-
-interface SkillInfo {
-  name: string;
-  description: string;
-  agents: string[];
-}
-
 interface ServerGroup {
   name: string;
-  tools: ToolInfo[];
-}
-
-interface AgentStatItem {
-  name: string;
-  description: string;
-  mode: string;
-  jobs_total: number;
-  jobs_completed: number;
-  jobs_failed: number;
-  success_rate: string | null;
-}
-
-interface LogStats {
-  active_jobs_with_logs: number;
-  total_log_entries: number;
-  top_jobs: Record<string, number>;
-}
-
-interface CacheStats {
-  workflow_cache: {
-    size: number;
-    max_size: number;
-    usage_pct: number;
-  };
-  concurrency: {
-    active: number;
-    max: number;
-    available: number;
-    usage_pct: number;
-  };
+  tools: ToolItem[];
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -105,34 +58,37 @@ export default function Dashboard() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [workflowStats, setWorkflowStats] = useState<WorkflowStats | null>(null);
-  const [agents, setAgents] = useState<AgentInfo[]>([]);
-  const [tools, setTools] = useState<ToolInfo[]>([]);
-  const [skills, setSkills] = useState<SkillInfo[]>([]);
-  const [agentStats, setAgentStats] = useState<AgentStatItem[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [tools, setTools] = useState<ToolItem[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [agentStats, setAgentStats] = useState<Record<string, AgentStatsEntry>>({});
   const [logStats, setLogStats] = useState<LogStats | null>(null);
-  const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
+  const [cacheStats, setCacheStats] = useState<CacheState | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
 
   /* ─── Fetch all data once ─── */
   const fetchAll = useCallback(async () => {
     try {
-      const fetchJson = async (url: string) => {
-        const r = await fetch(url);
+      // TODO: backend has no `/api/v1/health` route — latent bug. Left as
+      // a raw `fetch` until the backend exposes the route. The 404 means
+      // `health` is always null and `isOnline` is always false today.
+      const fetchHealth = async (): Promise<HealthStatus | null> => {
+        const r = await fetch(`${API_V1_BASE}/health`);
         if (!r.ok) return null;
-        return r.json();
+        return (await r.json()) as HealthStatus;
       };
 
       const results = await Promise.allSettled([
-        fetchJson(`${API_V1_BASE}/health`),           // 0
-        fetchJson(`${API_V1_BASE}/system/status`),     // 1
-        fetchJson(`${API_V1_BASE}/workflows/stats`),   // 2
-        fetchJson(`${API_V1_BASE}/agents`),            // 3
-        fetchJson(`${API_V1_BASE}/tools`),             // 4
-        fetchJson(`${API_V1_BASE}/skills`),            // 5
-        fetchJson(`${API_V1_BASE}/agents/stats`),      // 6
-        fetchJson(`${API_V1_BASE}/system/logs/stats`), // 7
-        fetchJson(`${API_V1_BASE}/system/cache`),      // 8
+        fetchHealth(),         // 0  — raw fetch (latent bug, see TODO above)
+        getSystemStatus(),     // 1
+        getWorkflowStats(),    // 2
+        listAgents(),          // 3
+        listTools(),           // 4
+        listSkills(),          // 5
+        getAgentStats(),       // 6
+        getLogsStats(),        // 7
+        getCacheState(),       // 8
       ]);
 
       const val = (r: PromiseSettledResult<unknown>) =>
@@ -142,12 +98,12 @@ export default function Dashboard() {
       if (v[0]) setHealth(v[0] as HealthStatus);
       if (v[1]) setSystemStatus(v[1] as SystemStatus);
       if (v[2]) setWorkflowStats(v[2] as WorkflowStats);
-      if (Array.isArray(v[3])) setAgents(v[3] as AgentInfo[]);
-      if (Array.isArray(v[4])) setTools(v[4] as ToolInfo[]);
-      if (Array.isArray(v[5])) setSkills(v[5] as SkillInfo[]);
-      if (Array.isArray(v[6])) setAgentStats(v[6] as AgentStatItem[]);
+      if (Array.isArray(v[3])) setAgents(v[3] as Agent[]);
+      if (Array.isArray(v[4])) setTools(v[4] as ToolItem[]);
+      if (Array.isArray(v[5])) setSkills(v[5] as Skill[]);
+      if (v[6] && typeof v[6] === 'object') setAgentStats(v[6] as Record<string, AgentStatsEntry>);
       if (v[7]) setLogStats(v[7] as LogStats);
-      if (v[8]) setCacheStats(v[8] as CacheStats);
+      if (v[8]) setCacheStats(v[8] as CacheState);
     } catch (err) {
       console.error('[Dashboard] fetchAll failed:', err);
     } finally {
@@ -158,36 +114,36 @@ export default function Dashboard() {
   /* ─── Polling helpers ─── */
   const fetchSystemStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1_BASE}/system/status`);
-      if (res.ok) setSystemStatus(await res.json());
+      const data = await getSystemStatus();
+      setSystemStatus(data);
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchWorkflowStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1_BASE}/workflows/stats`);
-      if (res.ok) setWorkflowStats(await res.json());
+      const data = await getWorkflowStats();
+      setWorkflowStats(data);
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchAgentStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1_BASE}/agents/stats`);
-      if (res.ok) setAgentStats(await res.json());
+      const data = await getAgentStats();
+      setAgentStats(data);
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchLogStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1_BASE}/system/logs/stats`);
-      if (res.ok) setLogStats(await res.json());
+      const data = await getLogsStats();
+      setLogStats(data);
     } catch { /* keep last good data */ }
   }, []);
 
   const fetchCacheStats = useCallback(async () => {
     try {
-      const res = await fetch(`${API_V1_BASE}/system/cache`);
-      if (res.ok) setCacheStats(await res.json());
+      const data = await getCacheState();
+      setCacheStats(data);
     } catch { /* keep last good data */ }
   }, []);
 
@@ -221,13 +177,9 @@ export default function Dashboard() {
 
   const isOnline = health?.status === 'ok' || health?.status === 'healthy';
 
-  const agentStatsMap = useMemo(() => {
-    const map: Record<string, AgentStatItem> = {};
-    for (const stat of agentStats) {
-      map[stat.name] = stat;
-    }
-    return map;
-  }, [agentStats]);
+  // `agentStats` is already keyed by agent name; expose the same alias
+  // the rest of the component uses for indexing.
+  const agentStatsMap = useMemo(() => agentStats, [agentStats]);
 
   /* ─── Loading gate ─── */
   if (loading) {
@@ -312,7 +264,7 @@ export default function Dashboard() {
               </span>
             </div>
             <div className="stat-card-label" style={{ marginBottom: 0 }}>
-              {systemStatus ? `Executor: ${systemStatus.jobExecutor}` : 'System'}
+              {systemStatus ? `v${systemStatus.version}` : 'System'}
             </div>
           </div>
         </Col>
@@ -342,6 +294,8 @@ export default function Dashboard() {
                 {agents.map((agent, index) => {
                   const isExpanded = expandedAgent === agent.name;
                   const stats = agentStatsMap[agent.name];
+                  const agentTags = agent.tags ?? [];
+                  const agentToolWhitelist = agent.tools_whitelist ?? [];
                   return (
                     <div key={agent.name}>
                       <div
@@ -392,21 +346,19 @@ export default function Dashboard() {
                                   fontWeight: 500,
                                 }}
                               >
-                                {stats.mode}
+                                {agent.mode}
                               </span>
-                              <span title="Total jobs">{stats.jobs_total}</span>
-                              <span style={{ color: 'var(--accent-muted)' }} title="Completed">{stats.jobs_completed}</span>
-                              <span style={{ color: 'var(--accent-danger)' }} title="Failed">{stats.jobs_failed}</span>
+                              <span title="Total executions">{stats.executions}</span>
                               <span style={{ color: 'var(--accent-warm)', fontWeight: 600 }} title="Success rate">
-                                {stats.success_rate ?? '--'}
+                                {stats.success_rate}%
                               </span>
                             </div>
                           )}
 
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            {agent.capabilities.map((cap) => (
+                            {agentTags.map((tag) => (
                               <span
-                                key={cap}
+                                key={tag}
                                 style={{
                                   fontSize: 12,
                                   color: 'var(--accent)',
@@ -416,7 +368,7 @@ export default function Dashboard() {
                                   fontWeight: 500,
                                 }}
                               >
-                                {cap}
+                                {tag}
                               </span>
                             ))}
                           </div>
@@ -432,7 +384,7 @@ export default function Dashboard() {
                             }}
                           >
                             <ToolOutlined style={{ fontSize: 12 }} />
-                            {agent.tools.length}
+                            {agentToolWhitelist.length}
                           </div>
                         </div>
                       </div>
@@ -459,7 +411,7 @@ export default function Dashboard() {
                             Tools
                           </div>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {agent.tools.map((tool) => (
+                            {agentToolWhitelist.map((tool) => (
                               <span
                                 key={tool}
                                 style={{
@@ -558,7 +510,7 @@ export default function Dashboard() {
       </Row>
 
       {/* ═══════════════════════════════════════════════════════════
-          SYSTEM RESOURCES ROW — Cache / Concurrency / Logs
+          SYSTEM RESOURCES ROW — Cache / Hit Rate / Logs
           ═══════════════════════════════════════════════════════════ */}
       <Row gutter={[20, 20]}>
         <Col xs={24}>
@@ -605,16 +557,16 @@ export default function Dashboard() {
                     }}
                   >
                     {cacheStats
-                      ? `${cacheStats.workflow_cache.size}/${cacheStats.workflow_cache.max_size}`
+                      ? `${cacheStats.entries} entries`
                       : '加载中...'}
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Cache{cacheStats ? ` (${cacheStats.workflow_cache.usage_pct}%)` : ''}
+                    Cache{cacheStats ? ` (${(cacheStats.size_bytes / 1024).toFixed(1)} KB)` : ''}
                   </div>
                 </div>
               </div>
 
-              {/* Concurrency */}
+              {/* Hit Rate */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div
                   style={{
@@ -640,12 +592,12 @@ export default function Dashboard() {
                       lineHeight: 1,
                     }}
                   >
-                    {cacheStats
-                      ? `${cacheStats.concurrency.active}/${cacheStats.concurrency.max}`
+                    {cacheStats?.hit_rate != null
+                      ? `${(cacheStats.hit_rate * 100).toFixed(1)}%`
                       : '加载中...'}
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
-                    Concurrency{cacheStats ? ` (${cacheStats.concurrency.usage_pct}%)` : ''}
+                    Hit Rate
                   </div>
                 </div>
               </div>
@@ -677,12 +629,12 @@ export default function Dashboard() {
                     }}
                   >
                     {logStats
-                      ? `${logStats.total_log_entries.toLocaleString()} entries`
+                      ? `${logStats.total.toLocaleString()} entries`
                       : '加载中...'}
                   </div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-tertiary)', marginTop: 4 }}>
                     {logStats
-                      ? `across ${logStats.active_jobs_with_logs} jobs`
+                      ? `${logStats.info} info · ${logStats.warn} warn · ${logStats.error} err`
                       : 'Logs'}
                   </div>
                 </div>

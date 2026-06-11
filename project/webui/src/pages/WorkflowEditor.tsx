@@ -30,6 +30,17 @@ import DebateNodeComponent from '../components/workflow/nodes/DebateNode';
 import InputNodeComponent, { type InputNodeData } from '../components/workflow/nodes/InputNode';
 import OutputNodeComponent, { type OutputNodeData } from '../components/workflow/nodes/OutputNode';
 import { CronEditor } from '../components/CronEditor';
+import { listAgents } from '../api/agents';
+import {
+  getWorkflow,
+  createWorkflow,
+  updateWorkflow,
+  triggerWorkflow,
+} from '../api/workflows';
+import { apiGet, apiPut, buildUrl } from '../api/client';
+import { API_V1_BASE } from '../config/env';
+import type { Workflow } from '../types/workflow';
+import { useWorkflowStore } from '../store/useWorkflowStore';
 
 // --- Edge Data Types ---
 type PromptType = 'context' | 'instruction' | 'constraint' | 'data';
@@ -428,10 +439,11 @@ function WorkflowSettingsModal({ visible, onClose, workflowId, workflowName, onN
 
   useEffect(() => {
     if (visible && workflowId !== 'new') {
-      fetch(`/api/v1/workflows/${workflowId}/settings`)
-        .then((r) => r.ok ? r.json() : {})
-        .catch(() => ({}))
-        .then((data: Record<string, string>) => {
+      apiGet<Record<string, string>>(
+        buildUrl(API_V1_BASE, `/workflows/${encodeURIComponent(workflowId)}/settings`),
+      )
+        .catch(() => ({} as Record<string, string>))
+        .then((data) => {
           form.setFieldsValue({
             name: data.name ?? workflowName,
             triggerType: data.triggerType ?? 'manual',
@@ -453,12 +465,10 @@ function WorkflowSettingsModal({ visible, onClose, workflowId, workflowName, onN
       if (values.triggerType === 'schedule') {
         values.cronExpression = cronExpression;
       }
-      const res = await fetch(`/api/v1/workflows/${workflowId}/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await apiPut(
+        buildUrl(API_V1_BASE, `/workflows/${encodeURIComponent(workflowId)}/settings`),
+        values,
+      );
       onNameChange(values.name);
       message.success('Settings saved');
       onClose();
@@ -668,9 +678,8 @@ function WorkflowBlockSelectorModal({ visible, onClose, onSelect, currentWorkflo
   useEffect(() => {
     if (!visible) return;
     setLoading(true);
-    fetch('/api/v1/workflows')
-      .then((r) => r.ok ? r.json() : [])
-      .then((data: WorkflowListItem[]) => {
+    apiGet<WorkflowListItem[]>(buildUrl(API_V1_BASE, '/workflows'))
+      .then((data) => {
         // 排除当前正在编辑的工作流
         setWorkflows(data.filter((w) => w.id !== currentWorkflowId));
       })
@@ -990,9 +999,12 @@ export default function WorkflowEditor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // Editor selection state — migrated to zustand store (Wave 4 task 4.5)
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
+  const setSelectedNode = useWorkflowStore((s) => s.setSelectedNode);
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
+  const setSelectedEdge = useWorkflowStore((s) => s.setSelectedEdge);
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
@@ -1006,16 +1018,15 @@ export default function WorkflowEditor() {
   const debatableAgents = paletteAgents; // only real agents, not debate
 
   useEffect(() => {
-    fetch('/api/v1/agents')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((agents: Array<{ name: string; description?: string }>) => {
+    listAgents()
+      .then((agents) => {
         setPaletteAgents(
           agents
             .filter((a) => a.name !== 'fin-orchestrator')
             .map((a) => ({
               type: a.name,
               label: a.name,
-              description: a.description ?? '',
+              description: a.description,
             }))
         );
       })
@@ -1032,9 +1043,7 @@ export default function WorkflowEditor() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/workflows/${id}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await getWorkflow(id);
       setNodes((data.nodes ?? []) as WorkflowNode[]);
       setEdges((data.edges ?? []) as WorkflowEdge[]);
       setWorkflowName(data.name ?? 'Workflow');
@@ -1069,18 +1078,18 @@ export default function WorkflowEditor() {
   );
 
   const onNodeClick = useCallback((_: unknown, node: WorkflowNode) => {
-    setSelectedNodeId(node.id);
-    setSelectedEdgeId(null);
+    setSelectedNode(node.id);
+    setSelectedEdge(null);
   }, []);
 
   const onEdgeClick = useCallback((_: unknown, edge: WorkflowEdge) => {
-    setSelectedEdgeId(edge.id);
-    setSelectedNodeId(null);
+    setSelectedEdge(edge.id);
+    setSelectedNode(null);
   }, []);
 
   const onPaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-    setSelectedEdgeId(null);
+    setSelectedNode(null);
+    setSelectedEdge(null);
   }, []);
 
   const onUpdateEdge = useCallback((edgeId: string, data: Partial<EdgePromptData>) => {
@@ -1106,7 +1115,7 @@ export default function WorkflowEditor() {
   const onDeleteNode = useCallback((nodeId: string) => {
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
-    setSelectedNodeId(null);
+    setSelectedNode(null);
     isDirty.current = true;
   }, [setNodes, setEdges]);
 
@@ -1114,14 +1123,12 @@ export default function WorkflowEditor() {
     if (!id || id === 'new') {
       try {
         setSaving(true);
-        const res = await fetch('/api/v1/workflows', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: workflowName, nodes, edges }),
+        const data = await createWorkflow({
+          name: workflowName,
+          nodes: nodes as unknown as Workflow['nodes'],
+          edges: edges as unknown as Workflow['edges'],
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const newId = data.id ?? data._id;
+        const newId = data.id;
         if (!isAuto) message.success('工作流已创建');
         isDirty.current = false;
         navigate(`/workflows/${newId}/edit`);
@@ -1134,12 +1141,11 @@ export default function WorkflowEditor() {
     }
     try {
       setSaving(true);
-      const res = await fetch(`/api/v1/workflows/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes, edges, name: workflowName }),
+      await updateWorkflow(id, {
+        nodes: nodes as unknown as Workflow['nodes'],
+        edges: edges as unknown as Workflow['edges'],
+        name: workflowName,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (!isAuto) message.success('工作流已保存');
       isDirty.current = false;
     } catch {
@@ -1152,8 +1158,7 @@ export default function WorkflowEditor() {
   const handleRun = async () => {
     try {
       if (id && id !== 'new') await handleSave(true);
-      const res = await fetch(`/api/v1/workflows/${id}/trigger`, { method: 'POST' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await triggerWorkflow(id!);
       message.success('工作流已启动');
     } catch {
       message.error('运行工作流失败');
@@ -1216,9 +1221,7 @@ export default function WorkflowEditor() {
   // --- Workflow Block Import Handler ---
   const handleImportWorkflowBlock = useCallback(async (workflowId: string, workflowName: string) => {
     try {
-      const res = await fetch(`/api/v1/workflows/${workflowId}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await getWorkflow(workflowId);
       const sourceNodes = (data.nodes ?? []) as Array<{ id: string; type: string; position: { x: number; y: number }; data: Record<string, unknown> }>;
       const sourceEdges = (data.edges ?? []) as Array<{ id: string; source: string; target: string; data?: Record<string, unknown> }>;
 
@@ -1309,7 +1312,7 @@ export default function WorkflowEditor() {
       const childIds = new Set(blockNode.data.childNodeIds);
       return eds.filter((e) => e.source !== blockId && e.target !== blockId && !childIds.has(e.source) && !childIds.has(e.target));
     });
-    setSelectedNodeId(null);
+    setSelectedNode(null);
     isDirty.current = true;
     message.success('已移除工作流块及其所有子节点');
   }, [nodes, setNodes, setEdges]);
@@ -1441,8 +1444,8 @@ export default function WorkflowEditor() {
                 transition: 'all 0.2s ease',
               }}
               onClick={() => {
-                setSelectedNodeId(block.id);
-                setSelectedEdgeId(null);
+                setSelectedNode(block.id);
+                setSelectedEdge(null);
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'rgba(82, 196, 26, 0.12)';
@@ -1532,7 +1535,7 @@ export default function WorkflowEditor() {
             <EdgePromptEditor
               edge={selectedEdge}
               onUpdateEdge={onUpdateEdge}
-              onClose={() => setSelectedEdgeId(null)}
+              onClose={() => setSelectedEdge(null)}
             />
           ) : (
             <div style={{ padding: 16, color: '#6B6B6B', fontSize: 13, textAlign: 'center', marginTop: 40 }}>

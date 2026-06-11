@@ -3,6 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Descriptions, List, Tag, Table, Form, Input, Button, message, Spin, Alert, Space, Modal, Typography } from 'antd';
 import { PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { API_V1_BASE } from '../config/env';
+import { apiGet, apiPost, buildUrl } from '../api/client';
+import { getAgent } from '../api/agents';
+import { ApiError } from '../types/api-error';
 
 const { Title, Text } = Typography;
 
@@ -42,14 +46,12 @@ export default function FrameworkAgentDetail() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/v1/agents/${name}`);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data: AgentDetail = await res.json();
-      setAgent(data);
+      const data = await getAgent(name);
+      setAgent(data as unknown as AgentDetail);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load agent';
+      const msg = err instanceof ApiError
+        ? `HTTP ${err.problem.status}`
+        : err instanceof Error ? err.message : 'Failed to load agent';
       setError(msg);
       setAgent(null);
     } finally {
@@ -61,15 +63,20 @@ export default function FrameworkAgentDetail() {
     if (!name) return;
     setJobsLoading(true);
     try {
-      const res = await fetch('/api/v1/jobs');
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data: Job[] = await res.json();
+      // TODO: /api/v1/jobs is a latent-bug endpoint — there is no `jobs`
+      // resource in the current backend. The legacy implementation
+      // expected a separate jobs table that was never wired up. The
+      // intended replacement is `listExecutions({ workflow_id })` from
+      // `api/executions.ts`, but the response shape does not match the
+      // local `Job` interface (executions return workflow nodes, not
+      // agent dispatches). Track this in Wave 4.
+      const data = await apiGet<Job[]>(buildUrl(API_V1_BASE, '/jobs'));
       // Filter by agent name on client side
       setJobs(data.filter((job) => job.agent === name));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load jobs';
+      const msg = err instanceof ApiError
+        ? `HTTP ${err.problem.status}`
+        : err instanceof Error ? err.message : 'Failed to load jobs';
       message.error(msg);
     } finally {
       setJobsLoading(false);
@@ -86,22 +93,23 @@ export default function FrameworkAgentDetail() {
     try {
       const values = await runForm.validateFields();
       setRunLoading(true);
-      const res = await fetch('/api/v1/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent: name, prompt: values.prompt }),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const job: Job = await res.json();
+      // TODO: POST /api/v1/jobs is the same latent-bug endpoint as the
+      // GET above. There is no `jobs` resource in the current backend;
+      // the intended replacement is `createMessage(...)` (workflow
+      // mode) or a new dispatch endpoint. Track this in Wave 4.
+      const job = await apiPost<Job>(
+        buildUrl(API_V1_BASE, '/jobs'),
+        { agent: name, prompt: values.prompt },
+      );
       message.success(`Job ${job.id} created`);
       setRunModalVisible(false);
       runForm.resetFields();
       fetchJobs();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
-      const msg = err instanceof Error ? err.message : 'Failed to run agent';
+      const msg = err instanceof ApiError
+        ? `HTTP ${err.problem.status}`
+        : err instanceof Error ? err.message : 'Failed to run agent';
       message.error(msg);
     } finally {
       setRunLoading(false);
