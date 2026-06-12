@@ -23,7 +23,7 @@
  */
 
 import { API_V1_BASE } from '../config/env';
-import { apiGet, buildUrl } from './client';
+import { apiGet, apiPost, buildUrl } from './client';
 import type { ToolItem } from '../types/agent';
 
 /**
@@ -52,23 +52,17 @@ export async function getTool(name: string): Promise<ToolItem> {
 /**
  * Invoke a tool by registry name.
  *
- * `GET /api/v1/tools/{name}/invoke` → `{ result: unknown; error?: string }`
- *
- * In v1 the backend is a stub that ignores arguments and returns the
- * legacy error envelope `{ error: "Direct tool invocation not implemented
- * in v1", name }`. The optional `args` parameter is accepted so the
- * client signature stays stable when MCP dispatch is wired up.
+ * `POST /api/v1/tools/{name}/invoke` → `{ result: unknown; error?: string }`
  *
  * @param name - Tool registry name.
- * @param args - Optional arguments for the tool. Currently ignored by
- *   the v1 stub; reserved for future use.
+ * @param args - Optional arguments for the tool.
  */
 export async function invokeTool(
   name: string,
   args?: unknown,
 ): Promise<{ result: unknown; error?: string }> {
-  void args; // Reserved for v2; the v1 stub ignores arguments.
-  return apiGet<{ result: unknown; error?: string }>(
+  return apiPost<{ result: unknown; error?: string }>(
     buildUrl(API_V1_BASE, `/tools/${encodeURIComponent(name)}/invoke`),
+    args ?? {},
   );
 }

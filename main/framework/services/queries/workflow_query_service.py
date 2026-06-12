@@ -30,7 +30,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from main.framework.core.workflow_parser import validate_dag
+from main.framework.core.state_machine import WorkflowStatus, validate_transition
+from main.framework.core.workflow.workflow_parser import validate_dag
+from main.framework.models.workflow import Workflow
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.repositories.execution_repo import ExecutionRepository
@@ -276,6 +278,10 @@ class WorkflowQueryService:
         workflow = repo.get(workflow_id)
         if workflow is None:
             raise NotFoundError(f"Workflow {workflow_id} not found")
+
+        # Advance workflow lifecycle: draft/paused/completed/failed → running
+        validate_transition("workflow", workflow.status, WorkflowStatus.RUNNING)
+        workflow.status = WorkflowStatus.RUNNING
 
         execution = WorkflowExecution(
             workflow_id=workflow_id,

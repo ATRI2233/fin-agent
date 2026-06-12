@@ -35,17 +35,6 @@ export type WorkflowStatus =
 /** How a workflow is invoked. Mirrors backend `trigger_type` column. */
 export type WorkflowTriggerType = 'manual' | 'schedule' | 'command';
 
-/** Lifecycle state of a `NodeExec` (per-node execution record). */
-export type NodeStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'skipped';
-
-/** Lifecycle state of a `WorkflowExec` (workflow-level execution record). */
-export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed';
-
 /* ─── DAG primitives ───────────────────────────────────────────────────── */
 
 /**
@@ -117,58 +106,7 @@ export interface WorkflowMeta extends Pick<Workflow, 'id' | 'name' | 'status' | 
   last_run_at?: string | null;
 }
 
-/* ─── Execution shapes ─────────────────────────────────────────────────── */
-
-/**
- * Workflow-level execution record. Returned by execution-list endpoints and
- * embedded inside monitor views.
- */
-export interface WorkflowExec {
-  id: string;
-  workflow_id: string;
-  status: ExecutionStatus;
-  started_at: string;
-  ended_at?: string;
-  duration_ms?: number;
-}
-
-/**
- * Canonical per-node execution record. This replaces the three identical
- * `NodeExec` interfaces that were duplicated across `WorkflowMonitor`,
- * `NodeDataPanel`, and `ExecutionTimeline`. All three will be migrated to
- * import this type in a follow-up.
- */
-export interface NodeExec {
-  id: string;
-  workflow_id: string;
-  execution_id: string;
-  /** Node id within the parent `Workflow.nodes[]`. */
-  node_id: string;
-  status: NodeStatus;
-  /** Backend session id used to resume the agent conversation, if any. */
-  session_id?: string;
-  input?: Record<string, unknown>;
-  output?: Record<string, unknown>;
-  error?: string;
-  started_at: string;
-  ended_at?: string;
-  duration_ms?: number;
-}
-
-/* ─── Composite / aggregate shapes ─────────────────────────────────────── */
-
-/**
- * A reusable sub-workflow exposed as a single node inside a parent workflow
- * (the "workflow block" abstraction in the editor). Carries the full inner
- * topology so the engine can expand it at execution time.
- */
-export interface WorkflowBlockNode {
-  id: string;
-  name: string;
-  description?: string;
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
-}
+/* ─── Aggregate shapes ──────────────────────────────────────────────── */
 
 /**
  * Aggregated execution statistics returned by `GET /api/v1/workflows/stats`.
@@ -187,8 +125,7 @@ export interface WorkflowStats {
 }
 
 /* ─── Public surface ─────────────────────────────────────────────────────
- * __all__: Workflow, WorkflowMeta, WorkflowExec, NodeExec, EdgePrompt,
- *          WorkflowBlockNode, WorkflowStats,
+ * __all__: Workflow, WorkflowMeta, EdgePrompt, WorkflowStats,
  *          WorkflowNode, WorkflowEdge,
- *          WorkflowStatus, WorkflowTriggerType, NodeStatus, ExecutionStatus
+ *          WorkflowStatus, WorkflowTriggerType
  * ─────────────────────────────────────────────────────────────────────── */

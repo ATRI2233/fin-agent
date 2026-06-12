@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from main.framework.core.container import get_service
+from main.framework.core.infrastructure.container import get_service
 from main.framework.services.exceptions import NotFoundError
 from main.framework.services.tool_query_service import ToolQueryService
 
@@ -39,7 +39,7 @@ async def get_tool(
         raise HTTPException(status_code=404, detail="Tool not found") from err
 
 
-@router.get("/{name}/invoke")
+@router.post("/{name}/invoke")
 async def invoke_tool(
     name: str,
     service: ToolQueryService = Depends(get_service(ToolQueryService)),

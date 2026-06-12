@@ -63,7 +63,7 @@ export function registerTechnicalLevels(
       properties: {
         symbol: {
           type: "string",
-          description: "股票代码或指数代码，�?AAPL, SPX",
+          description: "股票代码或指数代码，如 AAPL, SPX",
         },
       },
       required: ["symbol"],
@@ -183,7 +183,7 @@ export function registerTechnicalLevels(
           fibLevels
         );
 
-        // ── 成交量异�?(无法获取时不判断) ──────────────────────
+        // ── 成交量异常(无法获取时不判断) ──────────────────────
         const volumeAnomaly = false;
 
         // ── 操作建议 ────────────────────────────────────────

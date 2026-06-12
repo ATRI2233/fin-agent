@@ -1,66 +1,111 @@
 """SkillQueryService — business logic for skill discovery and triggering.
 
-Replaces the inline handlers + module-level ``SKILLS`` constant that previously
-lived in ``api/skills.py``.  The service holds the static skill catalog as a
-module-level constant (the catalog is intentionally hardcoded — it mirrors
-the entries declared in ``.opencode/opencode.json``'s ``skills`` section and
-is not yet backed by a database) and exposes a small surface to the
-``controllers/skills.py`` HTTP layer.
+Reads skill definitions from ``.opencode/skills/*/SKILL.md`` (filesystem
+discovery) and exposes a small surface to ``controllers/skills.py``.
 
-Stub triggering
----------------
-:meth:`trigger_skill` is intentionally a stub — actual skill execution is not
-yet wired into the framework.  It preserves the legacy response shape
-(``{"message": ..., "agents": ..., "params": ...}``) so existing clients keep
-working unchanged.  A future iteration will dispatch through the workflow
-engine.
+Caching: results are cached for ``_CACHE_TTL`` seconds.  ``reload()`` forces
+an immediate refresh.
+
+Stub triggering: :meth:`trigger_skill` is intentionally a stub.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Optional
+import time
+from pathlib import Path
 
 from main.framework.services.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
 
+_CACHE_TTL = 30  # seconds
 
-# Static catalog of available skills.  Each entry is a thin description used
-# by the WebUI to render the skill picker; ``agents`` is the ordered list of
-# agents the skill composes (matches the ``.opencode/opencode.json`` manifest).
-SKILLS: list[dict] = [
-    {
-        "name": "market-briefing",
-        "description": "Daily market snapshot - market/sector/sentiment/technical/macro",
-        "agents": [
-            "macro-scout",
-            "sector-rotator",
-            "sentiment-decoder",
-            "technical-chartist",
-        ],
-    },
-    {
-        "name": "stock-deep",
-        "description": "Deep stock analysis - technical/fundamental/sentiment/smart-money",
-        "agents": [
-            "technical-chartist",
-            "fundamental-auditor",
-            "sentiment-decoder",
-            "smart-money-hound",
-        ],
-    },
-    {
-        "name": "fin-review",
-        "description": "Weekly review - portfolio/risk/attribution",
-        "agents": ["risk-gatekeeper", "fusion-brain", "macro-scout"],
-    },
-    {
-        "name": "position-watch",
-        "description": "Position monitoring - real-time risk monitoring",
-        "agents": ["risk-gatekeeper", "smart-money-hound"],
-    },
-]
+
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _parse_frontmatter(text: str) -> dict:
+    """Extract YAML frontmatter delimited by '---' lines."""
+    lines = text.strip().splitlines()
+    if len(lines) < 2 or lines[0].strip() != "---":
+        return {}
+    end = -1
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end = i
+            break
+    if end < 0:
+        return {}
+    meta: dict = {}
+    for line in lines[1:end]:
+        if ":" in line:
+            key, _, val = line.partition(":")
+            meta[key.strip()] = val.strip().strip('"').strip("'")
+    return meta
+
+
+def _load_skills() -> list[dict]:
+    """Load skills from .opencode/skills/*/SKILL.md."""
+    skills_dir = _project_root() / ".opencode" / "skills"
+    skills: list[dict] = []
+
+    if not skills_dir.is_dir():
+        return skills
+
+    for skill_dir in sorted(skills_dir.iterdir()):
+        if not skill_dir.is_dir():
+            continue
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue
+        try:
+            content = skill_md.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        meta = _parse_frontmatter(content)
+        name = meta.get("name", skill_dir.name)
+        description = meta.get("description", "")
+
+        # Parse agents list from content (look for "agents:" line)
+        agents: list[str] = []
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("agents:"):
+                # Could be a YAML list or inline
+                rest = stripped[len("agents:"):].strip()
+                if rest.startswith("["):
+                    # Inline list: [agent1, agent2]
+                    agents = [a.strip().strip('"').strip("'") for a in rest.strip("[]").split(",") if a.strip()]
+                break
+            # Also handle indented list items under "agents:"
+            if stripped.startswith("- ") and agents is not None:
+                # This would be a continuation — skip for now
+                pass
+
+        # If no agents found in frontmatter, try parsing from body
+        if not agents:
+            in_agents = False
+            for line in content.splitlines():
+                stripped = line.strip()
+                if stripped == "agents:":
+                    in_agents = True
+                    continue
+                if in_agents:
+                    if stripped.startswith("- "):
+                        agents.append(stripped[2:].strip().strip('"').strip("'"))
+                    elif stripped and not stripped.startswith("#"):
+                        in_agents = False
+
+        skills.append({
+            "name": name,
+            "description": description,
+            "agents": agents,
+            "file_path": str(skill_md),
+        })
+
+    return skills
 
 
 class SkillQueryService:
@@ -68,13 +113,18 @@ class SkillQueryService:
 
     Public surface (2 methods, both sync):
       list_skills, trigger_skill
-
-    No constructor dependencies — the skill catalog is module-level.
     """
 
     def __init__(self) -> None:
-        # Reference (not copy) so tests can monkey-patch the catalog if needed.
-        self._skills: list[dict] = SKILLS
+        self._skills: list[dict] | None = None
+        self._loaded_at: float = 0.0
+
+    def _ensure_loaded(self) -> list[dict]:
+        now = time.monotonic()
+        if self._skills is None or (now - self._loaded_at) > _CACHE_TTL:
+            self._skills = _load_skills()
+            self._loaded_at = now
+        return self._skills
 
     # ------------------------------------------------------------------
     # Skill discovery
@@ -82,21 +132,20 @@ class SkillQueryService:
 
     def list_skills(self) -> list[dict]:
         """Return the full list of registered skills, in catalog order."""
-        return list(self._skills)
+        return list(self._ensure_loaded())
+
+    def reload(self):
+        """Force reload from disk, ignoring TTL."""
+        self._skills = None
+        self._loaded_at = 0.0
 
     # ------------------------------------------------------------------
     # Skill triggering (v1 stub)
     # ------------------------------------------------------------------
 
     def trigger_skill(self, name: str, params: dict | None = None) -> dict:
-        """Stub: trigger a skill by name.  Preserves the legacy response shape.
-
-        Raises :class:`NotFoundError` if ``name`` does not match a registered
-        skill.  Actual skill execution is not yet implemented — a future
-        iteration will dispatch through the workflow engine and return an
-        execution ID instead of the synchronous stub response.
-        """
-        for skill in self._skills:
+        """Stub: trigger a skill by name."""
+        for skill in self._ensure_loaded():
             if skill["name"] == name:
                 return {
                     "message": f"Skill {name} triggered",

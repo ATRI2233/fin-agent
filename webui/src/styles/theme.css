@@ -1108,3 +1108,20 @@ html, body {
 .scroll-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.18);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MARKDOWN BODY — chat message rich text rendering
+   ═══════════════════════════════════════════════════════════════════ */
+
+.markdown-body {
+  color: #E0E0E0;
+  font-size: 14px;
+  line-height: 1.65;
+  word-break: break-word;
+}
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}

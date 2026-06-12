@@ -8,8 +8,9 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from main.framework.core.state_machine import WorkflowStatus, validate_transition
 from main.framework.core.workflow.node_executors.base import NodeContext
-from main.framework.core.workflow_parser import (
+from main.framework.core.workflow.workflow_parser import (
     identify_parallel_branches,
     topological_sort,
 )
@@ -17,7 +18,7 @@ from main.framework.services.patterns.workflow_graph import build_predecessors, 
 
 if TYPE_CHECKING:
     # Forward reference; WorkflowEngine (W4.11) will depend on this service.
-    from main.framework.core.workflow_engine import WorkflowEngine  # noqa: F401
+    from main.framework.core.workflow.workflow_engine import WorkflowEngine  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class NodeExecutorRegistryProtocol(Protocol):
 @runtime_checkable
 class WorkflowRepositoryProtocol(Protocol):
     def get(self, workflow_id: str) -> Any: ...
+    def update(self, workflow_id: str, **kwargs: Any) -> Any: ...
 
 
 class WorkflowService:
@@ -148,7 +150,22 @@ class WorkflowService:
                 summary += f", {len(self._skipped_nodes)} skipped"
             await callback(final_status, summary, "")
 
+            # ---- Sync workflow lifecycle status ----
+            wf_status = WorkflowStatus.FAILED if self._failed_nodes else WorkflowStatus.COMPLETED
+            try:
+                validate_transition("workflow", WorkflowStatus.RUNNING, wf_status)
+                self._workflow_repo.update(workflow_id, status=wf_status)
+            except Exception as wf_err:
+                logger.warning("Failed to update workflow status: %s", wf_err)
+
             return self.collect_results()
+        except Exception:
+            # On critical failure, sync workflow status to failed
+            try:
+                self._workflow_repo.update(workflow_id, status=WorkflowStatus.FAILED)
+            except Exception:
+                pass  # best-effort
+            raise
         finally:
             await self._cleanup_sessions()
 
@@ -182,7 +199,7 @@ class WorkflowService:
             )
 
             if can_parallel and len(nodes_to_run) > 1:
-                await asyncio.gather(*[self._execute_wrapped(nid, db) for nid in nodes_to_run])
+                await asyncio.gather(*[self._execute_wrapped(nid, db, _parallel=True) for nid in nodes_to_run])
             else:
                 for node_id in nodes_to_run:
                     preds = predecessors.get(node_id, [])
@@ -190,16 +207,33 @@ class WorkflowService:
                         await self._wait_for_predecessors(preds)
                     await self._execute_wrapped(node_id, db)
 
-    async def _execute_wrapped(self, node_id: str, db: Any) -> None:
+    async def _execute_wrapped(self, node_id: str, db: Any, *, _parallel: bool = False) -> None:
         if node_id in self._failed_nodes or node_id in self._skipped_nodes:
             return
         # Guaranteed set by run() before this is reached.
         assert self.execution_id is not None
+
+        # When running in parallel (asyncio.gather), each node needs its own
+        # DB session to avoid SQLite "database is locked" errors from
+        # concurrent writes on the same connection.
+        node_db = db
+        own_session = False
+        if _parallel:
+            from main.framework.config.database import SessionLocal
+            node_db = SessionLocal()
+            own_session = True
+
         try:
-            await self.execute_node(node_id, self.execution_id, db)
-            self._results.setdefault(node_id, {})
+            node_result = await self.execute_node(node_id, self.execution_id, node_db)
+            self._results[node_id] = node_result
         except Exception as e:
-            await self.handle_failure(node_id, e, db)
+            await self.handle_failure(node_id, e, node_db)
+        finally:
+            if own_session:
+                try:
+                    node_db.close()
+                except Exception:
+                    pass
 
     async def _wait_for_predecessors(self, pred_ids: list[str]) -> None:
         for pred_id in pred_ids:
@@ -226,12 +260,31 @@ class WorkflowService:
 
     async def execute_node(self, node_id: str, execution_id: str, db: Any) -> dict[str, Any]:
         """Resolve executor via the registry and run it with a :class:`NodeContext`."""
+        import copy
+
         node = self._find_node(node_id)
         if not node:
             raise ValueError(f"Node {node_id} not found")
 
         predecessor_ids = [e["source"] for e in self.edges if e.get("target") == node_id]
         executor = self._registry.get(node.get("type", "agent"))
+        # Create a shallow copy for parallel safety — avoids shared _db on singleton
+        executor = copy.copy(executor)
+        # Always give each node its own _chain_sessions dict so parallel
+        # siblings don't share session IDs via the shallow copy.
+        if hasattr(executor, "_chain_sessions"):
+            executor._chain_sessions = {}
+        # Inject per-execution dependencies that the registry singleton lacks.
+        if hasattr(executor, "_db"):
+            # Ensure session is in a clean state before injecting
+            if db is not None:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+            executor._db = db
+        if hasattr(executor, "dispatcher") and executor.dispatcher is None:
+            executor.dispatcher = self._dispatcher
         ctx = NodeContext(
             node=node,
             execution_id=execution_id,
@@ -259,8 +312,41 @@ class WorkflowService:
     async def handle_failure(self, node_id: str, error: Exception, db: Any) -> None:
         """Record failure on ``node_id`` and cascade skip to all downstream nodes."""
         self._failed_nodes.add(node_id)
+        # Persist the failed node's status to DB (the executor may not have
+        # done this if it failed before its own DB write).
+        if self.execution_id and db is not None:
+            try:
+                from datetime import UTC, datetime
+
+                from main.framework.models.workflow_execution import ExecutionNode
+
+                # Rollback any previous failed transaction first
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+
+                exec_node = (
+                    db.query(ExecutionNode)
+                    .filter_by(execution_id=self.execution_id, node_id=node_id)
+                    .first()
+                )
+                if exec_node is not None and exec_node.status != "failed":
+                    exec_node.status = "failed"
+                    exec_node.error = str(error)
+                    exec_node.completed_at = datetime.now(UTC)
+                    db.commit()
+            except Exception as db_err:
+                logger.warning("Failed to persist node failure for %s: %s", node_id, db_err)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
         # Delegate persistent skip-marking to the execution service.
-        self._exec_service.mark_downstream_skipped(node_id, self.edges, db)
+        try:
+            self._exec_service.mark_downstream_skipped(node_id, self.edges, db)
+        except Exception as skip_err:
+            logger.warning("Failed to mark downstream skipped for %s: %s", node_id, skip_err)
         # Local mirror keeps the level-walker's guard consistent.
         for downstream_id in find_downstream(node_id, self.edges):
             if downstream_id not in self._failed_nodes:

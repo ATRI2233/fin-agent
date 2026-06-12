@@ -18,18 +18,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getSystemStatus } from '../api/system';
 import { listWorkflows, getWorkflowStats, triggerWorkflow } from '../api/workflows';
+import type { WorkflowMeta } from '../types/workflow';
 
 const { Text } = Typography;
-
-interface WorkflowMeta {
-  id: string;
-  name: string;
-  status: string;
-  nodeCount: number;
-  createdAt?: string;
-  lastRun?: string;
-  duration?: string;
-}
 
 interface WorkflowStats {
   running: number;
@@ -128,8 +119,8 @@ export default function FrameworkPage() {
     },
     {
       title: '节点数',
-      dataIndex: 'nodeCount',
-      key: 'nodeCount',
+      dataIndex: 'node_count',
+      key: 'node_count',
       width: 80,
       align: 'center' as const,
       render: (count: number) => (

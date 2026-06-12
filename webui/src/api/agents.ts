@@ -1,96 +1,104 @@
 /**
  * Typed wrappers for the agent registry API.
  *
- * Mirrors the three routes declared in
- * `main/framework/controllers/agents.py`:
+ * Mirrors the routes declared in `main/framework/controllers/agents.py`:
  *
- *   GET /api/v1/agents          → list of agent summaries
- *   GET /api/v1/agents/stats    → per-agent execution telemetry
- *   GET /api/v1/agents/{name}   → single agent summary (404 on miss)
- *
- * The backend returns snake_case fields, which line up with the
- * canonical `Agent` and `AgentDetail` shapes in `../types/agent` —
- * no transformation is needed on the client.
- *
- * Notes
- * -----
- * - `getAgentStats` returns a `Record<name, …>` so callers can index
- *   by agent name without scanning an array.
- * - `getAgent` URL-encodes the name so spaces / slashes round-trip
- *   safely through the FastAPI path matcher.
+ *   GET    /api/v1/agents                  → list of agent summaries
+ *   GET    /api/v1/agents/stats            → per-agent execution telemetry
+ *   GET    /api/v1/agents/{name}           → single agent summary (404 on miss)
+ *   GET    /api/v1/agents/{name}/content   → agent markdown content
+ *   PUT    /api/v1/agents/{name}           → create/update agent
+ *   DELETE /api/v1/agents/{name}           → delete agent
+ *   GET    /api/v1/agents/{name}/tools-whitelist → tools whitelist
+ *   PUT    /api/v1/agents/{name}/tools-whitelist → update tools whitelist
  */
 
 import { API_V1_BASE } from '../config/env';
+import { apiGet, apiPut, apiDelete, apiGetText, apiPutText, buildUrl } from './client';
 import type { Agent, AgentDetail } from '../types/agent';
 
 /**
  * Per-agent execution telemetry returned by `/api/v1/agents/stats`.
- *
- * Each entry contains agent name, description, mode, and execution stats.
  */
 export interface AgentStatsEntry {
-  /** Agent name. */
   name: string;
-  /** Agent description. */
   description: string;
-  /** Agent mode (agent, fusion, orchestrator). */
   mode: string;
-  /** Total number of executions. */
   executions_total: number;
-  /** Number of completed executions. */
   executions_completed: number;
-  /** Number of failed executions. */
   executions_failed: number;
-  /** Percent of executions that completed without error (0–100). */
   success_rate: number;
 }
 
 /**
  * Fetch every registered agent.
- *
- * `GET /api/v1/agents` → `Agent[]`
  */
 export async function listAgents(): Promise<Agent[]> {
-  const res = await fetch(`${API_V1_BASE}/agents`);
-  if (!res.ok) {
-    throw new Error(
-      `listAgents failed: ${res.status} ${res.statusText}`,
-    );
-  }
-  return (await res.json()) as Agent[];
+  return apiGet<Agent[]>(buildUrl(API_V1_BASE, '/agents'));
 }
 
 /**
- * Fetch execution telemetry for all agents in one round-trip.
- *
- * `GET /api/v1/agents/stats` → `AgentStatsEntry[]`
+ * Fetch execution telemetry for all agents.
  */
 export async function getAgentStats(): Promise<AgentStatsEntry[]> {
-  const res = await fetch(`${API_V1_BASE}/agents/stats`);
-  if (!res.ok) {
-    throw new Error(
-      `getAgentStats failed: ${res.status} ${res.statusText}`,
-    );
-  }
-  return (await res.json()) as AgentStatsEntry[];
+  return apiGet<AgentStatsEntry[]>(buildUrl(API_V1_BASE, '/agents/stats'));
 }
 
 /**
  * Fetch a single agent by registry name.
- *
- * `GET /api/v1/agents/{name}` → `AgentDetail`
- *
- * The backend raises 404 when `name` is unknown; the resulting
- * `TypeError` is rethrown so callers can branch on the status code.
  */
 export async function getAgent(name: string): Promise<AgentDetail> {
-  const res = await fetch(
-    `${API_V1_BASE}/agents/${encodeURIComponent(name)}`,
+  return apiGet<AgentDetail>(
+    buildUrl(API_V1_BASE, `/agents/${encodeURIComponent(name)}`),
   );
-  if (!res.ok) {
-    throw new Error(
-      `getAgent(${name}) failed: ${res.status} ${res.statusText}`,
+}
+
+/**
+ * Fetch agent markdown content.
+ */
+export async function getAgentContent(name: string): Promise<string> {
+  return apiGetText(buildUrl(API_V1_BASE, `/agents/${encodeURIComponent(name)}/content`));
+}
+
+/**
+ * Create or update an agent (writes .md file).
+ */
+export async function updateAgent(name: string, content: string): Promise<void> {
+  return apiPutText(buildUrl(API_V1_BASE, `/agents/${encodeURIComponent(name)}`), content);
+}
+
+/**
+ * Delete an agent (.md file + config entry).
+ */
+export async function deleteAgent(name: string): Promise<void> {
+  return apiDelete<void>(
+    buildUrl(API_V1_BASE, `/agents/${encodeURIComponent(name)}`),
+  );
+}
+
+/**
+ * Fetch the tools whitelist for an agent.
+ */
+export async function getAgentToolsWhitelist(name: string): Promise<string[]> {
+  try {
+    const res = await apiGet<{ tools_whitelist: string[] }>(
+      buildUrl(API_V1_BASE, `/agents/${encodeURIComponent(name)}/tools-whitelist`),
     );
+    return res.tools_whitelist || [];
+  } catch {
+    return [];
   }
-  return (await res.json()) as AgentDetail;
+}
+
+/**
+ * Update the tools whitelist for an agent.
+ */
+export async function updateAgentToolsWhitelist(
+  name: string,
+  whitelist: string[],
+): Promise<void> {
+  await apiPut(
+    buildUrl(API_V1_BASE, `/agents/${encodeURIComponent(name)}/tools-whitelist`),
+    { tools_whitelist: whitelist },
+  );
 }

@@ -27,6 +27,7 @@ import {
   MinusCircleOutlined,
 } from '@ant-design/icons';
 import type { Node } from '@xyflow/react';
+import { listTools } from '../../../api/tools';
 
 /* ─── Domain types ─────────────────────────────────────────────────────── */
 
@@ -42,15 +43,6 @@ export interface AgentNodeData {
 
 export type AgentNode = Node<AgentNodeData, 'agent'>;
 
-/* ─── Tool catalog (static, editor-only) ───────────────────────────────── */
-
-const AVAILABLE_TOOLS = [
-  'market_snapshot', 'technical_levels', 'fundamental_scan',
-  'news_sentiment', 'sector_rotation', 'insider_trading',
-  'fear_greed_index', 'earnings_calendar', 'analyst_ratings',
-  'sec_filings', 'options_greeks', 'commodity_prices',
-];
-
 /* ─── Component ────────────────────────────────────────────────────────── */
 
 export interface AgentNodePropertiesPanelProps {
@@ -65,6 +57,13 @@ export default function AgentNodePropertiesPanel({
   onDeleteNode,
 }: AgentNodePropertiesPanelProps) {
   const [paramRows, setParamRows] = useState<Array<{ key: string; value: string }>>([]);
+  const [availableTools, setAvailableTools] = useState<string[]>([]);
+
+  useEffect(() => {
+    listTools().then((tools) => {
+      setAvailableTools(tools.map((t) => t.name));
+    }).catch(() => {});
+  }, []);
 
   // Re-seed the local row mirror when the selected node or its parameters
   // object change. Lets the user edit empty-key rows without wiping them
@@ -158,7 +157,7 @@ export default function AgentNodePropertiesPanel({
             mode="multiple"
             value={selectedNode.data.tools ?? []}
             onChange={(val) => onUpdateNode(selectedNode.id, { tools: val })}
-            options={AVAILABLE_TOOLS.map((t) => ({ label: t, value: t }))}
+            options={availableTools.map((t) => ({ label: t, value: t }))}
             placeholder="选择工具"
             style={{ width: '100%' }}
             maxTagCount="responsive"

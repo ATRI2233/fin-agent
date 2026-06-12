@@ -15,7 +15,7 @@ import { useState } from 'react';
 import { Button, Form, Input, message, Modal, Select, Space } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 
-import { opencodePut } from '../../api/opencode';
+import { updateAgent } from '../../api/agents';
 
 export interface CreateAgentModalProps {
   visible: boolean;
@@ -65,10 +65,7 @@ export function CreateAgentModal({
       const values = await createForm.validateFields();
       setCreateLoading(true);
       const content = buildAgentContent(values);
-      await opencodePut(
-        `/agents/${encodeURIComponent(values.name)}/content`,
-        { content },
-      );
+      await updateAgent(values.name, content);
       message.success(`Agent ${values.name} created`);
       onCreated(values.name);
       onClose();

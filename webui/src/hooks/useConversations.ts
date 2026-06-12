@@ -70,11 +70,7 @@ export function useConversations() {
 export function useConversation(id: string | null) {
   const fetcher = useCallback(
     (_signal: AbortSignal) => {
-      if (!id) {
-        // Suspended — never resolves so `loading` stays true and the
-        // consumer can distinguish "no selection" via the id check.
-        return new Promise<Conversation>(() => undefined);
-      }
+      if (!id) return Promise.resolve(null as unknown as Conversation);
       return getConversation(id);
     },
     [id],
@@ -93,9 +89,7 @@ export function useConversation(id: string | null) {
 export function useMessages(conversationId: string | null) {
   const fetcher = useCallback(
     (_signal: AbortSignal) => {
-      if (!conversationId) {
-        return new Promise<Message[]>(() => undefined);
-      }
+      if (!conversationId) return Promise.resolve([] as Message[]);
       return listMessages(conversationId);
     },
     [conversationId],

@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from main.framework.core.state_machine import validate_transition
 from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 from main.framework.repositories.execution_repo import ExecutionRepository
 from main.framework.services.exceptions import NotFoundError
@@ -102,6 +103,7 @@ class ExecutionService:
     ) -> None:
         """Set ``WorkflowExecution.status`` for the given execution id."""
         execution = self._require_execution(execution_id, db)
+        validate_transition("execution", execution.status, status)
         execution.status = status
         if status in {"completed", "failed", "cancelled"}:
             execution.completed_at = datetime.now(UTC)
@@ -133,6 +135,7 @@ class ExecutionService:
         )
         if node is None:
             raise NotFoundError(f"ExecutionNode (execution_id={execution_id}, node_id={node_id}) not found")
+        validate_transition("node", node.status, status)
         node.status = status
         if output is not None:
             node.output = output

@@ -57,8 +57,8 @@ import {
   SettingOutlined,
 } from '@ant-design/icons';
 
-import { opencodeDelete, opencodePut } from '../../api/opencode';
-import { useAgents } from './hooks/useAgents';
+import { deleteAgent, updateAgent } from '../../api/agents';
+import { useAgentsPage } from './hooks/useAgentsPage';
 import { useAgentModels } from './hooks/useAgentModels';
 import { buildAgentColumns } from './columns';
 import BatchModelModal from './BatchModelModal';
@@ -75,7 +75,7 @@ export default function AgentsPage() {
     error,
     refetch: refetchAgents,
     agentWhitelistCounts,
-  } = useAgents();
+  } = useAgentsPage();
 
   // Model state for the table column.
   const { agentModels, refetch: refetchModels } = useAgentModels();
@@ -99,20 +99,10 @@ export default function AgentsPage() {
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
-          await opencodeDelete(`/agents/${encodeURIComponent(name)}`);
+          await deleteAgent(name);
           message.success(`Agent ${name} deleted`);
           refetchAgents();
-        } catch (err: unknown) {
-          // 404 is acceptable — the agent is already gone from the
-          // proxy's perspective. Surface anything else as a toast.
-          if (err && typeof err === 'object' && 'problem' in err) {
-            const problem = (err as { problem: { status?: number } }).problem;
-            if (problem?.status === 404) {
-              message.success(`Agent ${name} deleted`);
-              refetchAgents();
-              return;
-            }
-          }
+        } catch {
           message.error('Failed to delete agent');
         }
       },
@@ -126,17 +116,12 @@ export default function AgentsPage() {
       const values = await createForm.validateFields();
       setCreateLoading(true);
       const content = `---\ndescription: ${values.description}\nmode: ${values.mode}\n---\n\n# ${values.name}\n\nNew agent system prompt.\n`;
-      await opencodePut(
-        `/agents/${encodeURIComponent(values.name)}/content`,
-        { content },
-      );
+      await updateAgent(values.name, content);
       message.success(`Agent ${values.name} created`);
       setCreateVisible(false);
       createForm.resetFields();
       refetchAgents();
     } catch (err: unknown) {
-      // Ant Design's validateFields rejects with { errorFields } when
-      // validation fails; stay silent in that case.
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       const msg = err instanceof Error ? err.message : 'Failed to create agent';
       message.error(msg);

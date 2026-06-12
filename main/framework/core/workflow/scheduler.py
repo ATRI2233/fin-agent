@@ -265,7 +265,7 @@ async def run_scheduled_workflow(workflow_id: str) -> dict:
     """
     logger.info(f"Running scheduled workflow: {workflow_id}")
 
-    from main.framework.core.container import get_container
+    from main.framework.core.infrastructure.container import get_container
 
     container = get_container()
     scheduler = container.create_scheduler()

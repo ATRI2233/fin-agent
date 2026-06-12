@@ -22,13 +22,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from main.framework.core.agent_dispatcher import AgentDispatcher
+from main.framework.core.agents.agent_dispatcher import AgentDispatcher
 from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
     # Imported only for type checking to avoid a circular import:
     # WorkflowEngine will eventually depend on these executors.
-    from main.framework.core.workflow_engine import WorkflowEngine
+    from main.framework.core.workflow.workflow_engine import WorkflowEngine
 
 
 @dataclass

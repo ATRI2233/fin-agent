@@ -41,7 +41,7 @@ export function registerMarketSnapshot(
         indices: {
           type: "array",
           items: { type: "string" },
-          description: "指数代码列表，默�?['^GSPC','^IXIC','^DJI','VIX']",
+          description: "指数代码列表，默认['^GSPC','^IXIC','^DJI','VIX']",
           default: DEFAULT_INDICES,
         },
         include_sectors: {
@@ -80,7 +80,7 @@ export function registerMarketSnapshot(
           }
         } catch { errors.push("指数数据获取失败"); }
 
-        // ── 请求额外自定义指�?─────────────────────────────────
+        // ── 请求额外自定义指数 ──────────────────────────────────
         const tvTickers = indices
           .map((s: string) => TV_INDEX_MAP[s] || s)
           .filter((t: string) => !indicesData.some((d: any) => d.symbol === t));
@@ -104,7 +104,7 @@ export function registerMarketSnapshot(
                 open: data?.open,
               });
             }
-          } catch { /* 额外报价可�?*/ }
+          } catch { /* 额外报价可选 */ }
         }
 
         // ── 板块数据 ──────────────────────────────────────────

@@ -55,10 +55,8 @@ class NodeExecutorRegistry:
         Falls back to the ``"default"`` mapping when ``node_type`` is not
         registered. Instances are created with no-args; classes that
         require constructor arguments (e.g. ``AgentNodeExecutor`` needs a
-        dispatcher) get a bare instance via ``__new__`` so type-lookup
-        still works — callers that need a fully-initialized executor
-        should use :meth:`get_executor_class` and inject dependencies
-        themselves.
+        dispatcher) are initialized with ``None`` defaults so attribute
+        access doesn't crash — callers inject real dependencies before use.
         """
         cached = self._instances.get(node_type)
         if cached is not None:
@@ -68,9 +66,22 @@ class NodeExecutorRegistry:
         try:
             instance = cls()
         except TypeError:
-            # Class cannot be constructed with no args; return a bare
-            # instance so isinstance/registration lookups still succeed.
-            instance = cls.__new__(cls)
+            # Class cannot be constructed with no args (e.g. AgentNodeExecutor
+            # requires dispatcher).  Build a minimally-initialized instance
+            # so hasattr() checks in WorkflowService.execute_node work and
+            # attribute access doesn't raise AttributeError.
+            import inspect
+
+            sig = inspect.signature(cls.__init__)
+            kwargs: dict = {}
+            for name, param in sig.parameters.items():
+                if name == "self":
+                    continue
+                if param.default is not inspect.Parameter.empty:
+                    continue
+                # Required param with no default — supply None
+                kwargs[name] = None
+            instance = cls(**kwargs)
         self._instances[node_type] = instance
         return instance
 

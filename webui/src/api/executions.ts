@@ -120,15 +120,11 @@ export async function retryExecution(id: string): Promise<RetryResponse> {
 
 /**
  * DELETE `/api/v1/executions/{id}` — abort a running execution and
- * clean up its HAPI sessions.
- *
- * The service marks the execution as failed synchronously and tears
- * down the sessions attached to it on the way out.
+ * clean up its sessions.
  *
  * @param id Server-assigned execution UUID to abort.
- * @returns `{ success: boolean }` envelope. Throws on 404 (not found)
- *          or 400 (e.g. execution is already in a terminal state).
+ * @returns `{ execution_id, status }` envelope. If already terminal, returns current status.
  */
-export async function abortExecution(id: string): Promise<{ success: boolean }> {
-  return apiDelete<{ success: boolean }>(`${API_V1_BASE}/executions/${id}`)
+export async function abortExecution(id: string): Promise<{ execution_id: string; status: string }> {
+  return apiDelete<{ execution_id: string; status: string }>(`${API_V1_BASE}/executions/${id}`)
 }

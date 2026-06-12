@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import TYPE_CHECKING
+import logging
+from datetime import datetime, UTC
+from typing import TYPE_CHECKING, Any
 
 from main.framework.core.workflow.node_executors.base import (
     NodeContext,
@@ -11,11 +12,23 @@ from main.framework.core.workflow.node_executors.base import (
     NodeResult,
 )
 from main.framework.models.workflow_execution import ExecutionNode
+from main.framework.services.patterns.prompt_builder import build_prompt
 from main.framework.services.workflow_graph import is_only_successor
 
 if TYPE_CHECKING:
-    from main.framework.core.agent_dispatcher import AgentDispatcher
+    from main.framework.core.agents.agent_dispatcher import AgentDispatcher
     from sqlalchemy.orm import Session
+
+
+def _resolve_agent_name(node: dict[str, Any]) -> str:
+    """Resolve agent name from node spec. Checks ``agent``, then ``data.agentType``, then ``data.label``."""
+    agent = node.get("agent", "")
+    if agent:
+        return agent
+    data = node.get("data", {})
+    if isinstance(data, dict):
+        return data.get("agentType", "") or data.get("label", "")
+    return ""
 
 
 class AgentNodeExecutor(NodeExecutor):
@@ -47,7 +60,7 @@ class AgentNodeExecutor(NodeExecutor):
 
     def __init__(
         self,
-        dispatcher: AgentDispatcher,
+        dispatcher: AgentDispatcher = None,
         db: Session | None = None,
         chain_sessions: dict[str, str] | None = None,
     ) -> None:
@@ -64,46 +77,93 @@ class AgentNodeExecutor(NodeExecutor):
         # edges => is_only_successor returns False => always new session).
         edges = getattr(ctx, "edges", [])
 
-        # ---- Session reuse decision ----------------------------------
-        # Only reuse when:
-        #   1. exactly one predecessor, AND
-        #   2. predecessor is the sole successor of ITS predecessor
-        #      (prevents parallel branches from sharing a session).
-        session_id: str | None = None
-        if len(ctx.predecessor_ids) == 1:
-            pred_id = ctx.predecessor_ids[0]
-            if pred_id in self._chain_sessions and is_only_successor(node_id, pred_id, edges):
-                session_id = self._chain_sessions[pred_id]
+        try:
+            # ---- Session reuse decision ----------------------------------
+            # Only reuse when:
+            #   1. exactly one predecessor, AND
+            #   2. predecessor is the sole successor of ITS predecessor
+            #      (prevents parallel branches from sharing a session).
+            session_id: str | None = None
+            if len(ctx.predecessor_ids) == 1:
+                pred_id = ctx.predecessor_ids[0]
+                if pred_id in self._chain_sessions and is_only_successor(node_id, pred_id, edges):
+                    session_id = self._chain_sessions[pred_id]
 
-        # ---- Dispatch ------------------------------------------------
-        # Local narrowing: base class types dispatcher as Optional, but for
-        # agent nodes the constructor guarantees it is non-None.
-        dispatcher = self.dispatcher
-        if dispatcher is None:
-            raise RuntimeError("AgentNodeExecutor requires a dispatcher; none was injected.")
+            # ---- Dispatch ------------------------------------------------
+            # Local narrowing: base class types dispatcher as Optional, but for
+            # agent nodes the constructor guarantees it is non-None.
+            dispatcher = self.dispatcher
+            if dispatcher is None:
+                raise RuntimeError("AgentNodeExecutor requires a dispatcher; none was injected.")
 
-        prompt = ctx.node.get("prompt", "")
-        resp = await dispatcher.dispatch(
-            agent=ctx.node.get("agent", ""),
-            prompt=prompt,
-            session_id=session_id,
-        )
-        result = resp["result"]
-        new_session_id = resp["session_id"]
-        self._chain_sessions[node_id] = new_session_id
+            # Resolve agent name: node["agent"] -> data.agentType -> data.label
+            agent = _resolve_agent_name(ctx.node)
+            if not agent:
+                raise RuntimeError(f"Node {node_id} has no agent name defined")
 
-        # ---- DB write (own commit, not centralised) ------------------
-        if self._db is not None:
-            exec_node = self._db.query(ExecutionNode).filter_by(execution_id=ctx.execution_id, node_id=node_id).first()
+            # Build prompt from template + params + upstream results
+            template = ctx.node.get("prompt", "")
+            prompt = build_prompt(
+                template=template,
+                node=ctx.node,
+                edges=edges,
+                params=ctx.params,
+                results=ctx.results,
+                predecessor_ids=ctx.predecessor_ids,
+                node_id=node_id,
+            )
+
+            resp = await dispatcher.dispatch(
+                agent=agent,
+                prompt=prompt,
+                session_id=session_id,
+            )
+            result = resp["result"]
+            new_session_id = resp["session_id"]
+            self._chain_sessions[node_id] = new_session_id
+
+            # ---- DB write (own commit, not centralised) ------------------
+            self._safe_db_update(ctx.execution_id, node_id, "completed", output={"result": result}, session_id=new_session_id)
+
+            return NodeResult(
+                result={"output": result},
+                output=result,
+                session_id=new_session_id,
+            )
+        except Exception as e:
+            # Persist error details to ExecutionNode before re-raising
+            self._safe_db_update(ctx.execution_id, node_id, "failed", error=str(e))
+            raise
+
+    def _safe_db_update(
+        self,
+        execution_id: str,
+        node_id: str,
+        status: str,
+        output: dict | None = None,
+        session_id: str | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Update ExecutionNode with rollback-on-failure semantics."""
+        if self._db is None:
+            return
+        try:
+            exec_node = self._db.query(ExecutionNode).filter_by(
+                execution_id=execution_id, node_id=node_id
+            ).first()
             if exec_node is not None:
-                exec_node.status = "completed"
-                exec_node.output = {"result": result}
-                exec_node.session_id = new_session_id
-                exec_node.completed_at = datetime.utcnow()
+                exec_node.status = status
+                if output is not None:
+                    exec_node.output = output
+                if session_id is not None:
+                    exec_node.session_id = session_id
+                if error is not None:
+                    exec_node.error = error
+                exec_node.completed_at = datetime.now(UTC)
             self._db.commit()
-
-        return NodeResult(
-            result={"output": result},
-            output=result,
-            session_id=new_session_id,
-        )
+        except Exception as db_err:
+            logger.warning("DB update failed for agent node %s: %s", node_id, db_err)
+            try:
+                self._db.rollback()
+            except Exception:
+                pass

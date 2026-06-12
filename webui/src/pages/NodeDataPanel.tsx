@@ -1,13 +1,15 @@
 import React from 'react';
 import { Typography, Card, Tag, Spin, Descriptions, Divider, Empty, Tooltip } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ClockCircleOutlined, ForwardOutlined, RightOutlined } from '@ant-design/icons';
+import { RightOutlined } from '@ant-design/icons';
+import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
+import { formatTime } from '../utils/time';
 
 const { Title, Text, Paragraph } = Typography;
 
 interface NodeExec {
   id: string;
   name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  status: NodeStatusKey;
   inputs?: Record<string, unknown>;
   outputs?: Record<string, unknown>;
   error?: string;
@@ -15,22 +17,6 @@ interface NodeExec {
   startedAt?: string;
   completedAt?: string;
 }
-
-const STATUS_ICON: Record<NodeExec['status'], React.ReactNode> = {
-  pending: <ClockCircleOutlined style={{ color: '#6B6B6B' }} />,
-  running: <SyncOutlined spin style={{ color: '#8B9DC3' }} />,
-  completed: <CheckCircleOutlined style={{ color: '#6B8E7B' }} />,
-  failed: <CloseCircleOutlined style={{ color: '#C47C7C' }} />,
-  skipped: <ForwardOutlined style={{ color: '#C4A882' }} />,
-};
-
-const STATUS_COLOR: Record<NodeExec['status'], string> = {
-  pending: 'default',
-  running: 'processing',
-  completed: 'success',
-  failed: 'error',
-  skipped: 'warning',
-};
 
 function formatDuration(ms?: number): string {
   if (!ms) return '--';
@@ -77,7 +63,7 @@ export default function NodeDataPanel({ node, onClose }: Props) {
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {STATUS_ICON[node.status]}
+          {React.createElement(NODE_STATUS_CONFIG[node.status]?.icon ?? NODE_STATUS_CONFIG.pending.icon, { style: { color: NODE_STATUS_CONFIG[node.status]?.color ?? '#6B6B6B' } })}
           <Title level={5} style={{ color: '#e6edf3', margin: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 14 }}>
             {node.name}
           </Title>
@@ -89,7 +75,7 @@ export default function NodeDataPanel({ node, onClose }: Props) {
 
       {/* Status badge */}
       <div style={{ padding: '8px 16px', borderBottom: '1px solid #21262d' }}>
-        <Tag color={STATUS_COLOR[node.status]} style={{ fontSize: 12 }}>
+        <Tag color={NODE_STATUS_CONFIG[node.status]?.tag ?? 'default'} style={{ fontSize: 12 }}>
           {node.status.toUpperCase()}
         </Tag>
         <Text style={{ color: '#8b949e', fontSize: 11, marginLeft: 8 }}>ID: {node.id}</Text>
@@ -107,10 +93,10 @@ export default function NodeDataPanel({ node, onClose }: Props) {
           contentStyle={{ color: '#e6edf3', fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}
         >
           <Descriptions.Item label="开始时间">
-            {node.startedAt ? new Date(node.startedAt).toLocaleTimeString() : '--'}
+            {node.startedAt ? formatTime(node.startedAt) : '--'}
           </Descriptions.Item>
           <Descriptions.Item label="完成时间">
-            {node.completedAt ? new Date(node.completedAt).toLocaleTimeString() : '--'}
+            {node.completedAt ? formatTime(node.completedAt) : '--'}
           </Descriptions.Item>
           <Descriptions.Item label="耗时">
             {node.status === 'running'

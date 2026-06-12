@@ -6,7 +6,7 @@ Every module in ``main.framework`` should obtain its logger via
 
 Usage::
 
-    from main.framework.core.logger import get_logger
+    from main.framework.core.infrastructure.logger import get_logger
     log = get_logger(__name__)
     log.info("hello")
     # -> {"timestamp": "...Z", "level": "INFO", "logger": "...", ...}
@@ -21,7 +21,7 @@ from collections.abc import MutableMapping
 from datetime import UTC, datetime, timezone
 from typing import Any
 
-from main.framework.core.request_context import get_request_id
+from main.framework.core.infrastructure.request_context import get_request_id
 
 __all__ = ["JsonLogFormatter", "setup_logger", "get_logger"]
 
@@ -84,7 +84,7 @@ def get_logger(name: str) -> logging.LoggerAdapter:
     then wraps it in :class:`_RequestIdAdapter`. Canonical entry point for
     framework modules::
 
-        from main.framework.core.logger import get_logger
+        from main.framework.core.infrastructure.logger import get_logger
         log = get_logger(__name__)
     """
     setup_logger(name)

@@ -28,12 +28,13 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from main.framework.core.container import get_container, get_service
-from main.framework.core.session_cleanup import cleanup_workflow_sessions
+from main.framework.core.infrastructure.container import get_container, get_service
+from main.framework.core.workflow.session_cleanup import cleanup_workflow_sessions
 from main.framework.services.exceptions import NotFoundError, ServiceError
 from main.framework.services.execution_query_service import (
     ExecutionListResponse,
     ExecutionQueryService,
+    ExecutionStatusResponse,
     RetryResponse,
     TimelineResponse,
 )
@@ -104,6 +105,9 @@ async def get_execution(
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Execution not found") from err
 
+
+# NOTE: GET /{execution_id}/status is defined in triggers.py (richer response
+# with workflow_id + node output). That version is used for polling.
 
 @router.get("/{execution_id}/timeline", response_model=TimelineResponse)
 async def get_execution_timeline(

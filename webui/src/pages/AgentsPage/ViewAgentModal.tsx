@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Spin, Tag, Typography, message } from 'antd';
 import Editor from '@monaco-editor/react';
-import { opencodeGet } from '../../api/opencode';
+import { getAgentContent } from '../../api/agents';
 
 const { Text } = Typography;
 
@@ -47,10 +47,21 @@ export default function ViewAgentModal({ visible, onClose, agentName }: ViewAgen
     let cancelled = false;
     setLoading(true);
     setContent(null);
-    opencodeGet<AgentContent>(`/agents/${encodeURIComponent(agentName)}/content`)
-      .then((data) => {
+    getAgentContent(agentName)
+      .then((raw) => {
         if (cancelled) return;
-        setContent(data);
+        const fmMatch = raw.match(/^---[\r]?\n([\s\S]*?)[\r]?\n---/);
+        let desc = '';
+        let m = 'subagent';
+        if (fmMatch) {
+          for (const line of fmMatch[1].split('\n')) {
+            const [k, ...rest] = line.split(':');
+            const v = rest.join(':');
+            if (k.trim() === 'description') desc = v.trim();
+            if (k.trim() === 'mode') m = v.trim();
+          }
+        }
+        setContent({ name: agentName, content: raw, description: desc, mode: m });
       })
       .catch((err: unknown) => {
         if (cancelled) return;

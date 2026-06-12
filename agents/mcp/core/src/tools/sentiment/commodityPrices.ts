@@ -60,7 +60,7 @@ export function registerCommodityPrices(
             || await mcpManager.callTool("stock-scanner", "commodity_prices", { commodities })
             || await mcpManager.callTool("stock-scanner", "energy_prices", {});
         } catch (e) {
-          console.error("[commodity_prices] 数据源不可用，使用模拟数�?);
+          console.error("[commodity_prices] 数据源不可用，使用模拟数据");
         }
 
         const result = commodityData || generateSimulatedCommodityData(commodities);
@@ -118,17 +118,17 @@ function processCommodityData(rawData: any): CommodityPricesResult {
   let commoditySentiment: string;
   if (avgChange > 3) commoditySentiment = "偏多（商品普涨）";
   else if (avgChange < -3) commoditySentiment = "偏空（商品普跌）";
-  else commoditySentiment = "中�?;
+  else commoditySentiment = "中性";
 
   let inflationaryPressure: string, inflationDesc: string;
   if (oilSpread > 8 && avgChange > 2) {
-    inflationaryPressure = "�?;
+    inflationaryPressure = "高";
     inflationDesc = "原油价格快速上涨，警惕通胀压力";
   } else if (oilSpread < 3 && avgChange < -2) {
-    inflationaryPressure = "�?;
+    inflationaryPressure = "低";
     inflationDesc = "商品价格下跌，通胀压力减轻";
   } else {
-    inflationaryPressure = "�?;
+    inflationaryPressure = "中";
     inflationDesc = "商品价格平稳，通胀压力可控";
   }
 

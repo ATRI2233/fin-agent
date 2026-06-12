@@ -70,9 +70,21 @@ def get_session():
     return _get_session_factory()()
 
 
+def _add_column_if_missing(engine, table: str, column: str, col_def: str):
+    """Idempotent ALTER TABLE ADD COLUMN for SQLite."""
+    with engine.connect() as conn:
+        cols = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+        if column not in cols:
+            conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}")
+
+
 def init_maintenance_db():
-    """Create all tables if they don't exist."""
-    MaintenanceBase.metadata.create_all(bind=_get_engine())
+    """Create all tables if they don't exist, and apply pending column migrations."""
+    engine = _get_engine()
+    MaintenanceBase.metadata.create_all(bind=engine)
+    # --- lightweight column migrations (ALTER TABLE ADD COLUMN) ---
+    _add_column_if_missing(engine, "maintenance_tasks", "data_type",
+                           "VARCHAR(50) DEFAULT 'generic'")
 
 
 # ---- ORM Models ----
@@ -93,6 +105,7 @@ class MaintenanceTask(MaintenanceBase):
     last_run_at = Column(DateTime, nullable=True)
     last_status = Column(String, nullable=True)  # success | failed | running
     last_error = Column(Text, nullable=True)
+    data_type = Column(String, nullable=True, default="generic")  # renderer type tag
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime,

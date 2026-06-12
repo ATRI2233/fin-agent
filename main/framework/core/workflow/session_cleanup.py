@@ -14,7 +14,7 @@ from main.framework.models.workflow_execution import ExecutionNode
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from main.framework.core.protocols import AgentBackend
+    from main.framework.core.infrastructure.protocols import AgentBackend
     from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)

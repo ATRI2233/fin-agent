@@ -7,24 +7,24 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from main.data_maintenance.api.data_maintenance import router as data_maintenance_router
-from main.framework.api.agents import router as agents_router
-from main.framework.api.conversations import router as conversations_router
-from main.framework.api.dispatch import router as dispatch_router
-from main.framework.api.executions import router as executions_router
+from main.data_maintenance.controllers.data_maintenance import router as data_maintenance_router
 from main.framework.api.problems import problem_response
-from main.framework.api.scheduler_routes import router as scheduler_router
-from main.framework.api.sessions import router as sessions_router
-from main.framework.api.skills import router as skills_router
-from main.framework.api.system import router as system_router
-from main.framework.api.tools import router as tools_router
-from main.framework.api.triggers import router as triggers_router
-from main.framework.api.workflows import router as workflows_router
 from main.framework.config import settings as settings
-from main.framework.core.auth import APIKeyMiddleware
-from main.framework.core.container import Container, configure
-from main.framework.core.logger import get_logger
-from main.framework.core.request_context import RequestContextMiddleware, get_request_id
+from main.framework.controllers.agents import router as agents_router
+from main.framework.controllers.conversations import router as conversations_router
+from main.framework.controllers.dispatch import router as dispatch_router
+from main.framework.controllers.executions import router as executions_router
+from main.framework.controllers.scheduler import router as scheduler_router
+from main.framework.controllers.sessions import router as sessions_router
+from main.framework.controllers.skills import router as skills_router
+from main.framework.controllers.system import router as system_router
+from main.framework.controllers.tools import router as tools_router
+from main.framework.controllers.triggers import router as triggers_router
+from main.framework.controllers.workflows import router as workflows_router
+from main.framework.core.infrastructure.auth import APIKeyMiddleware
+from main.framework.core.infrastructure.container import Container, configure
+from main.framework.core.infrastructure.logger import get_logger
+from main.framework.core.infrastructure.request_context import RequestContextMiddleware, get_request_id
 from main.framework.services.exceptions import NotFoundError, ServiceError
 
 # JSON-formatted logger with auto-injected request_id. ``get_logger`` is
@@ -235,7 +235,7 @@ async def startup():
     await scheduler.restore_jobs_from_db()
 
     # Initialize data maintenance
-    from main.data_maintenance.core.data_maintenance import DataMaintenanceService
+    from main.data_maintenance.services.data_maintenance import DataMaintenanceService
     from main.data_maintenance.models.maintenance_db import init_maintenance_db
     from main.data_maintenance.services.maintenance_query_service import (
         MaintenanceQueryService,
@@ -263,6 +263,6 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     scheduler.stop()
-    from main.framework.core import session_cleanup
+    from main.framework.core.workflow.session_cleanup import cleanup_on_shutdown
 
-    session_cleanup.cleanup_on_shutdown(container.backend)
+    cleanup_on_shutdown(container.backend)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from main.framework.core.debate_executor import DebateExecutor
+from main.framework.core.agents.debate_executor import DebateExecutor
 from main.framework.core.workflow.node_executors.base import (
     NodeContext,
     NodeExecutor,

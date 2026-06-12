@@ -38,7 +38,7 @@ import contextlib
 import logging
 
 from fastapi import APIRouter, Depends, status
-from main.framework.core.container import get_container, get_service
+from main.framework.core.infrastructure.container import get_container, get_service
 from main.framework.repositories.workflow_repo import WorkflowRepository
 from main.framework.services.workflow_query_service import WorkflowQueryService
 from pydantic import BaseModel
@@ -102,12 +102,9 @@ async def _run_workflow_async(
         with contextlib.suppress(Exception):
             exec_repo.update_execution(execution_id, status="running")
 
+        from main.framework.core.workflow.node_executors.agent_executor import _resolve_agent_name
         for node in workflow.nodes or []:
-            agent = node.get("agent", "")
-            if not agent:
-                data = node.get("data", {})
-                if isinstance(data, dict):
-                    agent = data.get("agentType", "") or data.get("label", "")
+            agent = _resolve_agent_name(node)
             with contextlib.suppress(Exception):
                 exec_repo.create_node(
                     execution_id=execution_id,

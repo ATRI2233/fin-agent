@@ -28,15 +28,20 @@ import {
   useRef,
 } from 'react';
 import { Tag, Typography } from 'antd';
-import { RobotOutlined, SyncOutlined } from '@ant-design/icons';
+import { CloseCircleOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons';
 
 import MessageBubble from './MessageBubble';
 import type { Message } from '../../types/conversation';
 
 const { Text } = Typography;
 
-/** UI-only flag indicating a message row has been superseded by a later status. */
-type ChatMessage = Message & { _struck?: boolean };
+/** UI-only flags set by the renderer. */
+type ChatMessage = Message & {
+  /** Row has been superseded by a later status for the same agent. */
+  _struck?: boolean;
+  /** This is the latest workflow_status message for its execution (should render node list). */
+  _latestWorkflow?: boolean;
+};
 
 /** Narrow the untyped `extra_data` bag to a typed view of the `type` field. */
 function getExtraType(msg: Message): string | undefined {
@@ -112,6 +117,17 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
           agentLatestStatus[a] === 'failed',
       );
 
+    // Track the latest workflow_status message per execution_id so only
+    // one MessageBubble renders the shared node list (avoids duplication).
+    const latestWorkflowMsgId: Record<string, string> = {};
+    for (const m of messages) {
+      const extra = m.extra_data as { type?: string } | undefined;
+      if (extra?.type === 'workflow_status') {
+        const eid = m.execution_id ?? m.id; // fallback to msg id if no exec id
+        latestWorkflowMsgId[eid] = m.id;
+      }
+    }
+
     // Latest workflow message (status or start) for the status indicator.
     const workflowMsgs = showWorkflowIndicator
       ? messages.filter((m) => {
@@ -120,6 +136,8 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
         })
       : [];
     const latestWorkflowMsg = workflowMsgs[workflowMsgs.length - 1];
+    const latestWorkflowExtra = latestWorkflowMsg?.extra_data as { status?: string } | undefined;
+    const isWorkflowFailed = latestWorkflowExtra?.status === 'failed' || allAgents.some(a => agentLatestStatus[a] === 'failed');
 
     return (
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
@@ -129,7 +147,10 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
           messages.map((msg) => (
             <MessageBubble
               key={msg.id}
-              message={applyStrikethrough(msg, agentLatestStatus, allDone)}
+              message={{
+                ...applyStrikethrough(msg, agentLatestStatus, allDone),
+                _latestWorkflow: latestWorkflowMsgId[msg.execution_id ?? ''] === msg.id,
+              }}
             />
           ))
         )}
@@ -148,17 +169,21 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
                 gap: 8,
                 alignItems: 'center',
                 padding: '8px 16px',
-                background: '#1a1a2a',
+                background: isWorkflowFailed ? '#2a1a1a' : '#1a1a2a',
                 borderRadius: 8,
-                border: '1px solid #2a2a4a',
+                border: `1px solid ${isWorkflowFailed ? '#4a2a2a' : '#2a2a4a'}`,
               }}
             >
-              <SyncOutlined spin style={{ color: '#6B8EC4' }} />
-              <Text style={{ color: '#E0E0E0', fontSize: 13 }}>
-                {latestWorkflowMsg?.content || 'Workflow executing...'}
+              {isWorkflowFailed ? (
+                <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
+              ) : (
+                <SyncOutlined spin style={{ color: '#6B8EC4' }} />
+              )}
+              <Text style={{ color: isWorkflowFailed ? '#ff7875' : '#E0E0E0', fontSize: 13 }}>
+                {latestWorkflowMsg?.content || (isWorkflowFailed ? 'Workflow failed' : 'Workflow executing...')}
               </Text>
               {latestWorkflowMsg?.agent && (
-                <Tag color="blue" style={{ fontSize: 10 }}>
+                <Tag color={isWorkflowFailed ? 'error' : 'blue'} style={{ fontSize: 10 }}>
                   {latestWorkflowMsg.agent}
                 </Tag>
               )}
@@ -221,6 +246,10 @@ function applyStrikethrough(
         extra_data: { ...extra, status: latest },
       };
     }
+  }
+  // Strike the initial "Workflow started…" message (agent is empty) when all agents are done.
+  if (extra?.type === 'workflow_status' && !msg.agent && allDone) {
+    return { ...msg, _struck: true };
   }
   if (extra?.type === 'workflow_start' && allDone) {
     return { ...msg, _struck: true };

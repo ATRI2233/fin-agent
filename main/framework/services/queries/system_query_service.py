@@ -44,8 +44,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from main.framework.config import settings
-from main.framework.core.log_collector import current_job_id, get_log_collector
-from main.framework.core.session_cleanup import get_active_executions
+from main.framework.core.infrastructure.log_collector import current_job_id, get_log_collector
+from main.framework.core.workflow.session_cleanup import get_active_executions
 from main.framework.models.workflow_execution import ExecutionNode
 from main.framework.services.scheduler_service import SchedulerService
 from sqlalchemy.orm import Session
@@ -136,7 +136,7 @@ class SystemQueryService:
     def get_cache_state(self) -> dict[str, Any]:
         """Return workflow-cache and concurrency-limiter snapshot (legacy shape)."""
         try:
-            from main.framework.core.performance import (
+            from main.framework.core.infrastructure.performance import (
                 get_concurrency_limiter,
                 get_workflow_cache_size,
             )
@@ -188,7 +188,7 @@ class SystemQueryService:
 
     def _concurrency_status(self) -> dict[str, Any]:
         try:
-            from main.framework.core.performance import get_concurrency_limiter
+            from main.framework.core.infrastructure.performance import get_concurrency_limiter
 
             limiter = get_concurrency_limiter()
             return {

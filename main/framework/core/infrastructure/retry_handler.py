@@ -214,7 +214,7 @@ class WorkflowRetryHandler:
         }
 
     def _get_topological_order(self, nodes: list[dict]) -> list[str]:
-        from main.framework.core.workflow_parser import topological_sort
+        from main.framework.core.workflow.workflow_parser import topological_sort
 
         edges = []
         for node in nodes:

@@ -183,7 +183,7 @@ class SessionService:
         details: dict[str, str] = {}
 
         if execution_id:
-            from main.framework.core.session_cleanup import cleanup_workflow_sessions
+            from main.framework.core.workflow.session_cleanup import cleanup_workflow_sessions
 
             result = cleanup_workflow_sessions(execution_id, backend=self._backend)
             for sid, status in result.items():

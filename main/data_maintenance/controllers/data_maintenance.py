@@ -36,7 +36,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from main.data_maintenance.services.maintenance_query_service import (
     MaintenanceQueryService,
 )
-from main.framework.core.container import get_service
+from main.framework.core.infrastructure.container import get_service
 from main.framework.services.exceptions import NotFoundError
 from pydantic import BaseModel, Field
 
@@ -91,6 +91,7 @@ class TaskCreate(BaseModel):
     enabled: bool = True
     trigger_type: str = "cron"  # cron | manual | interval
     interval_seconds: int | None = None
+    data_type: str = "generic"  # market_snapshot | technical | macro | ...
 
 
 class TaskUpdate(BaseModel):
@@ -102,6 +103,7 @@ class TaskUpdate(BaseModel):
     enabled: bool | None = None
     trigger_type: str | None = None
     interval_seconds: int | None = None
+    data_type: str | None = None
 
 
 # ---------------------------------------------------------------------------

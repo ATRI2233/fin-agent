@@ -26,6 +26,7 @@ import {
   Space,
   Tag,
   Typography,
+  message,
 } from 'antd';
 import {
   LoadingOutlined,
@@ -42,7 +43,7 @@ import {
   MessageThread,
   type MessageThreadHandle,
 } from './MessageThread';
-import { useConversations } from './hooks/useConversations';
+import { useChatConversations } from './hooks/useChatConversations';
 import { useMessages } from './hooks/useMessages';
 
 const { Text } = Typography;
@@ -52,7 +53,7 @@ export default function ChatPage() {
   // directly without prop drilling through `ChatInput`.
   const [inputValue, setInputValue] = useState('');
   const [mode, setMode] = useState<ChatMode>('agent');
-  const [selectedAgent, setSelectedAgent] = useState<string>('fin-orchestrator');
+  const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
 
   // Page-specific hooks (Wave 6.1b).
@@ -62,7 +63,7 @@ export default function ChatPage() {
     setCurrentConversation,
     createConversation,
     deleteConversation,
-  } = useConversations();
+  } = useChatConversations();
   const {
     messages,
     loadMessages,
@@ -85,6 +86,17 @@ export default function ChatPage() {
   const handleSend = async (): Promise<void> => {
     const content = inputValue.trim();
     if (!content || !currentConversation) return;
+
+    // Validate that a target is selected before sending
+    if (mode === 'agent' && !selectedAgent) {
+      message.warning('请先选择一个 Agent');
+      return;
+    }
+    if (mode === 'workflow' && !selectedWorkflow) {
+      message.warning('请先选择一个 Workflow');
+      return;
+    }
+
     setInputValue('');
     messageThreadRef.current?.requestScroll();
     await sendMessage({
@@ -131,7 +143,7 @@ export default function ChatPage() {
                 </Text>
                 <div style={{ marginTop: 4 }}>
                   {mode === 'agent' ? (
-                    <Tag color="blue">{selectedAgent}</Tag>
+                    <Tag color="blue">{selectedAgent || 'Select agent'}</Tag>
                   ) : (
                     <Tag color="purple">
                       {workflows.find((w) => w.id === selectedWorkflow)?.name ||

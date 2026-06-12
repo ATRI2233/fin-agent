@@ -71,11 +71,7 @@ export function useAgentStats() {
 export function useAgent(name: string | null) {
   const fetcher = useCallback(
     (_signal: AbortSignal) => {
-      if (!name) {
-        // Suspended — never resolves so `loading` stays true and the
-        // consumer can distinguish "no selection" via the name check.
-        return new Promise<AgentDetail>(() => undefined);
-      }
+      if (!name) return Promise.resolve(null as unknown as AgentDetail);
       return getAgent(name);
     },
     [name],

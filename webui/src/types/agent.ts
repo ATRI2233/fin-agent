@@ -87,8 +87,12 @@ export interface ToolItem {
   name: string;
   /** Human-readable one-liner describing what the tool does. */
   description: string;
-  /** Originating MCP server (e.g. "ashare", "fred"). */
+  /** Originating MCP server (e.g. "ashare-mcp-server", "fred-mcp-server"). Empty for builtins. */
   server?: string;
-  /** UI grouping label (e.g. "market-data", "risk"). */
+  /** UI grouping label (e.g. "行情", "风控"). */
   category?: string;
+  /** Tool source: builtin (Read/Edit/Bash), mcp (MCP server), or custom (user-defined). */
+  source?: 'builtin' | 'mcp' | 'custom';
+  /** Whether the tool is enabled. */
+  enabled?: boolean;
 }

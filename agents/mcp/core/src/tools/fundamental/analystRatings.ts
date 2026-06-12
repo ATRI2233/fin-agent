@@ -71,7 +71,7 @@ export function registerAnalystRatings(
           const returnedSymbol = (ratingsData?.symbol || ratingsData?.ticker || "").toUpperCase();
           const requestedSymbol = symbol.toUpperCase();
           if (returnedSymbol && !returnedSymbol.includes(requestedSymbol) && !requestedSymbol.includes(returnedSymbol)) {
-            console.error(`[analyst_ratings] 数据不匹�? 请求 ${requestedSymbol}, 返回 ${returnedSymbol}，使用模拟数据`);
+            console.error(`[analyst_ratings] 数据不匹配，请求 ${requestedSymbol}, 返回 ${returnedSymbol}，使用模拟数据`);
             ratingsData = null;
           }
         } catch (e) {
@@ -114,7 +114,7 @@ function processRatingsData(symbol: string, rawData: any): AnalystRatingsResult 
   let consensus: string;
   if (bullishPct >= 60) consensus = "强烈买入";
   else if (bullishPct >= 40) consensus = "买入";
-  else if (hold >= 50) consensus = "中�?;
+  else if (hold >= 50) consensus = "中性";
   else if (bearishPct >= 40) consensus = "卖出";
   else consensus = "持有";
 

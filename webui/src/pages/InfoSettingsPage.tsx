@@ -25,7 +25,9 @@ import {
   deleteTask,
   type Task,
 } from '../api/maintenance';
+import { formatFull } from '../utils/time';
 import { opencodeGet } from '../api/opencode';
+import { DATA_TYPE_OPTIONS } from '../components/dataRenderers';
 
 export default function InfoSettingsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -101,7 +103,7 @@ export default function InfoSettingsPage() {
   const openCreate = () => {
     setEditTask(null);
     form.resetFields();
-    form.setFieldsValue({ trigger_type: 'cron', enabled: true });
+    form.setFieldsValue({ trigger_type: 'cron', enabled: true, data_type: 'generic' });
     setEditVisible(true);
   };
 
@@ -162,6 +164,16 @@ export default function InfoSettingsPage() {
       key: 'agent',
       width: 140,
       render: (text: string) => <Tag color="blue">{text}</Tag>,
+    },
+    {
+      title: '数据类型',
+      dataIndex: 'data_type',
+      key: 'data_type',
+      width: 120,
+      render: (dt: string) => {
+        const label = DATA_TYPE_OPTIONS.find(o => o.value === dt)?.label || dt || '—';
+        return <Text style={{ color: '#B0B0B0', fontSize: 13 }}>{label}</Text>;
+      },
     },
     {
       title: '触发方式',
@@ -228,7 +240,7 @@ export default function InfoSettingsPage() {
     { title: '错误', dataIndex: 'error', key: 'error', ellipsis: true,
       render: (e: string) => e ? <Text style={{ color: '#D47070', fontSize: 12 }}>{e}</Text> : '—' },
     { title: '执行时间', dataIndex: 'completed_at', key: 'time', width: 180,
-      render: (t: string) => t ? new Date(t).toLocaleString('zh-CN') : '—' },
+      render: (t: string) => t ? formatFull(t) : '—' },
   ];
 
   if (loading) {
@@ -284,6 +296,13 @@ export default function InfoSettingsPage() {
           </Form.Item>
           <Form.Item name="prompt" label="Prompt 模板" rules={[{ required: true }]}>
             <TextArea rows={4} placeholder="发送给 Agent 的提示词，描述需要采集的数据和返回格式" />
+          </Form.Item>
+          <Form.Item name="data_type" label="数据类型">
+            <Select>
+              {DATA_TYPE_OPTIONS.map(opt => (
+                <Select.Option key={opt.value} value={opt.value}>{opt.label}</Select.Option>
+              ))}
+            </Select>
           </Form.Item>
           <Form.Item name="trigger_type" label="触发方式">
             <Select>

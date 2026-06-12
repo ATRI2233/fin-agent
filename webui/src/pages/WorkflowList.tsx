@@ -5,6 +5,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import { listWorkflows, getWorkflow, createWorkflow, deleteWorkflow, triggerWorkflow } from '../api/workflows';
 import type { WorkflowStatus } from '../types/workflow';
+import { WORKFLOW_STATUS_CONFIG } from '../utils/statusConfig';
 
 const { Text } = Typography;
 
@@ -17,27 +18,13 @@ interface WorkflowMeta {
   lastRunAt?: string;
 }
 
-const statusColors: Record<WorkflowStatus, string> = {
-  draft: 'default',
-  running: 'processing',
-  completed: 'success',
-  failed: 'error',
-  paused: 'warning',
-};
-
-const statusLabels: Record<WorkflowStatus, string> = {
-  draft: '草稿',
-  running: '运行中',
-  completed: '已完成',
-  failed: '失败',
-  paused: '暂停',
-};
-
 const tabItems = [
   { key: 'all', label: '全部' },
   { key: 'draft', label: '草稿' },
   { key: 'running', label: '运行中' },
   { key: 'completed', label: '已完成' },
+  { key: 'failed', label: '失败' },
+  { key: 'paused', label: '暂停' },
 ];
 
 export default function WorkflowList() {
@@ -107,7 +94,7 @@ export default function WorkflowList() {
 
   const columns: ColumnsType<WorkflowMeta> = [
     { title: 'Name', dataIndex: 'name', key: 'name', sorter: (a, b) => a.name.localeCompare(b.name), render: (text: string) => <Text style={{ color: '#F0F0F0', fontWeight: 500, fontSize: 15 }}>{text}</Text> },
-    { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (s: WorkflowStatus) => <Tag color={statusColors[s] ?? 'default'}>{statusLabels[s]}</Tag> },
+    { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (s: WorkflowStatus) => <Tag color={WORKFLOW_STATUS_CONFIG[s]?.tag ?? 'default'}>{WORKFLOW_STATUS_CONFIG[s]?.label ?? s}</Tag> },
     { title: 'Nodes', dataIndex: 'nodeCount', key: 'nodeCount', width: 90, align: 'center', render: (c: number) => <span style={{ color: '#B0B0B0', fontSize: 15 }}>{c}</span> },
     { title: 'Last Run', dataIndex: 'lastRunAt', key: 'lastRunAt', width: 180, render: (ts?: string) => <Text type="secondary" style={{ fontSize: 13 }}>{ts ?? '—'}</Text> },
     { title: 'Actions', key: 'actions', width: 260, render: (_, r) => (

@@ -115,7 +115,7 @@ export function registerEarningsCalendar(mcpManager: MCPClientManager): ToolRegi
           source: "none",
         };
 
-        // ── 优先�?TradingView ────────────────────────────────
+        // ── 优先用 TradingView ────────────────────────────────
         const tvData = await fetchFromTradingView(mcpManager, symbol);
         if (tvData && tvData.length > 0) {
           const now = new Date();
@@ -142,7 +142,7 @@ export function registerEarningsCalendar(mcpManager: MCPClientManager): ToolRegi
           }
         }
 
-        // ── 备�?FMP API ──────────────────────────────────────
+        // ── 备用 FMP API ──────────────────────────────────────
         if (!result.earnings_in_7d) {
           const fmpEntry = await fetchFromFMP(symbol, daysAhead);
           if (fmpEntry) {

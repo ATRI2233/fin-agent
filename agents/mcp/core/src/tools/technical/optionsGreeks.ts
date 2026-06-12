@@ -61,7 +61,7 @@ export function registerOptionsGreeks(
         },
         expiration_days: {
           type: "number",
-          description: "期权到期天数，默�?30",
+          description: "期权到期天数，默认30",
           default: 30,
         },
       },
@@ -162,7 +162,7 @@ function processOptionsData(
   const callWall = callWalls.length > 0 ? callWalls[0].strike : 0;
 
   const ivRank = avgIV > 50 ? "高IV（可能反转）" : avgIV < 20 ? "低IV（趋势可能持续）" : "中等IV";
-  const pcSignal = putCallRatio > 1.2 ? "偏多（put堆积�? : putCallRatio < 0.7 ? "偏空（call堆积�? : "中�?;
+  const pcSignal = putCallRatio > 1.2 ? "偏多（put堆积）" : putCallRatio < 0.7 ? "偏空（call堆积）" : "中性";
 
   const nextExpiration = optionsChain.length > 0 ? optionsChain[0].expiration : "";
 

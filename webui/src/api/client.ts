@@ -184,6 +184,45 @@ export function apiDelete<T>(url: string, signal?: AbortSignal): Promise<T> {
   return request<T>("DELETE", url, undefined, signal);
 }
 
+/**
+ * Issue a `GET` and return the raw response body as `string` (not JSON).
+ * Useful for endpoints that return `text/plain` (e.g. agent markdown content).
+ */
+export async function apiGetText(url: string, signal?: AbortSignal): Promise<string> {
+  const headers: Record<string, string> = {
+    Accept: "text/plain",
+    "X-Request-ID": generateRequestId(),
+  };
+  const init: RequestInit = { method: "GET", headers };
+  if (signal) init.signal = signal;
+
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    const problem = await readProblem(response, response.status);
+    throw new ApiError(problem, response.headers.get(REQUEST_ID_HEADER) ?? undefined);
+  }
+  return response.text();
+}
+
+/**
+ * Issue a `PUT` with a plain-text body (Content-Type: text/plain).
+ * Useful for endpoints that accept raw text (e.g. agent/skill content).
+ */
+export async function apiPutText(url: string, body: string, signal?: AbortSignal): Promise<void> {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/plain",
+    "X-Request-ID": generateRequestId(),
+  };
+  const init: RequestInit = { method: "PUT", headers, body };
+  if (signal) init.signal = signal;
+
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    const problem = await readProblem(response, response.status);
+    throw new ApiError(problem, response.headers.get(REQUEST_ID_HEADER) ?? undefined);
+  }
+}
+
 /** Re-export the canonical error class so consumers only need this module. */
 export { ApiError };
 

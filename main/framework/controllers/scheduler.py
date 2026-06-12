@@ -23,7 +23,7 @@ under the original import path so ``main.py`` keeps working unchanged.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from main.framework.core.container import get_service
+from main.framework.core.infrastructure.container import get_service
 from main.framework.services.scheduler_service import SchedulerService
 from pydantic import BaseModel
 

@@ -1,13 +1,14 @@
 import React from 'react';
 import { Timeline, Tag, Typography, Tooltip, Spin } from 'antd';
-import { CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ClockCircleOutlined, ForwardOutlined } from '@ant-design/icons';
+import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
+import { formatTime } from '../utils/time';
 
 const { Text } = Typography;
 
 interface NodeExec {
   id: string;
   name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  status: NodeStatusKey;
   inputs?: Record<string, unknown>;
   outputs?: Record<string, unknown>;
   error?: string;
@@ -15,30 +16,6 @@ interface NodeExec {
   startedAt?: string;
   completedAt?: string;
 }
-
-const STATUS_COLOR: Record<NodeExec['status'], string> = {
-  pending: '#6B6B6B',
-  running: '#8B9DC3',
-  completed: '#6B8E7B',
-  failed: '#C47C7C',
-  skipped: '#C4A882',
-};
-
-const STATUS_TAG: Record<NodeExec['status'], string> = {
-  pending: 'default',
-  running: 'processing',
-  completed: 'success',
-  failed: 'error',
-  skipped: 'warning',
-};
-
-const STATUS_ICON: Record<NodeExec['status'], React.ReactNode> = {
-  pending: <ClockCircleOutlined style={{ color: STATUS_COLOR.pending }} />,
-  running: <SyncOutlined spin style={{ color: STATUS_COLOR.running }} />,
-  completed: <CheckCircleOutlined style={{ color: STATUS_COLOR.completed }} />,
-  failed: <CloseCircleOutlined style={{ color: STATUS_COLOR.failed }} />,
-  skipped: <ForwardOutlined style={{ color: STATUS_COLOR.skipped }} />,
-};
 
 function formatDuration(start?: string, end?: string): string {
   if (!start) return '--';
@@ -49,11 +26,6 @@ function formatDuration(start?: string, end?: string): string {
   const min = Math.floor(sec / 60);
   if (min > 0) return `${min}m ${sec % 60}s`;
   return `${sec}s`;
-}
-
-function formatTime(ts?: string): string {
-  if (!ts) return '--';
-  return new Date(ts).toLocaleTimeString();
 }
 
 function jsonPreview(data: unknown, maxLen = 200): string {
@@ -92,13 +64,15 @@ export default function ExecutionTimeline({ nodes }: Props) {
         mode="left"
         items={sorted.map((node) => {
           const isActive = node.status === 'running';
+          const cfg = NODE_STATUS_CONFIG[node.status] ?? NODE_STATUS_CONFIG.pending;
+          const IconComp = cfg.icon;
           const dot = isActive
             ? <Spin size="small" />
-            : STATUS_ICON[node.status];
+            : <IconComp style={{ color: cfg.color }} />;
 
           return {
             dot,
-            color: STATUS_COLOR[node.status],
+            color: cfg.color,
             children: (
               <div style={{
                 background: isActive ? 'rgba(22, 119, 255, 0.06)' : 'rgba(22, 27, 34, 0.6)',
@@ -112,7 +86,7 @@ export default function ExecutionTimeline({ nodes }: Props) {
                   <Text strong style={{ color: '#e6edf3', fontSize: 13, fontFamily: "'JetBrains Mono', monospace" }}>
                     {node.name}
                   </Text>
-                  <Tag color={STATUS_TAG[node.status]} style={{ fontSize: 10, marginBottom: 0 }}>
+                  <Tag color={cfg.tag} style={{ fontSize: 10, marginBottom: 0 }}>
                     {node.status.toUpperCase()}
                   </Tag>
                 </div>

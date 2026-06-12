@@ -41,7 +41,7 @@ export function registerFearGreedIndex(
       properties: {
         source: {
           type: "string",
-          description: "数据来源：cnn（默认）�?alternative",
+          description: "数据来源：cnn（默认）或alternative",
           default: "cnn",
         },
       },
@@ -56,7 +56,7 @@ export function registerFearGreedIndex(
           fgData = await mcpManager.callTool("fear-greed", "fear_greed_index", { source })
             || await mcpManager.callTool("stock-scanner", "fear_greed_index", {});
         } catch (e) {
-          console.error("[fear_greed_index] 数据源不可用，使用模拟数�?);
+          console.error("[fear_greed_index] 数据源不可用，使用模拟数据");
         }
 
         const result = fgData || generateSimulatedFearGreedData();
@@ -83,7 +83,7 @@ function processFearGreedData(rawData: any): FearGreedResult {
   let sentiment: string;
   if (indexValue < 20) sentiment = "极度恐惧";
   else if (indexValue < 40) sentiment = "恐惧";
-  else if (indexValue < 60) sentiment = "中�?;
+  else if (indexValue < 60) sentiment = "中性";
   else if (indexValue < 80) sentiment = "贪婪";
   else sentiment = "极度贪婪";
 
@@ -119,9 +119,9 @@ function processFearGreedData(rawData: any): FearGreedResult {
   if (indexValue < 30) {
     marketContext = "市场极度恐惧，可能存在恐慌性抛售，但也可能是逢低买入机会";
   } else if (indexValue > 70) {
-    marketContext = "市场过度贪婪，可能存在泡沫风险，应保持谨�?;
+    marketContext = "市场过度贪婪，可能存在泡沫风险，应保持谨慎";
   } else {
-    marketContext = "市场情绪中性，未出现极端信�?;
+    marketContext = "市场情绪中性，未出现极端信号";
   }
 
   let signal: string, signalConfidence: number, signalReasoning: string;
@@ -129,11 +129,11 @@ function processFearGreedData(rawData: any): FearGreedResult {
   if (indexValue < 25) {
     signal = "买入";
     signalConfidence = 75;
-    signalReasoning = "极度恐惧通常伴随市场超卖，可能出现反弹机�?;
+    signalReasoning = "极度恐惧通常伴随市场超卖，可能出现反弹机会";
   } else if (indexValue > 75) {
     signal = "卖出";
     signalConfidence = 75;
-    signalReasoning = "极度贪婪通常伴随市场超买，可能出现回调风�?;
+    signalReasoning = "极度贪婪通常伴随市场超买，可能出现回调风险";
   } else if (signals.fear_reversal) {
     signal = "买入";
     signalConfidence = 60;
@@ -145,7 +145,7 @@ function processFearGreedData(rawData: any): FearGreedResult {
   } else {
     signal = "观望";
     signalConfidence = 50;
-    signalReasoning = "市场情绪中性，等待更明确信�?;
+    signalReasoning = "市场情绪中性，等待更明确信号";
   }
 
   return {

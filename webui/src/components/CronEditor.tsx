@@ -18,6 +18,7 @@ import {
   MinusCircleOutlined,
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
+import { formatFull } from '../utils/time';
 
 const { Text } = Typography;
 
@@ -448,7 +449,7 @@ export function CronEditor({ initialCron, onChange, nextRunTime }: CronEditorPro
             </Text>
             {nextRunTime && (
               <Text type="secondary" style={{ fontSize: 12 }}>
-                <CalendarOutlined /> 下次执行: {new Date(nextRunTime).toLocaleString()}
+                <CalendarOutlined /> 下次执行: {formatFull(nextRunTime)}
               </Text>
             )}
           </Space>

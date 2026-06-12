@@ -4,40 +4,60 @@ Reads tool definitions from ``.opencode/opencode.json`` (the workspace's
 MCP/tool manifest) and exposes a small focused surface to
 ``controllers/tools.py``.
 
-Lazy loading: the manifest is read on the *first* call to any public method
-(see :meth:`_ensure_loaded`) rather than at import time.  This keeps module
-imports side-effect-free (no file IO, no missing-file crash on tooling like
-``mypy``/``ruff --collect-only``) and makes service construction cheap.
+Data sources (merged at read time):
+  1. ``opencode.json`` → ``mcp`` section — MCP-registered tools.
+  2. ``opencode.json`` → ``tools`` section — custom tool overrides.
+  3. Built-in tools (Read, Edit, Bash, etc.) — hardcoded once, here.
 
-Stub invocation: :meth:`invoke_tool` is intentionally a v1 stub — direct tool
-invocation is not yet wired into the framework.  It returns the same error
-shape the legacy ``api/tools.py`` route returned so existing clients keep
-working unchanged.
+Caching: results are cached for ``_CACHE_TTL`` seconds.  ``reload()`` forces
+an immediate refresh.
+
+Stub invocation: :meth:`invoke_tool` is intentionally a v1 stub.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 
 from main.framework.services.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
 
+_CACHE_TTL = 30  # seconds
+
+# Built-in tools — the single source of truth for this list.
+BUILTIN_TOOLS: list[dict] = [
+    {"name": "read", "description": "从磁盘读取文件", "server": "", "category": "文件", "source": "builtin", "enabled": True},
+    {"name": "edit", "description": "编辑磁盘文件", "server": "", "category": "文件", "source": "builtin", "enabled": True},
+    {"name": "bash", "description": "执行 Shell 命令", "server": "", "category": "系统", "source": "builtin", "enabled": True},
+    {"name": "grep", "description": "搜索文件内容", "server": "", "category": "文件", "source": "builtin", "enabled": True},
+    {"name": "glob", "description": "按模式查找文件", "server": "", "category": "文件", "source": "builtin", "enabled": True},
+    {"name": "websearch", "description": "搜索网页", "server": "", "category": "网络", "source": "builtin", "enabled": True},
+    {"name": "webfetch", "description": "获取 URL", "server": "", "category": "网络", "source": "builtin", "enabled": True},
+    {"name": "lsp_diagnostics", "description": "获取 LSP 错误/警告", "server": "", "category": "开发", "source": "builtin", "enabled": True},
+]
+
 
 def _load_tools_from_opencode() -> list[dict]:
-    """Load tool definitions from all enabled MCP servers in ``opencode.json``.
+    """Load tool definitions from all enabled MCP servers + custom tools + builtins.
 
-    Returns an empty list if the config file is missing — never raises on a
-    missing file.  Optional ``tool`` fields default to empty strings.
+    Returns builtins-only if the config file is missing.
     """
     config_path = Path(__file__).resolve().parents[3] / ".opencode" / "opencode.json"
-    if not config_path.exists():
-        return []
-    with open(config_path, encoding="utf-8") as f:
-        config = json.load(f)
     tools: list[dict] = []
+
+    config: dict = {}
+    if config_path.exists():
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception:
+            pass
+
+    # 1. MCP tools
     for server_name, server_cfg in config.get("mcp", {}).items():
         if not server_cfg.get("enabled", True):
             continue
@@ -48,8 +68,28 @@ def _load_tools_from_opencode() -> list[dict]:
                     "description": tool.get("description", ""),
                     "server": server_name,
                     "category": tool.get("category", ""),
+                    "source": "mcp",
+                    "enabled": True,
                 }
             )
+
+    # 2. Custom tools (from opencode.json "tools" section)
+    for tool_key, tool_cfg in config.get("tools", {}).items():
+        if isinstance(tool_cfg, dict):
+            tools.append(
+                {
+                    "name": tool_cfg.get("name", tool_key),
+                    "description": tool_cfg.get("description", ""),
+                    "server": tool_cfg.get("mcpServer", ""),
+                    "category": tool_cfg.get("category", ""),
+                    "source": "custom",
+                    "enabled": tool_cfg.get("enabled", True),
+                }
+            )
+
+    # 3. Builtins
+    tools.extend(BUILTIN_TOOLS)
+
     return tools
 
 
@@ -57,17 +97,17 @@ class ToolQueryService:
     """Business-logic facade for tool discovery and invocation.
 
     Public surface (3 methods, all sync): list_tools, get_tool, invoke_tool.
-    The ``_tools`` cache is populated on first access, never invalidated.
     """
 
     def __init__(self) -> None:
-        # Lazy cache — None until first public-method call.
         self._tools: list[dict] | None = None
+        self._loaded_at: float = 0.0
 
     def _ensure_loaded(self) -> list[dict]:
-        """Return the tool manifest, loading it from disk on first call."""
-        if self._tools is None:
+        now = time.monotonic()
+        if self._tools is None or (now - self._loaded_at) > _CACHE_TTL:
             self._tools = _load_tools_from_opencode()
+            self._loaded_at = now
         return self._tools
 
     # ------------------------------------------------------------------
@@ -85,17 +125,17 @@ class ToolQueryService:
                 return tool
         raise NotFoundError(f"Tool {name} not found")
 
+    def reload(self):
+        """Force reload from disk, ignoring TTL."""
+        self._tools = None
+        self._loaded_at = 0.0
+
     # ------------------------------------------------------------------
     # Tool invocation (v1 stub)
     # ------------------------------------------------------------------
 
     def invoke_tool(self, name: str) -> dict:
-        """Stub: direct tool invocation is not implemented in v1.
-
-        Preserves the legacy response shape ``{"error": ..., "name": ...}`` so
-        existing clients keep working.  A future iteration will dispatch via
-        the MCP layer.
-        """
+        """Stub: direct tool invocation is not implemented in v1."""
         return {"error": "Direct tool invocation not implemented in v1", "name": name}
 
 

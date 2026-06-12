@@ -14,12 +14,10 @@
  *   POST   /api/v1/workflows/{id}/schedule    → scheduleWorkflow
  *   DELETE /api/v1/workflows/{id}/schedule    → unscheduleWorkflow
  *   GET    /api/v1/workflows/scheduled        → listScheduled
- *
- * All functions return parsed JSON, or `void` for 204 endpoints. Errors
- * are surfaced as `Error` instances with the HTTP status + body.
  */
 
 import { API_V1_BASE } from '../config/env'
+import { apiGet, apiPost, apiPut, apiDelete } from './client'
 import type {
   Workflow,
   WorkflowMeta,
@@ -67,54 +65,32 @@ export interface ScheduledJob {
   next_run_times: string[]
 }
 
-/* ─── Fetch helper ───────────────────────────────────────────────── */
-
-/** Internal JSON request. For 204 returns `undefined as T`; callers
- *  expecting an empty body must declare `Promise<void>`. */
-async function request<T>(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-  path: string,
-  body?: unknown,
-): Promise<T> {
-  const hasBody = body !== undefined
-  const res = await fetch(`${API_V1_BASE}${path}`, {
-    method,
-    headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
-    body: hasBody ? JSON.stringify(body) : undefined,
-  })
-  if (!res.ok) {
-    const detail = await res.text().catch(() => res.statusText)
-    throw new Error(`API ${method} ${path} failed: ${res.status} ${res.statusText} — ${detail}`)
-  }
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
-}
-
 /* ─── Workflow CRUD (7) ──────────────────────────────────────────── */
 
 /** List workflows (summary view, newest first). `GET /api/v1/workflows?skip=&limit=`. */
 export function listWorkflows(
   skip: number = 0,
   limit: number = 1000,
+  signal?: AbortSignal,
 ): Promise<WorkflowMeta[]> {
   const qs = new URLSearchParams({ skip: String(skip), limit: String(limit) })
-  return request<WorkflowMeta[]>('GET', `/workflows?${qs.toString()}`)
+  return apiGet<WorkflowMeta[]>(`${API_V1_BASE}/workflows?${qs.toString()}`, signal)
 }
 
 /** Aggregated execution statistics. `GET /api/v1/workflows/stats`. */
-export function getWorkflowStats(): Promise<WorkflowStats> {
-  return request<WorkflowStats>('GET', '/workflows/stats')
+export function getWorkflowStats(signal?: AbortSignal): Promise<WorkflowStats> {
+  return apiGet<WorkflowStats>(`${API_V1_BASE}/workflows/stats`, signal)
 }
 
 /** Get a single workflow by id (full detail). `GET /api/v1/workflows/{id}`. Throws on 404. */
-export function getWorkflow(id: string): Promise<Workflow> {
-  return request<Workflow>('GET', `/workflows/${encodeURIComponent(id)}`)
+export function getWorkflow(id: string, signal?: AbortSignal): Promise<Workflow> {
+  return apiGet<Workflow>(`${API_V1_BASE}/workflows/${encodeURIComponent(id)}`, signal)
 }
 
 /** Create a new workflow. Backend validates the DAG (rejects cycles, > 50 nodes).
  *  `POST /api/v1/workflows` — 201 Created. */
-export function createWorkflow(data: CreateWorkflowPayload): Promise<Workflow> {
-  return request<Workflow>('POST', '/workflows', data)
+export function createWorkflow(data: CreateWorkflowPayload, signal?: AbortSignal): Promise<Workflow> {
+  return apiPost<Workflow>(`${API_V1_BASE}/workflows`, data, signal)
 }
 
 /** Update a workflow; undefined fields are omitted (backend `exclude_none=True`).
@@ -122,14 +98,15 @@ export function createWorkflow(data: CreateWorkflowPayload): Promise<Workflow> {
 export function updateWorkflow(
   id: string,
   data: UpdateWorkflowPayload,
+  signal?: AbortSignal,
 ): Promise<Workflow> {
-  return request<Workflow>('PUT', `/workflows/${encodeURIComponent(id)}`, data)
+  return apiPut<Workflow>(`${API_V1_BASE}/workflows/${encodeURIComponent(id)}`, data, signal)
 }
 
 /** Delete a workflow and cascade-delete its executions.
  *  `DELETE /api/v1/workflows/{id}` — 204 No Content. */
-export function deleteWorkflow(id: string): Promise<void> {
-  return request<void>('DELETE', `/workflows/${encodeURIComponent(id)}`)
+export function deleteWorkflow(id: string, signal?: AbortSignal): Promise<void> {
+  return apiDelete<void>(`${API_V1_BASE}/workflows/${encodeURIComponent(id)}`, signal)
 }
 
 /** Trigger a workflow run asynchronously. `POST /api/v1/workflows/{id}/trigger` — 202.
@@ -137,11 +114,12 @@ export function deleteWorkflow(id: string): Promise<void> {
 export function triggerWorkflow(
   id: string,
   params?: TriggerParams,
+  signal?: AbortSignal,
 ): Promise<TriggerResult> {
-  return request<TriggerResult>(
-    'POST',
-    `/workflows/${encodeURIComponent(id)}/trigger`,
+  return apiPost<TriggerResult>(
+    `${API_V1_BASE}/workflows/${encodeURIComponent(id)}/trigger`,
     { params: params ?? {} },
+    signal,
   )
 }
 
@@ -152,22 +130,23 @@ export function triggerWorkflow(
 export function scheduleWorkflow(
   id: string,
   cron: string,
+  signal?: AbortSignal,
 ): Promise<ScheduleResult> {
-  return request<ScheduleResult>(
-    'POST',
-    `/workflows/${encodeURIComponent(id)}/schedule`,
+  return apiPost<ScheduleResult>(
+    `${API_V1_BASE}/workflows/${encodeURIComponent(id)}/schedule`,
     { cron_expression: cron },
+    signal,
   )
 }
 
 /** Remove a scheduled workflow job; resets `trigger_type` back to `"manual"`.
  *  `DELETE /api/v1/workflows/{id}/schedule` — 204. Throws on 404 if no job exists. */
-export function unscheduleWorkflow(id: string): Promise<void> {
-  return request<void>('DELETE', `/workflows/${encodeURIComponent(id)}/schedule`)
+export function unscheduleWorkflow(id: string, signal?: AbortSignal): Promise<void> {
+  return apiDelete<void>(`${API_V1_BASE}/workflows/${encodeURIComponent(id)}/schedule`, signal)
 }
 
 /** List all scheduled workflow jobs (in-memory APScheduler registry).
  *  `GET /api/v1/workflows/scheduled`. `next_run_times` are ISO-8601 strings. */
-export function listScheduled(): Promise<ScheduledJob[]> {
-  return request<ScheduledJob[]>('GET', '/workflows/scheduled')
+export function listScheduled(signal?: AbortSignal): Promise<ScheduledJob[]> {
+  return apiGet<ScheduledJob[]>(`${API_V1_BASE}/workflows/scheduled`, signal)
 }

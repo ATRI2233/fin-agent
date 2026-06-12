@@ -25,24 +25,29 @@
  * `any`.
  */
 import { useEffect, useState } from 'react';
-import { Tag, Typography } from 'antd';
+import { Tag, Tooltip, Typography } from 'antd';
 import {
   BranchesOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  ForwardOutlined,
+  ExclamationCircleOutlined,
   RobotOutlined,
   SyncOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Message } from '../../types/conversation';
+import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../../utils/statusConfig';
+import { formatTime } from '../../utils/time';
 
 const { Text } = Typography;
 
-/** UI-only flag set by the renderer when a later status supersedes this row. */
-type ChatMessage = Message & { _struck?: boolean };
+/** UI-only flags set by the renderer. */
+type ChatMessage = Message & {
+  _struck?: boolean;
+  /** True if this is the latest workflow_status for its execution (render node list). */
+  _latestWorkflow?: boolean;
+};
 
 export interface MessageBubbleProps {
   message: ChatMessage;
@@ -58,24 +63,9 @@ function getExtraType(msg: Message): string | undefined {
 interface NodeStatus {
   node_id: string;
   agent: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  status: NodeStatusKey;
+  error?: string | null;
 }
-
-const NODE_ICON: Record<NodeStatus['status'], React.ReactNode> = {
-  pending: <ClockCircleOutlined style={{ color: '#6B6B6B', fontSize: 11 }} />,
-  running: <SyncOutlined spin style={{ color: '#8B9DC3', fontSize: 11 }} />,
-  completed: <CheckCircleOutlined style={{ color: '#6B8E7B', fontSize: 11 }} />,
-  failed: <CloseCircleOutlined style={{ color: '#C47C7C', fontSize: 11 }} />,
-  skipped: <ForwardOutlined style={{ color: '#C4A882', fontSize: 11 }} />,
-};
-
-const NODE_TAG_COLOR: Record<NodeStatus['status'], string> = {
-  pending: 'default',
-  running: 'processing',
-  completed: 'success',
-  failed: 'error',
-  skipped: 'warning',
-};
 
 /** Fetch node statuses for a given execution_id. Returns null while loading. */
 function useNodeStatuses(executionId: string | undefined): NodeStatus[] | null {
@@ -86,7 +76,7 @@ function useNodeStatuses(executionId: string | undefined): NodeStatus[] | null {
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await fetch(`/api/v1/executions/${executionId}`);
+        const res = await fetch(`/api/v1/executions/${executionId}/status`);
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && Array.isArray(data.nodes)) {
@@ -94,6 +84,7 @@ function useNodeStatuses(executionId: string | undefined): NodeStatus[] | null {
             node_id: String(n.node_id ?? ''),
             agent: String(n.agent ?? ''),
             status: String(n.status ?? 'pending') as NodeStatus['status'],
+            error: n.error != null ? String(n.error) : null,
           })));
         }
       } catch { /* ignore */ }
@@ -116,10 +107,10 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
   const isWorkflowError = msgType === 'workflow_error';
   const isStruck = msg._struck;
 
-  // Poll node statuses for workflow_start messages
+  // Poll node statuses for workflow messages (hook must be called unconditionally)
   const executionId = (msg.extra_data as Record<string, unknown>)?.execution_id as string | undefined
     ?? msg.execution_id ?? undefined;
-  const nodeStatuses = (isWorkflowStart || isWorkflowStatus) ? useNodeStatuses(executionId) : null;
+  const nodeStatuses = useNodeStatuses(isWorkflowStart || isWorkflowStatus || isWorkflowError ? executionId : undefined);
 
   // Compact inline row for workflow status / start — no avatar/bubble chrome.
   if (isWorkflowStatus || isWorkflowStart) {
@@ -138,7 +129,8 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
           opacity: isStruck ? 0.5 : 1,
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 12px' }}>
+          {/* Header: icon + workflow name + status */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {isStruck ? (
               <span style={{ position: 'relative', display: 'inline-flex', width: 12, height: 12 }}>
@@ -186,49 +178,55 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
             </Text>
           </div>
 
-          {/* Node-level status display */}
-          {nodeStatuses && nodeStatuses.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 20, marginTop: 4 }}>
-              {nodeStatuses.map((n) => (
-                <div
-                  key={n.node_id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '2px 8px',
-                    borderRadius: 6,
-                    background: n.status === 'completed' ? 'rgba(107,142,123,0.12)'
-                      : n.status === 'running' ? 'rgba(139,157,195,0.12)'
-                      : n.status === 'failed' ? 'rgba(196,124,124,0.12)'
-                      : n.status === 'skipped' ? 'rgba(196,168,130,0.12)'
-                      : 'rgba(107,107,107,0.08)',
-                    border: `1px solid ${
-                      n.status === 'completed' ? 'rgba(107,142,123,0.3)'
-                      : n.status === 'running' ? 'rgba(139,157,195,0.3)'
-                      : n.status === 'failed' ? 'rgba(196,124,124,0.3)'
-                      : n.status === 'skipped' ? 'rgba(196,168,130,0.3)'
-                      : 'rgba(107,107,107,0.15)'
-                    }`,
-                  }}
-                >
-                  {NODE_ICON[n.status]}
-                  <span
+          {/* Node-level status — one line per step (only on the latest workflow_status for this execution) */}
+          {msg._latestWorkflow && nodeStatuses && nodeStatuses.length > 0 && (
+            <div style={{ marginLeft: 20, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {nodeStatuses.map((n) => {
+                const cfg = NODE_STATUS_CONFIG[n.status] ?? NODE_STATUS_CONFIG.pending;
+                const IconComp = cfg.icon;
+                const isNodeDone = n.status === 'completed';
+                const isNodeFailed = n.status === 'failed';
+                const isNodeStruck = isNodeDone || isNodeFailed;
+
+                const line = (
+                  <div
                     style={{
-                      fontSize: 11,
-                      color: n.status === 'completed' ? '#6B8E7B'
-                        : n.status === 'running' ? '#8B9DC3'
-                        : n.status === 'failed' ? '#C47C7C'
-                        : n.status === 'skipped' ? '#C4A882'
-                        : '#888',
-                      textDecoration: n.status === 'completed' ? 'line-through' : 'none',
-                      fontWeight: n.status === 'running' ? 600 : 400,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 12,
+                      lineHeight: '20px',
+                      cursor: isNodeFailed && n.error ? 'help' : 'default',
                     }}
                   >
-                    {n.agent || n.node_id}
-                  </span>
-                </div>
-              ))}
+                    <IconComp
+                      spin={n.status === 'running'}
+                      style={{ color: cfg.color, fontSize: 11, flexShrink: 0 }}
+                    />
+                    <span
+                      style={{
+                        color: isNodeFailed ? '#C47C7C' : isNodeDone ? '#6B8E7B' : '#aaa',
+                        textDecoration: isNodeStruck ? 'line-through' : 'none',
+                        fontWeight: n.status === 'running' ? 600 : 400,
+                      }}
+                    >
+                      {n.agent || n.node_id}
+                    </span>
+                    {isNodeFailed && n.error && (
+                      <ExclamationCircleOutlined style={{ color: '#C47C7C', fontSize: 10, flexShrink: 0 }} />
+                    )}
+                  </div>
+                );
+
+                if (isNodeFailed && n.error) {
+                  return (
+                    <Tooltip key={n.node_id} title={n.error} placement="top" overlayStyle={{ maxWidth: 400 }}>
+                      {line}
+                    </Tooltip>
+                  );
+                }
+                return <div key={n.node_id}>{line}</div>;
+              })}
             </div>
           )}
         </div>
@@ -325,16 +323,129 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
             </div>
           )}
 
-          <div
-            style={{
-              color: '#E0E0E0',
-              fontSize: 14,
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {msg.content}
+          <div className="markdown-body">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                table: ({ children, ...props }) => (
+                  <table style={{ borderCollapse: 'collapse', width: '100%', margin: '8px 0' }} {...props}>
+                    {children}
+                  </table>
+                ),
+                th: ({ children, ...props }) => (
+                  <th style={{ border: '1px solid #444', padding: '6px 10px', background: '#2a2a2a', fontWeight: 600, textAlign: 'left' }} {...props}>
+                    {children}
+                  </th>
+                ),
+                td: ({ children, ...props }) => (
+                  <td style={{ border: '1px solid #333', padding: '6px 10px' }} {...props}>
+                    {children}
+                  </td>
+                ),
+                code: ({ className, children, ...props }) => {
+                  const isBlock = className?.includes('language-');
+                  if (isBlock) {
+                    return (
+                      <code
+                        style={{
+                          display: 'block',
+                          background: '#1a1a1a',
+                          border: '1px solid #333',
+                          borderRadius: 6,
+                          padding: '12px 16px',
+                          overflowX: 'auto',
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                        }}
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  }
+                  return (
+                    <code
+                      style={{
+                        background: '#2a2a2a',
+                        border: '1px solid #3a3a3a',
+                        borderRadius: 4,
+                        padding: '1px 5px',
+                        fontSize: '0.9em',
+                      }}
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  );
+                },
+                pre: ({ children }) => (
+                  <pre style={{ margin: '8px 0', borderRadius: 6, overflow: 'hidden' }}>
+                    {children}
+                  </pre>
+                ),
+                h1: ({ children, ...props }) => <h1 style={{ fontSize: '1.5em', fontWeight: 700, margin: '16px 0 8px', color: '#F0F0F0' }} {...props}>{children}</h1>,
+                h2: ({ children, ...props }) => <h2 style={{ fontSize: '1.3em', fontWeight: 600, margin: '14px 0 6px', color: '#E8E8E8' }} {...props}>{children}</h2>,
+                h3: ({ children, ...props }) => <h3 style={{ fontSize: '1.1em', fontWeight: 600, margin: '12px 0 4px', color: '#E0E0E0' }} {...props}>{children}</h3>,
+                ul: ({ children, ...props }) => <ul style={{ paddingLeft: '1.5em', margin: '4px 0' }} {...props}>{children}</ul>,
+                ol: ({ children, ...props }) => <ol style={{ paddingLeft: '1.5em', margin: '4px 0' }} {...props}>{children}</ol>,
+                li: ({ children, ...props }) => <li style={{ margin: '2px 0' }} {...props}>{children}</li>,
+                blockquote: ({ children, ...props }) => (
+                  <blockquote
+                    style={{
+                      borderLeft: '3px solid #6B8EC4',
+                      paddingLeft: 12,
+                      margin: '8px 0',
+                      color: '#aaa',
+                      fontStyle: 'italic',
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </blockquote>
+                ),
+                a: ({ children, ...props }) => (
+                  <a style={{ color: '#6B8EC4', textDecoration: 'underline' }} target="_blank" rel="noopener noreferrer" {...props}>
+                    {children}
+                  </a>
+                ),
+                hr: () => <hr style={{ border: 'none', borderTop: '1px solid #333', margin: '12px 0' }} />,
+                p: ({ children, ...props }) => <p style={{ margin: '6px 0' }} {...props}>{children}</p>,
+                strong: ({ children, ...props }) => <strong style={{ fontWeight: 600, color: '#F0F0F0' }} {...props}>{children}</strong>,
+                em: ({ children, ...props }) => <em style={{ color: '#ccc' }} {...props}>{children}</em>,
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
           </div>
+
+          {/* Node status pills for workflow error messages */}
+          {isWorkflowError && nodeStatuses && nodeStatuses.length > 0 && (
+            <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid #4a2a2a' }}>
+              <Text style={{ color: '#C47C7C', fontSize: 11, display: 'block', marginBottom: 4 }}>
+                Node Status:
+              </Text>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {nodeStatuses.map((n) => {
+                  const pill = (
+                    <Tag
+                      color={n.status === 'completed' ? 'green' : n.status === 'failed' ? 'red' : n.status === 'skipped' ? 'warning' : 'default'}
+                      style={{ fontSize: 10, cursor: n.status === 'failed' && n.error ? 'help' : 'default' }}
+                    >
+                      {n.agent || n.node_id} ({n.status})
+                    </Tag>
+                  );
+                  if (n.status === 'failed' && n.error) {
+                    return (
+                      <Tooltip key={n.node_id} title={n.error} placement="top">
+                        {pill}
+                      </Tooltip>
+                    );
+                  }
+                  return <div key={n.node_id}>{pill}</div>;
+                })}
+              </div>
+            </div>
+          )}
 
           {isWorkflowResult && (
             (() => {
@@ -369,7 +480,7 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
           )}
 
           <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
-            {new Date(msg.created_at).toLocaleTimeString()}
+            {formatTime(msg.created_at)}
           </div>
         </div>
       </div>

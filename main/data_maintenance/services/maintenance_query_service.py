@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from main.data_maintenance.core.data_maintenance import DataMaintenanceService
+from main.data_maintenance.services.data_maintenance import DataMaintenanceService
 from main.framework.services.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)

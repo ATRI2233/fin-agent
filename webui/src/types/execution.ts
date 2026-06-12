@@ -27,7 +27,7 @@
  * {@link ExecutionStatus}: nodes use `skipped` (DAG branch bypassed)
  * while workflow executions use `cancelled` (user abort).
  */
-export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+export type NodeStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cleaned_up';
 
 /**
  * A single node entry in an execution timeline.
@@ -117,7 +117,7 @@ export interface ExecutionListResponse {
   /** Total matching rows (across all pages). */
   total: number;
   /** Number of rows skipped from the start of the result set. */
-  skip: number;
+  offset: number;
   /** Maximum rows returned in this page. */
   limit: number;
 }

@@ -4,7 +4,39 @@ from __future__ import annotations
 
 from typing import Any
 
-from main.framework.core.input_merger import merge_inputs
+from main.framework.core.agents.input_merger import merge_inputs
+
+
+def _extract_text(value: Any) -> str:
+    """Extract human-readable text from a value.
+
+    For dicts, tries common keys (question, query, text, content, prompt,
+    message) first; falls back to the first string value; last resort is
+    str(value).
+    """
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, dict):
+        return str(value)
+
+    # Try common meaningful keys (including "output" and "result" for workflow agent nodes)
+    for key in ("output", "result", "question", "query", "text", "content", "prompt", "message", "input"):
+        if key in value:
+            nested = value[key]
+            if isinstance(nested, str):
+                return nested
+            if isinstance(nested, dict):
+                # One more level of nesting (e.g. {"result": {"output": "..."}})
+                for inner_key in ("output", "result", "text", "content", "answer", "response"):
+                    if inner_key in nested and isinstance(nested[inner_key], str):
+                        return nested[inner_key]
+
+    # Fallback: first string value in the dict
+    for v in value.values():
+        if isinstance(v, str) and v.strip():
+            return v
+
+    return str(value)
 
 
 def build_prompt(
@@ -56,10 +88,13 @@ def build_prompt(
         for pred_id in predecessor_ids:
             if pred_id in results:
                 pred_result = results[pred_id]
-                output = (
-                    pred_result.get("result", str(pred_result)) if isinstance(pred_result, dict) else str(pred_result)
-                )
-                upstream_outputs.append({"agent_name": pred_id, "output": output})
+                if isinstance(pred_result, dict):
+                    raw = pred_result.get("result", pred_result)
+                else:
+                    raw = pred_result
+                output = _extract_text(raw)
+                if output:
+                    upstream_outputs.append({"agent_name": pred_id, "output": output})
 
         if upstream_outputs:
             merged = merge_inputs(upstream_outputs)

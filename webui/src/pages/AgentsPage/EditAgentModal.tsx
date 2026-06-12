@@ -19,7 +19,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Spin, Button, Input, Select, Space, Typography, message } from 'antd';
 import { SaveOutlined, ToolOutlined } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
-import { opencodeGet, opencodePut } from '../../api/opencode';
+import { getAgentContent, updateAgent, updateAgentToolsWhitelist } from '../../api/agents';
 import { useAgentTools, type AgentToolItem } from './hooks/useAgentTools';
 
 const { Text } = Typography;
@@ -74,13 +74,23 @@ export default function EditAgentModal({ visible, onClose, agentName }: EditAgen
 
     (async () => {
       try {
-        const data = await opencodeGet<AgentContent>(
-          `/agents/${encodeURIComponent(agentName)}/content`,
-        );
+        const raw = await getAgentContent(agentName);
         if (cancelled) return;
-        setContent(data);
-        setDescription(data.description || '');
-        setMode(data.mode || 'subagent');
+        // Parse frontmatter for description and mode
+        const fmMatch = raw.match(/^---[\r]?\n([\s\S]*?)[\r]?\n---/);
+        let desc = '';
+        let m = 'subagent';
+        if (fmMatch) {
+          for (const line of fmMatch[1].split('\n')) {
+            const [k, ...rest] = line.split(':');
+            const v = rest.join(':');
+            if (k.trim() === 'description') desc = v.trim();
+            if (k.trim() === 'mode') m = v.trim();
+          }
+        }
+        setContent({ name: agentName, content: raw, description: desc, mode: m });
+        setDescription(desc);
+        setMode(m);
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : 'Failed to load agent content';
@@ -130,14 +140,8 @@ export default function EditAgentModal({ visible, onClose, agentName }: EditAgen
         next = `---\ndescription: ${description}\nmode: ${mode}\n---\n${next}`;
       }
 
-      await opencodePut(
-        `/agents/${encodeURIComponent(content.name)}/content`,
-        { content: next },
-      );
-      await opencodePut(
-        `/agents/${encodeURIComponent(content.name)}/tools-whitelist`,
-        { tools_whitelist: whitelist },
-      );
+      await updateAgent(content.name, next);
+      await updateAgentToolsWhitelist(content.name, whitelist);
 
       message.success('Agent saved');
       onClose();

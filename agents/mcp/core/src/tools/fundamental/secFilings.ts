@@ -76,7 +76,7 @@ export function registerSECFilings(
         },
         limit: {
           type: "number",
-          description: "返回文件数量，默�?10",
+          description: "返回文件数量，默认10",
           default: 10,
         },
       },

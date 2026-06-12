@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from main.framework.core.protocols import AgentBackend
+from main.framework.core.infrastructure.protocols import AgentBackend
 
 logger = logging.getLogger(__name__)
 

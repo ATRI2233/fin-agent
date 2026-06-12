@@ -10,7 +10,6 @@ Subdirs:
 # --- agents (4 files) ---
 from main.framework.core.agents.agent_dispatcher import AgentDispatcher  # noqa: F401
 from main.framework.core.agents.agent_registry import (  # noqa: F401
-    AGENTS,
     AgentInfo,
     AgentRegistry,
     registry,
@@ -157,7 +156,6 @@ __all__ = [
     "validate_cron_expression",
     # agents
     "AgentDispatcher",
-    "AGENTS",
     "AgentInfo",
     "AgentRegistry",
     "registry",

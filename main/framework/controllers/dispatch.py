@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from main.framework.core.container import get_service
+from main.framework.core.infrastructure.container import get_service
 from main.framework.services.dispatch_query_service import DispatchQueryService
 from pydantic import BaseModel, Field
 

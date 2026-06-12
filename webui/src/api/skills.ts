@@ -25,6 +25,7 @@
  */
 
 import { API_V1_BASE } from '../config/env';
+import { apiGet, apiPost, apiDelete, apiGetText, apiPutText, buildUrl } from './client';
 
 /**
  * Catalog entry returned by `/api/v1/skills`.
@@ -64,13 +65,30 @@ export interface SkillTriggerResponse {
  * `GET /api/v1/skills` → `Skill[]`
  */
 export async function listSkills(): Promise<Skill[]> {
-  const res = await fetch(`${API_V1_BASE}/skills`);
-  if (!res.ok) {
-    throw new Error(
-      `listSkills failed: ${res.status} ${res.statusText}`,
-    );
-  }
-  return (await res.json()) as Skill[];
+  return apiGet<Skill[]>(buildUrl(API_V1_BASE, '/skills'));
+}
+
+/**
+ * Fetch skill markdown content.
+ */
+export async function getSkillContent(name: string): Promise<string> {
+  return apiGetText(buildUrl(API_V1_BASE, `/skills/${encodeURIComponent(name)}/content`));
+}
+
+/**
+ * Create or update a skill (writes SKILL.md file).
+ */
+export async function updateSkill(name: string, content: string): Promise<void> {
+  return apiPutText(buildUrl(API_V1_BASE, `/skills/${encodeURIComponent(name)}/content`), content);
+}
+
+/**
+ * Delete a skill.
+ */
+export async function deleteSkill(name: string): Promise<void> {
+  return apiDelete<void>(
+    buildUrl(API_V1_BASE, `/skills/${encodeURIComponent(name)}`),
+  );
 }
 
 /**
@@ -85,18 +103,8 @@ export async function triggerSkill(
   name: string,
   params?: Record<string, unknown>,
 ): Promise<SkillTriggerResponse> {
-  const res = await fetch(
-    `${API_V1_BASE}/skills/${encodeURIComponent(name)}/trigger`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ params: params ?? {} }),
-    },
+  return apiPost<SkillTriggerResponse>(
+    buildUrl(API_V1_BASE, `/skills/${encodeURIComponent(name)}/trigger`),
+    { params: params ?? {} },
   );
-  if (!res.ok) {
-    throw new Error(
-      `triggerSkill(${name}) failed: ${res.status} ${res.statusText}`,
-    );
-  }
-  return (await res.json()) as SkillTriggerResponse;
 }

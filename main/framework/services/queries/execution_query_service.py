@@ -19,7 +19,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from main.framework.core.state_machine import (
+    InvalidStatusTransition,
+    WorkflowStatus,
+    validate_transition,
+)
+from main.framework.models.workflow import Workflow
 from main.framework.repositories.execution_repo import ExecutionRepository
+from main.framework.repositories.workflow_repo import WorkflowRepository
 from main.framework.services.exceptions import NotFoundError, ServiceError
 from pydantic import BaseModel
 
@@ -72,6 +79,19 @@ class RetryResponse(BaseModel):
     status: str
 
 
+class NodeStatusItem(BaseModel):
+    node_id: str
+    agent: str
+    status: str
+    error: str | None = None
+
+
+class ExecutionStatusResponse(BaseModel):
+    execution_id: str
+    status: str
+    nodes: list[NodeStatusItem]
+
+
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
@@ -85,8 +105,9 @@ class ExecutionQueryService:
       retry_execution, abort_execution
     """
 
-    def __init__(self, exec_repo: ExecutionRepository) -> None:
+    def __init__(self, exec_repo: ExecutionRepository, workflow_repo: WorkflowRepository | None = None) -> None:
         self._exec_repo = exec_repo
+        self._workflow_repo = workflow_repo
 
     # ------------------------------------------------------------------
     # Helpers
@@ -212,6 +233,7 @@ class ExecutionQueryService:
         execution = self._exec_repo.get_execution(execution_id)
         if execution is None:
             raise NotFoundError("Execution", execution_id)
+        # Retry creates a NEW execution; validate the source is terminal.
         if execution.status not in ("failed", "completed"):
             raise ServiceError(f"Cannot retry execution with status '{execution.status}'")
 
@@ -233,24 +255,61 @@ class ExecutionQueryService:
         }
 
     # ------------------------------------------------------------------
+    # Status (lightweight, for polling)
+    # ------------------------------------------------------------------
+
+    def get_execution_status(self, execution_id: str) -> ExecutionStatusResponse:
+        """Get lightweight execution status with node details for polling.
+
+        Returns execution status and per-node status/errors without heavy
+        output payloads.  Raises :class:`NotFoundError` if the execution
+        does not exist.
+        """
+        execution, nodes, _ = self._exec_repo.get_execution_detail(execution_id)
+        if execution is None:
+            raise NotFoundError("Execution", execution_id)
+        return ExecutionStatusResponse(
+            execution_id=execution_id,
+            status=execution.status,
+            nodes=[
+                NodeStatusItem(
+                    node_id=n.node_id,
+                    agent=n.agent,
+                    status=n.status,
+                    error=n.error,
+                )
+                for n in nodes
+            ],
+        )
+
+    # ------------------------------------------------------------------
     # Abort
     # ------------------------------------------------------------------
 
     def abort_execution(self, execution_id: str) -> dict[str, Any]:
         """Mark a running execution as ``"failed"`` and return the result.
 
-        Raises :class:`NotFoundError` if the execution does not exist, or
-        :class:`ServiceError` if its status is not in
-        ``{"pending", "running"}``.  Session cleanup is the controller's
-        responsibility.
+        If the execution is already in a terminal state (completed/failed/cancelled),
+        returns the current status without error. Session cleanup is the
+        controller's responsibility.
         """
         execution = self._exec_repo.get_execution(execution_id)
         if execution is None:
             raise NotFoundError("Execution", execution_id)
-        if execution.status not in ("pending", "running"):
-            raise ServiceError(f"Cannot abort execution with status '{execution.status}'")
 
+        # Already terminal — nothing to do
+        if execution.status in ExecutionStatus.TERMINAL:
+            return {"execution_id": execution_id, "status": execution.status}
+
+        validate_transition("execution", execution.status, "failed")
         self._exec_repo.update_execution(execution_id, status="failed")
+
+        # Sync workflow lifecycle status
+        if self._workflow_repo is not None:
+            workflow = self._workflow_repo.get(execution.workflow_id)
+            if workflow is not None and workflow.status == WorkflowStatus.RUNNING:
+                self._workflow_repo.update(workflow.id, status=WorkflowStatus.FAILED)
+
         return {"execution_id": execution_id, "status": "aborted"}
 
 
@@ -258,6 +317,8 @@ __all__ = [
     "ExecutionQueryService",
     "ExecutionSummary",
     "ExecutionListResponse",
+    "ExecutionStatusResponse",
+    "NodeStatusItem",
     "TimelineNode",
     "TimelineResponse",
     "RetryResponse",

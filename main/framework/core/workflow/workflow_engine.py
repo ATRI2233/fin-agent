@@ -10,7 +10,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
-from main.framework.core.retry_handler import WorkflowRetryHandler  # noqa: F401 — still needed
+from main.framework.core.infrastructure.retry_handler import WorkflowRetryHandler  # noqa: F401 — still needed
 from main.framework.core.workflow.node_executors.registry import default_registry
 from main.framework.services.workflow_graph import (
     build_predecessors,
@@ -21,7 +21,7 @@ from main.framework.services.workflow_graph import (
 from main.framework.services.workflow_service import WorkflowService
 
 if TYPE_CHECKING:
-    from main.framework.core.agent_dispatcher import AgentDispatcher
+    from main.framework.core.agents.agent_dispatcher import AgentDispatcher
     from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,16 @@ class _WorkflowRepoAdapter:
         from main.framework.models.workflow import Workflow
 
         return self._db.query(Workflow).filter(Workflow.id == workflow_id).first()
+
+    def update(self, workflow_id: str, **kwargs: Any) -> Any:
+        from main.framework.models.workflow import Workflow
+
+        wf = self._db.query(Workflow).filter(Workflow.id == workflow_id).first()
+        if wf is not None:
+            for key, value in kwargs.items():
+                setattr(wf, key, value)
+            self._db.commit()
+        return wf
 
 
 class _ExecServiceAdapter:
@@ -70,12 +80,9 @@ class _ExecServiceAdapter:
         )
         db.add(execution)
         db.flush()
+        from main.framework.core.workflow.node_executors.agent_executor import _resolve_agent_name
         for node in workflow.nodes or []:
-            agent = node.get("agent", "")
-            if not agent:
-                data = node.get("data", {})
-                if isinstance(data, dict):
-                    agent = data.get("agentType", "") or data.get("label", "")
+            agent = _resolve_agent_name(node)
             db.add(
                 ExecutionNode(
                     execution_id=execution.id,
@@ -99,14 +106,29 @@ class _ExecServiceAdapter:
         from main.framework.models.workflow_execution import ExecutionNode
 
         db = db or self._db
+        if db is None:
+            return []
         downstream_ids = find_downstream(node_id, edges)
         if not downstream_ids:
             return []
-        rows = db.query(ExecutionNode).filter(ExecutionNode.node_id.in_(downstream_ids)).all()
-        for row in rows:
-            row.status = "skipped"
-            row.completed_at = datetime.now(UTC)
-        db.flush()
+        try:
+            # Ensure session is in a clean state
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            rows = db.query(ExecutionNode).filter(ExecutionNode.node_id.in_(downstream_ids)).all()
+            for row in rows:
+                row.status = "skipped"
+                row.completed_at = datetime.now(UTC)
+            db.flush()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to mark downstream skipped for %s: %s", node_id, e)
+            try:
+                db.rollback()
+            except Exception:
+                pass
         return downstream_ids
 
 
@@ -265,14 +287,9 @@ class WorkflowEngine:
 
     @staticmethod
     def _get_agent_name(node: dict) -> str:
-        """Get agent name from node, with fallback to data.agentType / data.label."""
-        agent = node.get("agent", "")
-        if agent:
-            return agent
-        data = node.get("data", {})
-        if isinstance(data, dict):
-            return data.get("agentType", "") or data.get("label", "")
-        return ""
+        """Get agent name from node — delegates to agent_executor._resolve_agent_name."""
+        from main.framework.core.workflow.node_executors.agent_executor import _resolve_agent_name
+        return _resolve_agent_name(node)
 
     def collect_results(self) -> dict[str, Any]:
         """Return a serialisable summary of the execution."""

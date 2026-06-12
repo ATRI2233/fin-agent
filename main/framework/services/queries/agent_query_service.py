@@ -60,6 +60,7 @@ class AgentQueryService:
             "description": agent.description,
             "capabilities": agent.capabilities,
             "tools": agent.tools,
+            "tools_whitelist": getattr(agent, "tools_whitelist", agent.tools),
             "mode": agent.mode,
         }
 
@@ -69,7 +70,7 @@ class AgentQueryService:
 
     def list_agents(self) -> list[dict[str, Any]]:
         """List all registered agents (summary view)."""
-        from main.framework.core.agent_registry import registry
+        from main.framework.core.agents.agent_registry import registry
 
         return [self._to_summary(a) for a in registry.list_agents()]
 
@@ -78,7 +79,7 @@ class AgentQueryService:
 
         Raises :class:`NotFoundError` when ``name`` is not in the registry.
         """
-        from main.framework.core.agent_registry import registry
+        from main.framework.core.agents.agent_registry import registry
 
         agent = registry.get_agent(name)
         if not agent:
@@ -112,7 +113,7 @@ class AgentQueryService:
         preserved so the stats endpoint never 5xx's the UI.
         """
         try:
-            from main.framework.core.agent_registry import registry
+            from main.framework.core.agents.agent_registry import registry
             from main.framework.models.workflow_execution import ExecutionNode
 
             rows = (

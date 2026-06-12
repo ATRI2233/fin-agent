@@ -55,7 +55,7 @@ export function registerInsiderTrading(
         },
         days: {
           type: "number",
-          description: "回看天数，默�?90",
+          description: "回看天数，默认90",
           default: 90,
         },
       },
@@ -128,7 +128,7 @@ function processInsiderData(symbol: string, rawData: any, days: number): Insider
 
   const heavySelling = totalSellValue > totalBuyValue * 3 && totalSells > 5;
   const heavyBuying = totalBuyValue > totalSellValue * 3 && totalBuys > 5;
-  const insiderConfidence = heavyBuying ? "高（内部人净买入�? : heavySelling ? "低（内部人大规模卖出�? : "中（买卖均衡�?;
+  const insiderConfidence = heavyBuying ? "高（内部人净买入）" : heavySelling ? "低（内部人大规模卖出）" : "中（买卖均衡）";
 
   let confidence = 30;
   if (recentTx.length >= 5) confidence += 20;
@@ -160,7 +160,7 @@ function processInsiderData(symbol: string, rawData: any, days: number): Insider
 
   const alerts: string[] = [];
   if (heavySelling) alerts.push("⚠️ 内部人大规模卖出，可能有负面信息");
-  if (buySellRatio < 0.3) alerts.push("⚠️ 卖出/买入比极高，内部人信心不�?);
+  if (buySellRatio < 0.3) alerts.push("⚠️ 卖出/买入比极高，内部人信心不足）");
 
   return {
     symbol,

@@ -10,7 +10,7 @@ import logging
 import os
 from uuid import uuid4
 
-from main.framework.core.protocols import AgentBackend
+from main.framework.core.infrastructure.protocols import AgentBackend
 from main.session.output_parser import strip_thinking
 from main.session.process_pool import ProcessPool
 

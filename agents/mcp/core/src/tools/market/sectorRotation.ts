@@ -19,8 +19,8 @@ function extractData(raw: any): any[] {
 
 const SECTOR_MAP: Record<string, string> = {
   XLK: "科技", XLF: "金融", XLE: "能源", XLV: "医疗",
-  XLY: "可选消�?, XLP: "必需消费", XLI: "工业", XLU: "公用事业",
-  XLB: "材料", XLRE: "房地�?, XLC: "通信",
+  XLY: "可选消费", XLP: "必需消费", XLI: "工业", XLU: "公用事业",
+  XLB: "材料", XLRE: "房地产", XLC: "通信",
 };
 
 interface SectorScore {
@@ -46,12 +46,12 @@ export function registerSectorRotation(
       properties: {
         benchmark: {
           type: "string",
-          description: "基准指数，默�?SPX（标�?00�?,
+          description: "基准指数，默认SPX（标普500）",
           default: "SPX",
         },
         lookback_days: {
           type: "number",
-          description: "回看天数，默�?20",
+          description: "回看天数，默认20",
           default: 20,
         },
       },

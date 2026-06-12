@@ -1,0 +1,28 @@
+[project]
+name = "fin-agent-framework"
+version = "0.1.0"
+description = "Fin-Agent framework — FastAPI backend + React webui"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+exclude = [".git", "__pycache__", ".venv", "venv", "node_modules", "dist", "build", ".opencode", "data"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "UP", "I", "B", "SIM"]
+ignore = [
+    "E501",  # line-too-long
+    "F401",  # unused-imports (re-export shims)
+    "F841",  # unused-local-vars
+    "E402",  # module-level import not at top (lazy imports)
+    "B008",  # FastAPI Depends() in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]

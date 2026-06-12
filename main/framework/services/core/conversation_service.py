@@ -137,11 +137,37 @@ class ConversationService:
         return True
 
     def delete(self, conv_id: str, db: Session) -> None:
-        """Delete messages first, then the conversation. NotFoundError if missing."""
+        """Delete conversation and all related data (cascade).
+
+        Cleanup order:
+        1. ExecutionNode records linked to executions of this conversation
+        2. WorkflowExecution records linked via messages
+        3. Messages
+        4. Conversation
+        """
         repo = self._repo_for(db)
         if repo.get(conv_id) is None:
             raise NotFoundError(f"Conversation {conv_id} not found")
+
+        # Collect execution IDs from messages before deleting
+        execution_ids = [
+            m.execution_id for m in
+            db.query(Message.execution_id)
+              .filter(Message.conversation_id == conv_id,
+                      Message.execution_id.isnot(None))
+              .distinct().all()
+        ]
+
+        # 1. Delete ExecutionNode records for these executions
+        if execution_ids:
+            from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
+            db.query(ExecutionNode).filter(ExecutionNode.execution_id.in_(execution_ids)).delete(synchronize_session=False)
+            # 2. Delete WorkflowExecution records
+            db.query(WorkflowExecution).filter(WorkflowExecution.id.in_(execution_ids)).delete(synchronize_session=False)
+
+        # 3. Delete messages
         db.query(Message).filter(Message.conversation_id == conv_id).delete()
+        # 4. Delete conversation
         repo.delete(conv_id)
 
     # ------------------------------------------------------------------
@@ -196,14 +222,4 @@ class ConversationService:
         db.add(execution)
         db.commit()
         db.refresh(execution)
-
-        conv_repo.add_message(
-            conv_id,
-            role="system",
-            content=f"Starting workflow: {workflow.name}",
-            workflow_id=workflow_id,
-            execution_id=str(execution.id),
-            extra_data={"type": "workflow_start"},
-        )
-        db.commit()
         return execution

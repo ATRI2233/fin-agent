@@ -11,8 +11,8 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 from main.framework.config import Settings
-from main.framework.core.agent_dispatcher import AgentDispatcher
-from main.framework.core.protocols import AgentBackend
+from main.framework.core.agents.agent_dispatcher import AgentDispatcher
+from main.framework.core.infrastructure.protocols import AgentBackend
 from main.framework.repositories.agent_repo import AgentRepository
 from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.repositories.execution_repo import ExecutionRepository
@@ -198,7 +198,7 @@ class Container:
     def session_manager(self):
         """Conversation —?session mapping (lazy, needs backend)."""
         if "session_manager" not in self._instances:
-            from main.framework.core.session_manager import ConvSessionManager
+            from main.framework.core.workflow.session_manager import ConvSessionManager
 
             self._instances["session_manager"] = ConvSessionManager(self.backend)
         return self._instances["session_manager"]
@@ -260,7 +260,7 @@ class Container:
     def create_workflow_engine(self, workflow_id: str, params: dict, db=None, status_callback=None, execution_id=None):
         """Create a fresh WorkflowEngine with injected dependencies."""
         from main.framework.config.database import SessionLocal
-        from main.framework.core.workflow_engine import WorkflowEngine
+        from main.framework.core.workflow.workflow_engine import WorkflowEngine
 
         if db is None:
             db = SessionLocal()
@@ -276,7 +276,7 @@ class Container:
     def create_scheduler(self):
         """Create or return the WorkflowScheduler singleton."""
         from main.framework.config.database import SessionLocal
-        from main.framework.core.scheduler import WorkflowScheduler
+        from main.framework.core.workflow.scheduler import WorkflowScheduler
 
         if "scheduler" not in self._instances:
             self._instances["scheduler"] = WorkflowScheduler(
@@ -287,7 +287,7 @@ class Container:
 
     def create_debate_executor(self):
         """Create a DebateExecutor with injected dependencies."""
-        from main.framework.core.debate_executor import DebateExecutor
+        from main.framework.core.agents.debate_executor import DebateExecutor
 
         return DebateExecutor(dispatcher=self.dispatcher)
 
@@ -411,6 +411,7 @@ class Container:
         if "execution_query_service" not in self._instances:
             self._instances["execution_query_service"] = ExecutionQueryService(
                 exec_repo=self.execution_repo,
+                workflow_repo=self.workflow_repo,
             )
         return self._instances["execution_query_service"]
 
@@ -501,7 +502,7 @@ class Container:
         The fallback below uses ``dispatcher=self.dispatcher`` so the
         instance is fully constructible in any container context.
         """
-        from main.data_maintenance.core.data_maintenance import DataMaintenanceService
+        from main.data_maintenance.services.data_maintenance import DataMaintenanceService
         from main.data_maintenance.services.maintenance_query_service import (
             MaintenanceQueryService,
         )

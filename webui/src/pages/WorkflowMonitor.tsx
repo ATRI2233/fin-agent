@@ -1,25 +1,24 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Typography, Card, Progress, Tag, Spin, Alert, Tooltip, Badge } from 'antd';
-import { ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ForwardOutlined } from '@ant-design/icons';
 import { ReactFlow, MiniMap, Background, BackgroundVariant, useNodesState, useEdgesState, type Node, type Edge, type NodeTypes, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { getExecution, getExecutionTimeline } from '../api/executions';
 import { getWorkflow } from '../api/workflows';
 import type { Execution, TimelineResponse, NodeExec as ApiNodeExec } from '../types/execution';
 import type { Workflow } from '../types/workflow';
+import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
 import NodeDataPanel from './NodeDataPanel';
 import ExecutionTimeline from './ExecutionTimeline';
 
 const { Title, Text } = Typography;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type NodeStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
 
 interface NodeExec {
   id: string;
   name: string;
-  status: NodeStatus;
+  status: NodeStatusKey;
   inputs?: Record<string, unknown>;
   outputs?: Record<string, unknown>;
   error?: string;
@@ -31,7 +30,7 @@ interface NodeExec {
 interface WorkflowExec {
   id: string;
   name: string;
-  status: 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   nodes: NodeExec[];
   edges: { id: string; source: string; target: string; label?: string }[];
   startedAt: string;
@@ -39,28 +38,12 @@ interface WorkflowExec {
   estimatedMs?: number;
 }
 
-// ── Status config ───────────────────────────────────────────────────────────────
-const STATUS_COLOR: Record<NodeStatus, string> = {
-  pending: '#6B6B6B',
-  running: '#8B9DC3',
-  completed: '#6B8E7B',
-  failed: '#C47C7C',
-  skipped: '#C4A882',
-};
-
-const STATUS_TAG: Record<NodeStatus, string> = {
-  pending: 'default',
-  running: 'processing',
-  completed: 'success',
-  failed: 'error',
-  skipped: 'warning',
-};
-
 // ── Custom Node ────────────────────────────────────────────────────────────────
 const WorkflowNode: React.FC<{ data: { exec: NodeExec; selected: boolean; onClick: () => void } }> = ({ data }) => {
   const { exec, selected, onClick } = data;
-  const color = STATUS_COLOR[exec.status];
-  const isRunning = exec.status === 'running';
+  const cfg = NODE_STATUS_CONFIG[exec.status] ?? NODE_STATUS_CONFIG.pending;
+  const color = cfg.color;
+  const IconComp = cfg.icon;
 
   return (
     <div
@@ -79,22 +62,12 @@ const WorkflowNode: React.FC<{ data: { exec: NodeExec; selected: boolean; onClic
     >
       <Handle type="target" position={Position.Left} style={{ background: color, border: 'none', width: 8, height: 8 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {isRunning ? (
-          <SyncOutlined spin style={{ color, fontSize: 14 }} />
-        ) : exec.status === 'completed' ? (
-          <CheckCircleOutlined style={{ color, fontSize: 14 }} />
-        ) : exec.status === 'failed' ? (
-          <CloseCircleOutlined style={{ color, fontSize: 14 }} />
-                ) : exec.status === 'skipped' ? (
-          <ForwardOutlined style={{ color, fontSize: 14 }} />
-        ) : (
-          <ClockCircleOutlined style={{ color, fontSize: 14 }} />
-        )}
+        <IconComp spin={exec.status === 'running'} style={{ color, fontSize: 14 }} />
         <span style={{ color: '#e8e8e8', fontSize: 13, fontWeight: 600, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>
           {exec.name}
         </span>
       </div>
-      <Tag color={STATUS_TAG[exec.status]} style={{ marginTop: 6, marginBottom: 0, fontSize: 11, lineHeight: 1.4 }}>
+      <Tag color={cfg.tag} style={{ marginTop: 6, marginBottom: 0, fontSize: 11, lineHeight: 1.4 }}>
         {exec.status.toUpperCase()}
       </Tag>
       <Handle type="source" position={Position.Right} style={{ background: color, border: 'none', width: 8, height: 8 }} />
@@ -159,7 +132,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
       const merged: WorkflowExec = {
         id: execution.id,
         name: (execution as Execution & { workflow_name?: string }).workflow_name ?? workflow.name ?? '',
-        status: execution.status === 'cancelled' ? 'failed' : execution.status as WorkflowExec['status'],
+        status: execution.status as WorkflowExec['status'],
         nodes,
         edges,
         startedAt: execution.started_at,
@@ -320,8 +293,8 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
               <MiniMap
                 style={{ background: '#161b22', border: '1px solid #21262d' }}
                 nodeColor={(n) => {
-                  const exec = (n.data as { exec: NodeExec }).exec;
-                  return STATUS_COLOR[exec.status];
+                  const nodeExec = (n.data as { exec: NodeExec }).exec;
+                  return NODE_STATUS_CONFIG[nodeExec.status]?.color ?? '#6B6B6B';
                 }}
               />
             </ReactFlow>

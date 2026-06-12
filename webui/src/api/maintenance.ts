@@ -26,132 +26,18 @@
 
 import { MAINTENANCE_API_BASE } from '../config/env'
 import { apiDelete, apiGet, apiPost, apiPut } from './client'
+import type {
+  Task,
+  TaskCreate,
+  TaskUpdate,
+  DataRecord,
+  Log,
+  StatusOverview,
+  TaskStatus,
+  TaskTriggerType,
+} from '../types/maintenance'
 
-/** Maintenance task lifecycle status reported on each task row. */
-export type TaskStatus = 'running' | 'success' | 'failed' | string
-
-/** Scheduling strategy for a maintenance task. */
-export type TaskTriggerType = 'cron' | 'manual' | 'interval' | string
-
-/**
- * Persisted maintenance task row.
- *
- * Mirrors the dict shape returned by `_task_to_dict` in
- * `core/data_maintenance.py` — used by `list_tasks`, `get_task`,
- * `create_task`, and `update_task`.
- */
-export interface Task {
-  /** Server-assigned task UUID. */
-  id: string
-  /** Human-readable task name (max 100 chars). */
-  name: string
-  /** Optional longer description (max 500 chars). */
-  description: string
-  /** Agent registry name invoked when the task fires. */
-  agent: string
-  /** Prompt template forwarded to the agent on each execution. */
-  prompt: string
-  /** 5-field cron expression, or `null` for non-cron triggers. */
-  schedule: string | null
-  /** Whether the scheduler will pick the task up. */
-  enabled: boolean
-  /** Scheduling strategy: "cron" | "manual" | "interval". */
-  trigger_type: TaskTriggerType
-  /** For `interval` triggers: seconds between runs. */
-  interval_seconds: number | null
-  /** ISO 8601 timestamp of the most recent execution, or `null`. */
-  last_run_at: string | null
-  /** Status of the most recent execution (see {@link TaskStatus}). */
-  last_status: TaskStatus | null
-  /** Error message from the most recent failed execution. */
-  last_error: string | null
-  /** ISO 8601 creation timestamp. */
-  created_at: string | null
-  /** ISO 8601 last-modified timestamp. */
-  updated_at: string | null
-}
-
-/**
- * Request body for `POST /api/v1/data-maintenance/tasks`.
- *
- * Mirrors the `TaskCreate` Pydantic schema; required fields are
- * non-optional, optional fields fall back to the backend defaults
- * (description: "", enabled: true, trigger_type: "cron").
- */
-export interface TaskCreate {
-  name: string
-  description?: string
-  agent: string
-  prompt: string
-  schedule?: string | null
-  enabled?: boolean
-  trigger_type?: TaskTriggerType
-  interval_seconds?: number | null
-}
-
-/**
- * Request body for `PUT /api/v1/data-maintenance/tasks/{id}`.
- *
- * Mirrors the `TaskUpdate` Pydantic schema — every field is optional
- * and the backend discards `null` entries via
- * `model_dump(exclude_none=True)`, so only supply the fields you want
- * to mutate.
- */
-export interface TaskUpdate {
-  name?: string
-  description?: string
-  agent?: string
-  prompt?: string
-  schedule?: string | null
-  enabled?: boolean
-  trigger_type?: TaskTriggerType
-  interval_seconds?: number | null
-}
-
-/** Single stored data record attached to a task. */
-export interface DataRecord {
-  /** Server-assigned record id. */
-  id: number
-  /** Logical key, e.g. `"result"`, a symbol, or a content hash. */
-  data_key: string
-  /** Decoded JSON payload, or the raw string when unparseable. */
-  content: unknown
-  /** ISO 8601 fetch timestamp. */
-  fetched_at: string | null
-}
-
-/** Single execution log row for a task. */
-export interface Log {
-  /** Server-assigned log id. */
-  id: number
-  /** Lifecycle status of the run: "running" | "success" | "failed". */
-  status: TaskStatus
-  /** Wall-clock duration in seconds (set on completion). */
-  duration_seconds: number | null
-  /** Number of data records persisted by this run. */
-  records_updated: number | null
-  /** Error message for failed runs, otherwise `null`. */
-  error: string | null
-  /** ISO 8601 start timestamp. */
-  started_at: string | null
-  /** ISO 8601 completion timestamp (null while still running). */
-  completed_at: string | null
-}
-
-/**
- * Response shape of `GET /api/v1/data-maintenance/status`.
- *
- * Aggregates counts (total / enabled / healthy / failed) plus the full
- * task list so the dashboard can render summary tiles and tables from
- * a single round-trip.
- */
-export interface StatusOverview {
-  total_tasks: number
-  enabled_tasks: number
-  healthy_tasks: number
-  failed_tasks: number
-  tasks: Task[]
-}
+export type { Task, TaskCreate, TaskUpdate, DataRecord, Log, StatusOverview, TaskStatus, TaskTriggerType }
 
 /**
  * GET `/api/v1/data-maintenance/status` — overview snapshot.

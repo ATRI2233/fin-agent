@@ -8,8 +8,10 @@ import {
   CheckCircleOutlined,
   PauseCircleOutlined,
 } from '@ant-design/icons';
+import { SESSION_STATUS_CONFIG } from '../utils/statusConfig';
 import type { ColumnsType } from 'antd/es/table';
 import { getSystemStatus } from '../api/system';
+import { formatTime, timeAgo, nowBeijing } from '../utils/time';
 
 const { Text } = Typography;
 
@@ -38,34 +40,6 @@ interface SystemStatus {
   concurrency: ConcurrencyStatus;
   jobExecutor: { running: boolean };
   timestamp?: string;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────
-const sessionStatusColors: Record<string, string> = {
-  active: 'green',
-  inactive: 'default',
-};
-
-function timeAgo(ts?: string): string {
-  if (!ts) return '—';
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins} 分钟前`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} 小时前`;
-  const days = Math.floor(hrs / 24);
-  return `${days} 天前`;
-}
-
-function formatTime(ts?: string): string {
-  if (!ts) return '—';
-  try {
-    const d = new Date(ts);
-    return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  } catch {
-    return ts;
-  }
 }
 
 // ── Component ───────────────────────────────────────────────────────
@@ -145,10 +119,14 @@ export default function SessionsPage() {
       filters: [
         { text: '活跃', value: 'active' },
         { text: '非活跃', value: 'inactive' },
+        { text: '已清理', value: 'cleaned_up' },
+        { text: '未知', value: 'unknown' },
       ],
       onFilter: (value, record) => record.status === value,
       render: (s: string) => (
-        <Tag color={sessionStatusColors[s] ?? 'default'}>{s === 'active' ? '活跃' : s === 'inactive' ? '非活跃' : s}</Tag>
+        <Tag color={SESSION_STATUS_CONFIG[s as keyof typeof SESSION_STATUS_CONFIG]?.color ?? 'default'}>
+          {SESSION_STATUS_CONFIG[s as keyof typeof SESSION_STATUS_CONFIG]?.label ?? s}
+        </Tag>
       ),
     },
     {
@@ -178,7 +156,7 @@ export default function SessionsPage() {
           <p className="page-hero-subtitle">代理会话监控</p>
         </div>
         <Space size={12}>
-          {lastUpdated && <Text type="secondary" style={{ fontSize: 12 }}>更新于 {lastUpdated.toLocaleTimeString()}</Text>}
+          {lastUpdated && <Text type="secondary" style={{ fontSize: 12 }}>更新于 {nowBeijing()}</Text>}
           <Button icon={<ReloadOutlined />} onClick={fetchStatus} loading={loading}>刷新</Button>
         </Space>
       </div>

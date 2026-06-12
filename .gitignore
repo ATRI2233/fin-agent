@@ -50,6 +50,10 @@ Desktop.ini
 .project
 .settings/
 
+# Claude Code / OpenCode tool config
+.claude/
+.opencode/
+
 # Data files
 *.db
 *.db-journal
@@ -65,6 +69,7 @@ data/
 # Test coverage
 coverage/
 .nyc_output/
+.pytest_cache/
 
 # OpenCode working files (fine-grained)
 .omo/drafts/

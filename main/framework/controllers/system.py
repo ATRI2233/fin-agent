@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends
-from main.framework.core.container import get_service
+from main.framework.core.infrastructure.container import get_service
 from main.framework.services.system_query_service import SystemQueryService
 
 logger = logging.getLogger(__name__)

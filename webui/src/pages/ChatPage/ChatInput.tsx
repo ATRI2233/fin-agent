@@ -74,6 +74,7 @@ export default function ChatInput({
   processingMessage,
   sendingMessage,
 }: ChatInputProps) {
+  const targetSelected = mode === 'agent' ? !!selectedAgent : !!selectedWorkflow;
   return (
     <div
       style={{
@@ -105,9 +106,10 @@ export default function ChatInput({
 
         {mode === 'agent' ? (
           <Select
-            value={selectedAgent}
+            value={selectedAgent || undefined}
             onChange={onAgentChange}
             style={{ width: 250 }}
+            placeholder="Select agent"
             options={agents.map((ag) => ({
               label: ag.name,
               value: ag.name,
@@ -156,7 +158,7 @@ export default function ChatInput({
           icon={<SendOutlined />}
           onClick={onSend}
           loading={sendingMessage}
-          disabled={processingMessage}
+          disabled={processingMessage || !targetSelected}
           style={{ height: 'auto' }}
         >
           Send

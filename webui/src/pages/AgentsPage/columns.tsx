@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
-import type { AgentMeta } from './hooks/useAgents';
+import type { AgentMeta } from './hooks/useAgentsPage';
 
 const { Text } = Typography;
 
@@ -127,12 +127,12 @@ export function buildAgentColumns(
       dataIndex: 'filePath',
       key: 'source',
       width: 90,
-      render: (filePath: string) => {
+      render: (filePath?: string) => {
         const isBuiltin =
-          filePath.includes('node_modules') || filePath.includes('builtin');
+          !!filePath && (filePath.includes('node_modules') || filePath.includes('builtin'));
         return (
           <Tag color={isBuiltin ? 'orange' : 'green'}>
-            {isBuiltin ? 'builtin' : 'file'}
+            {isBuiltin ? 'builtin' : filePath ? 'file' : '—'}
           </Tag>
         );
       },
@@ -142,8 +142,8 @@ export function buildAgentColumns(
       ],
       onFilter: (value, record) => {
         const isBuiltin =
-          record.filePath.includes('node_modules') ||
-          record.filePath.includes('builtin');
+          !!record.filePath && (record.filePath.includes('node_modules') ||
+          record.filePath.includes('builtin'));
         return value === 'builtin' ? isBuiltin : !isBuiltin;
       },
     },

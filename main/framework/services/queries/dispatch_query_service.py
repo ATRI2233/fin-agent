@@ -41,7 +41,7 @@ import logging
 import time
 from typing import Any
 
-from main.framework.core.agent_dispatcher import AgentDispatcher
+from main.framework.core.agents.agent_dispatcher import AgentDispatcher
 
 logger = logging.getLogger(__name__)
 

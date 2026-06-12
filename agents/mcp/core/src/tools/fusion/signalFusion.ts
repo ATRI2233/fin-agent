@@ -35,7 +35,8 @@ interface KeyDriver {
 
 interface SignalInput {
   source: string;
-  timeframe: string;  // "1d-5d", "1w-1m", "1m-3m", "3m-12m" �?  distribution: ProbabilityDistribution;
+  timeframe: string;  // "1d-5d", "1w-1m", "1m-3m", "3m-12m"
+  distribution: ProbabilityDistribution;
   assumptions: string[];
   key_drivers: KeyDriver[];
   data_quality: number;
@@ -143,7 +144,7 @@ export function registerSignalFusion(
         symbol: { type: "string", description: "股票代码" },
         signals: {
           type: "object",
-          description: "7个agent的概率分布信�?,
+          description: "7个agent的概率分布信号",
           additionalProperties: {
             type: "object",
             properties: {
@@ -197,7 +198,8 @@ export function registerSignalFusion(
         let signals: SignalInput[] = [];
 
         if (Object.keys(signalsInput).length > 0) {
-          // 使用传入的概率分�?          for (const [source, data] of Object.entries(signalsInput)) {
+          // 使用传入的概率分布
+          for (const [source, data] of Object.entries(signalsInput)) {
             const sig = data as any;
             signals.push({
               source,
@@ -214,23 +216,24 @@ export function registerSignalFusion(
           signals = await fetchAndConvertSignals(mcpManager, symbol);
         }
 
-        // ── 冲突检�?─────────────────────────────────────
+        // ── 冲突检测 ─────────────────────────────────────
         const conflictAnalysis = detectConflicts(signals);
 
         // ── 如果是根本性冲突，执行辩论协议 ─────────────────
         if (conflictAnalysis.conflict_type === "fundamental") {
           conflictAnalysis.debate_triggered = true;
           conflictAnalysis.debate_rounds = runDebateProtocol(signals);
-          // 辩论后调整概率分�?          adjustDistributionsAfterDebate(signals, conflictAnalysis.debate_rounds);
+          // 辩论后调整概率分布
+          adjustDistributionsAfterDebate(signals, conflictAnalysis.debate_rounds);
         }
 
         // ── 融合概率分布 ─────────────────────────────────
         const fusedDistribution = fuseDistributions(signals);
 
-        // ── 生成条件化结�?───────────────────────────────
+        // ── 生成条件化结论 ────────────────────────────────
         const conditionalConclusions = generateConditionalConclusions(signals, conflictAnalysis);
 
-        // ── 一致性校�?───────────────────────────────────
+        // ── 一致性校验 ───────────────────────────────────
         const history = getJudgments(symbol, 10);
         const consistencyReport = checkConsistency(history, fusedDistribution);
 
@@ -257,7 +260,7 @@ export function registerSignalFusion(
           };
         }
 
-        // ── 关键因素和警�?───────────────────────────────
+        // ── 关键因素和警告 ────────────────────────────────
         const keyFactors: string[] = [];
         const warnings: string[] = [];
 
@@ -273,7 +276,7 @@ export function registerSignalFusion(
           warnings.push(`${conflictAnalysis.conflict_type}冲突: ${conflictAnalysis.root_cause}`);
         }
         if (consistencyReport.direction_conflicts > 0) {
-          warnings.push(`与历�?{consistencyReport.direction_conflicts}次判断方向冲突`);
+          warnings.push(`与历史${consistencyReport.direction_conflicts}次判断方向冲突`);
         }
 
         // ── 记录本次判断 ─────────────────────────────────
@@ -353,8 +356,8 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
     if (recAll > 0.3) { bullishScore += 0.1; drivers.push({ factor: "TradingView看多", weight: 0.2, direction: "bullish" }); }
     else if (recAll < -0.3) { bullishScore -= 0.1; drivers.push({ factor: "TradingView看空", weight: 0.2, direction: "bearish" }); }
 
-    if (sma20 && sma50 && sma20 > sma50) { bullishScore += 0.1; assumptions.push("均线多头排列，趋势延�?); }
-    else if (sma20 && sma50 && sma20 < sma50) { bullishScore -= 0.1; assumptions.push("均线空头排列，趋势下�?); }
+    if (sma20 && sma50 && sma20 > sma50) { bullishScore += 0.1; assumptions.push("均线多头排列，趋势延续"); }
+    else if (sma20 && sma50 && sma20 < sma50) { bullishScore -= 0.1; assumptions.push("均线空头排列，趋势下行"); }
 
     bullishScore = Math.max(0, Math.min(1, bullishScore));
     signals.push({
@@ -364,11 +367,12 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
       assumptions,
       key_drivers: drivers,
       data_quality: 0.85,
-      details: drivers.map(d => d.factor).join(", ") || "技术面中�?,
+      details: drivers.map(d => d.factor).join(", ") || "技术面中性",
     });
   }
 
-  // 基本面转�?  const rawFund = fundResult.status === "fulfilled" ? fundResult.value : null;
+  // 基本面转换
+  const rawFund = fundResult.status === "fulfilled" ? fundResult.value : null;
   const fundItems = extractData(rawFund);
   const fund = fundItems[0]?.data || fundItems[0] || null;
   if (fund) {
@@ -392,7 +396,7 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
       assumptions,
       key_drivers: drivers,
       data_quality: 0.8,
-      details: drivers.map(d => d.factor).join(", ") || "基本面中�?,
+      details: drivers.map(d => d.factor).join(", ") || "基本面中性",
     });
   }
 
@@ -417,7 +421,7 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
       source: "sentiment",
       timeframe: "1d-3d",
       distribution: { p_bullish: bullishScore * 0.8 + 0.1, p_bearish: (1 - bullishScore) * 0.8 + 0.1, p_neutral: 0.2 },
-      assumptions: ["情绪是价格的放大�?],
+      assumptions: ["情绪是价格的放大器"],
       key_drivers: [{ factor: `市场情绪: ${rating}`, weight: 0.4, direction: bullishScore > 0.5 ? "bullish" : "bearish" }],
       data_quality: 0.6,
       details: `市场情绪: ${rating}`,
@@ -427,27 +431,28 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
   return signals;
 }
 
-// ── 冲突检�?─────────────────────────────────────────────
+// ── 冲突检测 ─────────────────────────────────────────────
 function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
   if (signals.length < 2) {
     return { has_conflict: false, conflict_type: "none", root_cause: null, conflicting_agents: [], debate_triggered: false };
   }
 
-  // ── 第一步：时间框架对齐检�?───────────────────────────
+  // ── 第一步：时间框架对齐检查 ────────────────────────────
   const timeframeAnalysis = analyzeTimeframes(signals);
 
-  // 如果时间框架不一致，这不是冲突，是共�?  if (timeframeAnalysis.has_mismatch) {
+  // 如果时间框架不一致，这不是冲突，是共存
+  if (timeframeAnalysis.has_mismatch) {
     return {
       has_conflict: false,
       conflict_type: "timeframe_mismatch",
-      root_cause: "信号时间框架不一致，不是冲突而是不同维度的共�?,
+      root_cause: "信号时间框架不一致，不是冲突而是不同维度的共存",
       conflicting_agents: [],
       debate_triggered: false,
       timeframe_analysis: timeframeAnalysis,
     };
   }
 
-  // ── 第二步：同时间框架内检测方向冲�?───────────────────
+  // ── 第二步：同时间框架内检测方向冲突 ───────────────────
   const agentDirections: Record<string, { direction: string; assumptions: string[] }> = {};
   for (const sig of signals) {
     const dist = sig.distribution;
@@ -471,7 +476,8 @@ function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
     };
   }
 
-  // 有方向冲突，判断是表面分歧还是根本性冲�?  const conflictingAgents = [...bullishAgents, ...bearishAgents];
+  // 有方向冲突，判断是表面分歧还是根本性冲突
+  const conflictingAgents = [...bullishAgents, ...bearishAgents];
   const bullishAssumptions = bullishAgents.flatMap(a => agentDirections[a].assumptions);
   const bearishAssumptions = bearishAgents.flatMap(a => agentDirections[a].assumptions);
   const hasContradictoryAssumptions = checkContradictoryAssumptions(bullishAssumptions, bearishAssumptions);
@@ -499,7 +505,8 @@ function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
 
 // ── 时间框架分析 ─────────────────────────────────────────
 function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
-  // 按时间框架分�?  const grouped: Record<string, string[]> = {};
+  // 按时间框架分组
+  const grouped: Record<string, string[]> = {};
   for (const sig of signals) {
     const tf = sig.timeframe || "unknown";
     if (!grouped[tf]) grouped[tf] = [];
@@ -513,7 +520,8 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
   const layeredRecommendations: LayeredRecommendation[] = [];
 
   if (hasMismatch) {
-    // 按时间框架从短到长排�?    const timeframeOrder = ["1d-3d", "1d-5d", "1w-1m", "1m-3m", "3m-12m"];
+    // 按时间框架从短到长排序
+    const timeframeOrder = ["1d-3d", "1d-5d", "1w-1m", "1m-3m", "3m-12m"];
     const sortedTimeframes = timeframes.sort((a, b) => {
       const ia = timeframeOrder.indexOf(a);
       const ib = timeframeOrder.indexOf(b);
@@ -541,7 +549,8 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
       // 根据时间框架调整仓位
       let positionPct = 0;
       if (direction === "bullish") {
-        if (tf.includes("1d")) positionPct = 3;  // 超短线，小仓�?        else if (tf.includes("1w")) positionPct = 5;  // 短线
+        if (tf.includes("1d")) positionPct = 3;  // 超短线，小仓位
+        else if (tf.includes("1w")) positionPct = 5;  // 短线
         else if (tf.includes("1m")) positionPct = 8;  // 中线
         else positionPct = 10;  // 长线
       }
@@ -551,7 +560,7 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
         direction,
         agents: agentsInTf,
         position_pct: positionPct,
-        reason: `${agentsInTf.join("+")}�?{tf}维度${direction === "bullish" ? "看多" : direction === "bearish" ? "看空" : "中�?}`,
+        reason: `${agentsInTf.join("+")}在${tf}维度${direction === "bullish" ? "看多" : direction === "bearish" ? "看空" : "中性"}`,
       });
     }
   }
@@ -563,9 +572,10 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
   };
 }
 
-// ── 检查假设是否矛�?─────────────────────────────────────
+// ── 检查假设是否矛盾 ─────────────────────────────────────
 function checkContradictoryAssumptions(bullish: string[], bearish: string[]): boolean {
-  // 简单的关键词匹配检测矛�?  const contradictionPairs = [
+  // 简单的关键词匹配检测矛盾
+  const contradictionPairs = [
     ["加息", "降息"],
     ["衰退", "复苏"],
     ["通胀", "通缩"],
@@ -602,8 +612,8 @@ function runDebateProtocol(signals: SignalInput[]): DebateRound[] {
   // Round 1: 陈述立场
   rounds.push({
     round: 1,
-    [bullAgent.source]: `看多，关键假�? ${bullAgent.assumptions.join("; ")}`,
-    [bearAgent.source]: `看空，关键假�? ${bearAgent.assumptions.join("; ")}`,
+    [bullAgent.source]: `看多，关键假设: ${bullAgent.assumptions.join("; ")}`,
+    [bearAgent.source]: `看空，关键假设: ${bearAgent.assumptions.join("; ")}`,
   });
 
   // Round 2: 质疑假设
@@ -616,19 +626,20 @@ function runDebateProtocol(signals: SignalInput[]): DebateRound[] {
     [`${bullAgent.source}_质疑_${bearAgent.source}`]: bearChallenges.join("; "),
   });
 
-  // Round 3: 调整立场（模拟调整，实际应由LLM判断�?  const bullAdjustment = 0.1; // 看多方后退10%
+  // Round 3: 调整立场（模拟调整，实际应由LLM判断）
+  const bullAdjustment = 0.1; // 看多方后退10%
   const bearAdjustment = 0.1; // 看空方后退10%
 
   rounds.push({
     round: 3,
-    [`${bullAgent.source}_调整`]: `p_bullish: ${bullAgent.distribution.p_bullish.toFixed(2)} �?${(bullAgent.distribution.p_bullish - bullAdjustment).toFixed(2)}`,
-    [`${bearAgent.source}_调整`]: `p_bearish: ${bearAgent.distribution.p_bearish.toFixed(2)} �?${(bearAgent.distribution.p_bearish - bearAdjustment).toFixed(2)}`,
+    [`${bullAgent.source}_调整`]: `p_bullish: ${bullAgent.distribution.p_bullish.toFixed(2)} → ${(bullAgent.distribution.p_bullish - bullAdjustment).toFixed(2)}`,
+    [`${bearAgent.source}_调整`]: `p_bearish: ${bearAgent.distribution.p_bearish.toFixed(2)} → ${(bearAgent.distribution.p_bearish - bearAdjustment).toFixed(2)}`,
   });
 
   return rounds;
 }
 
-// ── 辩论后调整概率分�?───────────────────────────────────
+// ── 辩论后调整概率分布 ───────────────────────────────────
 function adjustDistributionsAfterDebate(signals: SignalInput[], rounds: DebateRound[]): void {
   if (rounds.length < 3) return;
 
@@ -638,7 +649,8 @@ function adjustDistributionsAfterDebate(signals: SignalInput[], rounds: DebateRo
 
   if (bullishSignals.length === 0 || bearishSignals.length === 0) return;
 
-  // 调整概率分布（向中间靠拢�?  for (const sig of bullishSignals) {
+  // 调整概率分布（向中间靠拢）
+  for (const sig of bullishSignals) {
     const adjustment = 0.1;
     sig.distribution.p_bullish -= adjustment;
     sig.distribution.p_neutral += adjustment / 2;
@@ -674,14 +686,16 @@ function fuseDistributions(signals: SignalInput[]): ProbabilityDistribution {
     p_neutral /= totalWeight;
   }
 
-  // 归一�?  const sum = p_bullish + p_bearish + p_neutral;
+  // 归一化
+  const sum = p_bullish + p_bearish + p_neutral;
   if (sum > 0) {
     p_bullish /= sum;
     p_bearish /= sum;
     p_neutral /= sum;
   }
 
-  // 计算预期收益和置信区�?  const expectedReturn = (p_bullish - p_bearish) * 0.1; // 简化：假设牛市�?0%，熊市跌10%
+  // 计算预期收益和置信区间
+  const expectedReturn = (p_bullish - p_bearish) * 0.1; // 简化：假设牛市涨10%，熊市跌10%
   const uncertainty = Math.sqrt(p_bullish * (1 - p_bullish) + p_bearish * (1 - p_bearish));
   const confidenceInterval: [number, number] = [
     Math.round((expectedReturn - uncertainty * 1.96) * 100) / 100,
@@ -697,7 +711,7 @@ function fuseDistributions(signals: SignalInput[]): ProbabilityDistribution {
   };
 }
 
-// ── 生成条件化结�?───────────────────────────────────────
+// ── 生成条件化结论 ───────────────────────────────────────
 function generateConditionalConclusions(signals: SignalInput[], conflict: ConflictAnalysis): ConditionalConclusion[] {
   const conclusions: ConditionalConclusion[] = [];
 
@@ -722,7 +736,7 @@ function generateConditionalConclusions(signals: SignalInput[], conflict: Confli
       condition: bullAgent.assumptions[0],
       probability: bullAgent.distribution.p_bullish,
       dominant_view: bullAgent.source,
-      conclusion: `看多，预期收�?{(bullAgent.distribution.p_bullish * 10).toFixed(1)}%`,
+      conclusion: `看多，预期收益${(bullAgent.distribution.p_bullish * 10).toFixed(1)}%`,
       position_pct: Math.round(bullAgent.distribution.p_bullish * 15),
     });
   }
@@ -733,7 +747,7 @@ function generateConditionalConclusions(signals: SignalInput[], conflict: Confli
       condition: bearAgent.assumptions[0],
       probability: bearAgent.distribution.p_bearish,
       dominant_view: bearAgent.source,
-      conclusion: `看空，预期收�?${(bearAgent.distribution.p_bearish * 10).toFixed(1)}%`,
+      conclusion: `看空，预期收益${(bearAgent.distribution.p_bearish * 10).toFixed(1)}%`,
       position_pct: 0,
     });
   }
@@ -741,7 +755,7 @@ function generateConditionalConclusions(signals: SignalInput[], conflict: Confli
   return conclusions;
 }
 
-// ── 一致性校�?───────────────────────────────────────────
+// ── 一致性校验 ───────────────────────────────────────────
 function checkConsistency(
   history: any[],
   distribution: ProbabilityDistribution
@@ -768,7 +782,7 @@ function checkConsistency(
     if (j.direction !== currentDirection && j.direction !== "neutral" && currentDirection !== "neutral") {
       conflicts++;
       const age = Math.round((Date.now() - new Date(j.created_at).getTime()) / 86400000);
-      recentConflicts.push(`${age}天前判断�?{j.direction === "bullish" ? "看多" : "看空"}(置信�?{j.confidence}%)`);
+      recentConflicts.push(`${age}天前判断为${j.direction === "bullish" ? "看多" : "看空"}(置信度${j.confidence}%)`);
     }
   }
 
@@ -777,8 +791,8 @@ function checkConsistency(
     previous_judgments: history.length,
     direction_conflicts: conflicts,
     explanation: conflicts > 0
-      ? `与近�?{conflicts}次判断方向冲�? ${recentConflicts.join("; ")}`
-      : `与近�?{Math.min(5, history.length)}次判断方向一致`,
+      ? `与近期${conflicts}次判断方向冲突: ${recentConflicts.join("; ")}`
+      : `与近期${Math.min(5, history.length)}次判断方向一致`,
   };
 }
 
@@ -807,7 +821,8 @@ function generateActionPlan(
     const layered = conflict.timeframe_analysis.layered_recommendations;
     const totalPosition = layered.reduce((sum, l) => sum + l.position_pct, 0);
 
-    // 综合方向：短线主�?    const shortTerm = layered.find(l => l.timeframe.includes("1d") || l.timeframe.includes("1w"));
+    // 综合方向：短线主导
+    const shortTerm = layered.find(l => l.timeframe.includes("1d") || l.timeframe.includes("1w"));
     const mediumTerm = layered.find(l => l.timeframe.includes("1m"));
     const longTerm = layered.find(l => l.timeframe.includes("3m"));
 
@@ -832,7 +847,8 @@ function generateActionPlan(
   const confidence = Math.max(distribution.p_bullish, distribution.p_bearish);
   const conflictPenalty = conflict.has_conflict ? 0.5 : 1.0;
 
-  // 如果有根本性冲突，使用条件化结�?  if (conflict.conflict_type === "fundamental" && conditionalConclusions.length > 0) {
+  // 如果有根本性冲突，使用条件化结论
+  if (conflict.conflict_type === "fundamental" && conditionalConclusions.length > 0) {
     const primaryConclusion = conditionalConclusions[0];
     return {
       action: primaryConclusion.position_pct > 5 ? "buy" : "hold",
@@ -844,7 +860,7 @@ function generateActionPlan(
       stop_loss: isBullish
         ? Math.round(currentPrice * (1 - 0.05) * 100) / 100
         : Math.round(currentPrice * (1 + 0.05) * 100) / 100,
-      reason: `条件化结�? ${primaryConclusion.condition}`,
+      reason: `条件化结论: ${primaryConclusion.condition}`,
       contingency: `如果${conditionalConclusions[1]?.condition || "相反条件发生"}，立即调整仓位`,
     };
   }
@@ -857,7 +873,7 @@ function generateActionPlan(
       entry_price: currentPrice,
       target_price: Math.round(currentPrice * (1 + confidence * 0.15) * 100) / 100,
       stop_loss: Math.round(currentPrice * (1 - 0.05) * 100) / 100,
-      reason: `看多概率${(distribution.p_bullish * 100).toFixed(0)}%，预期收�?{(distribution.expected_return! * 100).toFixed(1)}%`,
+      reason: `看多概率${(distribution.p_bullish * 100).toFixed(0)}%，预期收益${(distribution.expected_return! * 100).toFixed(1)}%`,
       contingency: conflict.has_conflict ? "存在分歧，仓位控制在8%以内" : "",
     };
   } else if (distribution.p_bearish > 0.5) {

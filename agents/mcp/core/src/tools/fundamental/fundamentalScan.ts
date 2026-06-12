@@ -148,15 +148,15 @@ export function registerFundamentalScan(
           pe_forward: null,
           pb: marketCap && totalAssets ? marketCap / totalAssets : null,
           ps: marketCap && revenueFq ? (marketCap / (revenueFq * 4)) : null,
-          ev_ebitda: evEbitda != null ? Math.round(evEbitda * 100) / 100 : "N/A",
-          peg: peg != null ? Math.round(peg * 100) / 100 : "N/A",
+          ev_ebitda: evEbitda != null ? Math.round(evEbitda * 100) / 100 : null,
+          peg: peg != null ? Math.round(peg * 100) / 100 : null,
         };
 
         // ── 盈利质量 ─────────────────────────────────────────
         const netMargin = revenueFq && netIncomeFq ? netIncomeFq / revenueFq : null;
         const profitability = {
-          gross_margin: grossMargin != null ? Math.round(grossMargin * 10000) / 10000 : "N/A",
-          operating_margin: operatingMargin != null ? Math.round(operatingMargin * 10000) / 10000 : "N/A",
+          gross_margin: grossMargin != null ? Math.round(grossMargin * 10000) / 10000 : null,
+          operating_margin: operatingMargin != null ? Math.round(operatingMargin * 10000) / 10000 : null,
           net_margin: netMargin,
           roe,
           roa: netIncomeFq && totalAssets ? netIncomeFq / totalAssets : null,
@@ -164,8 +164,8 @@ export function registerFundamentalScan(
 
         // ── 成长性 ────────────────────────────────────────────
         const growth = {
-          revenue_yoy: revenueGrowthYoy != null ? Math.round(revenueGrowthYoy * 10000) / 10000 : "N/A",
-          earnings_yoy: earningsGrowthYoy != null ? Math.round(earningsGrowthYoy * 10000) / 10000 : "N/A",
+          revenue_yoy: revenueGrowthYoy != null ? Math.round(revenueGrowthYoy * 10000) / 10000 : null,
+          earnings_yoy: earningsGrowthYoy != null ? Math.round(earningsGrowthYoy * 10000) / 10000 : null,
           revenue_qoq: null,
         };
 
@@ -181,13 +181,13 @@ export function registerFundamentalScan(
           : "low";
 
         const quality = {
-          ocf_to_net_income: ocfToNI != null ? Math.round(ocfToNI * 100) / 100 : "N/A",
+          ocf_to_net_income: ocfToNI != null ? Math.round(ocfToNI * 100) / 100 : null,
           debt_to_equity: debtToEquity ? Math.round(debtToEquity * 100) / 100 : null,
-          current_ratio: currentRatio != null ? Math.round(currentRatio * 100) / 100 : "N/A",
+          current_ratio: currentRatio != null ? Math.round(currentRatio * 100) / 100 : null,
           earnings_quality: earningsQuality,
         };
 
-        // ── 分析师评�?───────────────────────────────────────
+        // ── 分析师评级 ────────────────────────────────────────
         const recScore = data.Recommend_All ?? data["Recommend.All"] ?? null;
         let recommendation = "N/A";
         if (recScore != null) {

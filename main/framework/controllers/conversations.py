@@ -28,7 +28,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from main.framework.api.problems import ProblemDetail
-from main.framework.core.container import get_container, get_service
+from main.framework.core.infrastructure.container import get_container, get_service
 from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.schemas.conversation import (
     ConversationCreate,
@@ -200,10 +200,15 @@ async def send_message(
         "content": user_msg_content,
         "created_at": user_msg_created_at,
     }
-    if payload.mode == "workflow" and payload.workflow_id:
+    if payload.mode == "workflow":
+        if not payload.workflow_id:
+            raise HTTPException(status_code=422, detail="Workflow mode requires a workflow_id")
         return await _dispatch_workflow(
             background_tasks, container, service, conversation_id, payload, user_msg_data, conv_repo
         )
+    # Agent mode — require an agent to be specified
+    if not (payload.agent or conv_resp.current_agent):
+        raise HTTPException(status_code=422, detail="Agent mode requires an agent to be selected")
     return await _dispatch_agent(background_tasks, container, conversation_id, payload, user_msg_data, conv_resp)
 
 
