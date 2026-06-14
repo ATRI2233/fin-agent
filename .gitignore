@@ -96,4 +96,5 @@ opencode-plugin/dist/
 
 # Deployment package (rebuild from source)
 deploy/
-*.zipresp.txt
+*.zip
+resp.txt
