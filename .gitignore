@@ -50,9 +50,8 @@ Desktop.ini
 .project
 .settings/
 
-# Claude Code / OpenCode tool config
+# Claude Code tool config
 .claude/
-.opencode/
 
 # Data files
 *.db
