@@ -63,10 +63,11 @@ class CleanupResponse(BaseModel):
 
 @router.get("", response_model=SessionListResponse)
 async def list_sessions(
+    conversation_id: str | None = None,
     service: SessionService = Depends(get_service(SessionService)),
 ):
     """List all known sessions from workflow executions and conversations."""
-    return service.list_sessions()
+    return service.list_sessions(conversation_id=conversation_id)
 
 
 @router.get("/{session_id}", response_model=SessionInfo)

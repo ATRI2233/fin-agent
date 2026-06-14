@@ -37,8 +37,11 @@ class SessionService:
     # Listing & lookup
     # ------------------------------------------------------------------
 
-    def list_sessions(self) -> dict[str, Any]:
+    def list_sessions(self, conversation_id: str | None = None) -> dict[str, Any]:
         """List all known sessions from workflow executions and conversations.
+
+        When ``conversation_id`` is provided, only sessions belonging to
+        executions of that conversation are returned.
 
         Returns dict with ``sessions``, ``total``, and ``active_count``.
         """
@@ -46,14 +49,22 @@ class SessionService:
 
         # Sessions from workflow execution nodes
         with self._exec_repo._session() as db:
-            from main.framework.models.workflow_execution import ExecutionNode
+            from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
 
-            nodes = (
+            query = (
                 db.query(ExecutionNode)
                 .filter(ExecutionNode.session_id.isnot(None))
                 .filter(ExecutionNode.session_id != "")
-                .all()
             )
+            if conversation_id:
+                # Join with WorkflowExecution to filter by conversation
+                exec_ids = (
+                    db.query(WorkflowExecution.id)
+                    .filter(WorkflowExecution.conversation_id == conversation_id)
+                    .subquery()
+                )
+                query = query.filter(ExecutionNode.execution_id.in_(exec_ids))
+            nodes = query.all()
             for n in nodes:
                 sessions.append(
                     {
