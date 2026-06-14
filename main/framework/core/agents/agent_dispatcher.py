@@ -19,7 +19,7 @@ class AgentDispatcher:
     """Unified agent session dispatcher.
 
     Accepts an AgentBackend (protocol) so the concrete implementation
-    (OpenCodeBackend, mock, etc.) is injected rather than imported.
+    (ServeBackend, mock, etc.) is injected rather than imported.
     """
 
     def __init__(self, backend: AgentBackend):

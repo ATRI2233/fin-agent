@@ -16,8 +16,7 @@ from typing import Any, Protocol, runtime_checkable
 class AgentBackend(Protocol):
     """Abstract interface for agent session management.
 
-    OpenCodeBackend is the current implementation, using opencode CLI
-    subprocesses for direct agent routing.
+    ServeBackend is the current implementation, using opencode serve HTTP API.
     """
 
     async def create_session(self, cwd: str = ".", agent: str = "opencode") -> str:
