@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, UTC
 from typing import TYPE_CHECKING, Any
 
@@ -100,6 +101,14 @@ class AgentNodeExecutor(NodeExecutor):
             agent = _resolve_agent_name(ctx.node)
             if not agent:
                 raise RuntimeError(f"Node {node_id} has no agent name defined")
+
+            # Validate agent definition file exists
+            agent_file = os.path.join(".opencode", "agents", f"{agent}.md")
+            if not os.path.isfile(agent_file):
+                raise RuntimeError(
+                    f"Agent '{agent}' definition not found: {agent_file}. "
+                    f"Create the agent .md file or fix the node's agentType/label."
+                )
 
             # Build prompt from template + params + upstream results
             template = ctx.node.get("prompt", "")

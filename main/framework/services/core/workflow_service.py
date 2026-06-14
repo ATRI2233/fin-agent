@@ -310,6 +310,9 @@ class WorkflowService:
         node_result = await executor.execute(ctx)
         if getattr(node_result, "session_id", None):
             self._chain_sessions[node_id] = node_result.session_id
+            logger.info("Node %s completed, session_id=%s", node_id, node_result.session_id[:12] if node_result.session_id else None)
+        else:
+            logger.info("Node %s completed, no session_id", node_id)
         return {
             "result": getattr(node_result, "result", None),
             "output": getattr(node_result, "output", None),
@@ -369,14 +372,19 @@ class WorkflowService:
     # ------------------------------------------------------------------
 
     async def _cleanup_sessions(self) -> None:
+        logger.info("_cleanup_sessions: chain_sessions=%d, dispatcher=%s", len(self._chain_sessions), self._dispatcher is not None)
         if not self._chain_sessions or self._dispatcher is None:
+            logger.info("_cleanup_sessions: skipping (no sessions or no dispatcher)")
             return
         session_ids = list(set(self._chain_sessions.values()))
+        logger.info("_cleanup_sessions: cleaning %d sessions: %s", len(session_ids), session_ids[:5])
         try:
             results = await self._dispatcher.backend.cleanup_sessions(session_ids)
             failed = [k for k, v in results.items() if v != "cleaned"]
             if failed:
                 logger.warning("Some sessions failed to clean up: %s", failed)
+            else:
+                logger.info("_cleanup_sessions: all %d sessions cleaned", len(session_ids))
         except Exception as e:
             logger.warning("Session cleanup failed: %s", e)
 

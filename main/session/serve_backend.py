@@ -23,13 +23,17 @@ logger = logging.getLogger(__name__)
 class ServeBackend(AgentBackend):
     """AgentBackend that dispatches to opencode serve via HTTP API.
 
-    Unlike OpenCodeBackend which spawns a subprocess per call, this backend
-    maintains a persistent connection to an `opencode serve` server process,
+    Unlike the old subprocess-per-call approach, this backend maintains
+    a persistent connection to an `opencode serve` server process,
     eliminating process startup overhead for each agent invocation.
 
     The server is started automatically on first use and managed as a
     long-lived subprocess. Health checks ensure the server is alive before
     each request, with automatic restart on crash.
+
+    Session ID convention: uses the opencode session ID (ses_xxx) directly
+    as the session identifier, so it survives server restarts and can be
+    persisted to the database for cleanup.
     """
 
     def __init__(
@@ -51,11 +55,9 @@ class ServeBackend(AgentBackend):
         self._server_process: asyncio.subprocess.Process | None = None
         self._server_ready = False
 
-        # Session tracking: our_session_id -> opencode_session_id
-        self._sessions: dict[str, str] = {}
-        # Session message history (for get_messages / wait_for_completion)
+        # Session state: opencode_session_id -> history/agent
+        # Uses opencode session ID directly (ses_xxx) as key
         self._history: dict[str, list[dict]] = {}
-        # Session agent mapping
         self._session_agents: dict[str, str] = {}
 
     # ------------------------------------------------------------------
@@ -115,8 +117,6 @@ class ServeBackend(AgentBackend):
 
     async def _start_server(self) -> None:
         """Start the opencode serve process."""
-        import shlex
-
         cmd = [self._opencode_bin, "serve", "--port", "4096"]
         logger.info("Starting opencode serve: %s", " ".join(cmd))
 
@@ -167,11 +167,9 @@ class ServeBackend(AgentBackend):
     async def create_session(self, cwd: str = ".", agent: str = "opencode") -> str:
         """Create a new session on the opencode serve server.
 
-        Returns a logical session ID (our own UUID). The actual opencode
-        session ID is returned by the server and stored for后续请求.
+        Returns the opencode session ID (ses_xxx) directly, which can be
+        persisted to the database and used for cleanup even after restarts.
         """
-        from uuid import uuid4
-
         await self.ensure_server()
 
         http = await self._get_http()
@@ -179,15 +177,14 @@ class ServeBackend(AgentBackend):
         resp.raise_for_status()
 
         data = resp.json()
-        opencode_sid = data["id"]
+        opencode_sid = data["id"]  # Format: ses_xxx
 
-        our_sid = str(uuid4())
-        self._sessions[our_sid] = opencode_sid
-        self._history[our_sid] = []
-        self._session_agents[our_sid] = agent
+        # Initialize state for this session
+        self._history[opencode_sid] = []
+        self._session_agents[opencode_sid] = agent
 
-        logger.info("Created session %s -> %s (agent=%s)", our_sid, opencode_sid, agent)
-        return our_sid
+        logger.info("Created session %s (agent=%s)", opencode_sid, agent)
+        return opencode_sid
 
     async def send_message(self, session_id: str, text: str) -> str:
         """Send a message to a session and wait for the agent's response.
@@ -195,11 +192,11 @@ class ServeBackend(AgentBackend):
         This is the core method. It sends the message via HTTP POST and
         blocks until the agent completes. The response is parsed and
         stored in history.
-        """
-        opencode_sid = self._sessions.get(session_id)
-        if not opencode_sid:
-            raise ValueError(f"Unknown session: {session_id}")
 
+        Args:
+            session_id: The opencode session ID (ses_xxx)
+            text: The message text to send
+        """
         agent = self._session_agents.get(session_id, "opencode")
 
         await self.ensure_server()
@@ -222,7 +219,7 @@ class ServeBackend(AgentBackend):
         # Send message (synchronous — waits for AI completion)
         try:
             resp = await http.post(
-                f"/session/{opencode_sid}/message",
+                f"/session/{session_id}/message",
                 json=payload,
             )
             resp.raise_for_status()
@@ -289,36 +286,44 @@ class ServeBackend(AgentBackend):
 
     async def abort_session(self, session_id: str) -> None:
         """Abort a running session on the server."""
-        opencode_sid = self._sessions.get(session_id)
-        if not opencode_sid:
+        if not session_id or not session_id.startswith("ses_"):
             return
 
         try:
             await self.ensure_server()
             http = await self._get_http()
-            await http.post(f"/session/{opencode_sid}/abort")
+            await http.post(f"/session/{session_id}/abort")
         except Exception as e:
             logger.warning("Failed to abort session %s: %s", session_id, e)
 
     async def cleanup_sessions(self, session_ids: list[str]) -> dict[str, str]:
-        """Delete sessions from the server and clean up local state."""
+        """Delete sessions from the server and clean up local state.
+
+        Args:
+            session_ids: List of opencode session IDs (ses_xxx) to delete.
+        """
+        logger.info("cleanup_sessions called with %d IDs: %s", len(session_ids), session_ids[:5])
         results = {}
         for sid in session_ids:
-            opencode_sid = self._sessions.pop(sid, None)
+            # Clean up local state
             self._history.pop(sid, None)
             self._session_agents.pop(sid, None)
 
-            if opencode_sid:
-                try:
-                    await self.ensure_server()
-                    http = await self._get_http()
-                    await http.delete(f"/session/{opencode_sid}")
-                    results[sid] = "cleaned"
-                except Exception as e:
-                    logger.warning("Failed to delete session %s: %s", sid, e)
-                    results[sid] = f"failed: {e}"
-            else:
-                results[sid] = "not_found"
+            # Skip invalid IDs
+            if not sid or not sid.startswith("ses_"):
+                results[sid] = "invalid_id"
+                continue
+
+            # Delete from opencode server
+            try:
+                await self.ensure_server()
+                http = await self._get_http()
+                await http.delete(f"/session/{sid}")
+                logger.info("Deleted session %s", sid)
+                results[sid] = "cleaned"
+            except Exception as e:
+                logger.warning("Failed to delete session %s: %s", sid, e)
+                results[sid] = f"failed: {e}"
         return results
 
     # ------------------------------------------------------------------
@@ -355,6 +360,6 @@ class ServeBackend(AgentBackend):
             "server_url": self._server_url,
             "server_ready": self._server_ready,
             "server_pid": self._server_process.pid if self._server_process else None,
-            "active_sessions": len(self._sessions),
+            "active_sessions": len(self._history),
             "opencode_bin": self._opencode_bin,
         }

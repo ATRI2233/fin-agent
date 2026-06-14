@@ -1,5 +1,5 @@
 /**
- * `ConversationSidebar` — left-rail conversation list + execution history.
+ * `ConversationSidebar` — left-rail conversation list + session history.
  *
  * Extracted from `pages/ChatPage/index.tsx` (Wave 6.1a). Pure
  * presentation component — the orchestrator owns the data and passes
@@ -13,29 +13,32 @@
  *   - The delete button's `stopPropagation` prevents row click from firing.
  *   - The currently active row has a `#1a1a1a` background.
  *
- * Additionally shows workflow execution history for the current conversation.
+ * Additionally shows agent sessions for the current conversation.
  */
-import { Button, List, Popconfirm, Tag, Tooltip } from 'antd';
+import { useState } from 'react';
+import { Button, List, Popconfirm, Tag } from 'antd';
 import {
-  BranchesOutlined,
+  ApiOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   DeleteOutlined,
+  DownOutlined,
   LoadingOutlined,
   PlusOutlined,
-  ThunderboltOutlined,
+  QuestionCircleOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 
 import type { Conversation } from '../../types/conversation';
-import type { Execution } from '../../types/execution';
+import type { SessionInfo } from '../../types/session';
 
 export interface ConversationSidebarProps {
   /** All conversations (newest first), as returned by the list hook. */
   conversations: Conversation[];
   /** Currently-selected conversation id, or `null` when nothing is open. */
   currentId: string | null;
-  /** Workflow executions for the current conversation. */
-  executions?: Execution[];
+  /** Agent sessions for the current conversation. */
+  sessions?: SessionInfo[];
   /** Fired when the user clicks a row. */
   onSelect: (conv: Conversation) => void;
   /** Fired when the user clicks the "New Conversation" button. */
@@ -44,35 +47,37 @@ export interface ConversationSidebarProps {
   onDelete: (id: string) => void | Promise<void>;
 }
 
-function formatDuration(seconds: number | null | undefined): string {
-  if (seconds == null) return '';
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  return `${m}m ${s}s`;
+function SessionStatusIcon({ status }: { status: string }) {
+  switch (status) {
+    case 'active':
+      return <LoadingOutlined spin style={{ color: '#6B8EC4', fontSize: 11 }} />;
+    case 'inactive':
+      return <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 11 }} />;
+    case 'cleaned_up':
+      return <CloseCircleOutlined style={{ color: '#888', fontSize: 11 }} />;
+    default:
+      return <QuestionCircleOutlined style={{ color: '#888', fontSize: 11 }} />;
+  }
 }
 
-function ExecutionStatusIcon({ status }: { status: string }) {
+function sessionStatusColor(status: string): string {
   switch (status) {
-    case 'completed':
-      return <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />;
-    case 'failed':
-      return <CloseCircleOutlined style={{ color: '#ff4d4f', fontSize: 12 }} />;
-    case 'running':
-      return <LoadingOutlined spin style={{ color: '#6B8EC4', fontSize: 12 }} />;
-    default:
-      return <ThunderboltOutlined style={{ color: '#888', fontSize: 12 }} />;
+    case 'active': return 'blue';
+    case 'inactive': return 'green';
+    case 'cleaned_up': return 'default';
+    default: return 'default';
   }
 }
 
 export default function ConversationSidebar({
   conversations,
   currentId,
-  executions,
+  sessions,
   onSelect,
   onCreate,
   onDelete,
 }: ConversationSidebarProps) {
+  const [sessionsExpanded, setSessionsExpanded] = useState(false);
   return (
     <div
       style={{
@@ -137,73 +142,62 @@ export default function ConversationSidebar({
           )}
         />
 
-        {/* Workflow Execution History */}
-        {executions && executions.length > 0 && (
+        {/* Agent Sessions — collapsed by default, click to expand */}
+        {sessions && sessions.length > 0 && (
           <div style={{ borderTop: '1px solid #222' }}>
             <div
+              onClick={() => setSessionsExpanded(!sessionsExpanded)}
               style={{
-                padding: '10px 16px 6px',
+                padding: '10px 16px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
+                cursor: 'pointer',
+                userSelect: 'none',
               }}
             >
-              <BranchesOutlined style={{ color: '#666', fontSize: 12 }} />
-              <span style={{ color: '#666', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Workflow History
+              {sessionsExpanded
+                ? <DownOutlined style={{ color: '#666', fontSize: 10 }} />
+                : <RightOutlined style={{ color: '#666', fontSize: 10 }} />
+              }
+              <ApiOutlined style={{ color: '#666', fontSize: 12 }} />
+              <span style={{ color: '#888', fontSize: 12, flex: 1 }}>
+                Sessions
               </span>
+              <Tag style={{ fontSize: 10, margin: 0 }}>{sessions.length}</Tag>
             </div>
-            {executions.map((exec) => {
-              const statusColor =
-                exec.status === 'completed' ? '#52c41a' :
-                exec.status === 'failed' ? '#ff4d4f' :
-                exec.status === 'running' ? '#6B8EC4' : '#888';
-              return (
-                <div
-                  key={exec.id}
-                  style={{
-                    padding: '8px 16px',
-                    borderBottom: '1px solid #1a1a1a',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ExecutionStatusIcon status={exec.status} />
-                    <span style={{ color: '#ccc', fontSize: 12, flex: 1 }}>
-                      {exec.workflow_name || 'Workflow'}
-                    </span>
-                    <Tag
-                      color={
-                        exec.status === 'completed' ? 'green' :
-                        exec.status === 'failed' ? 'red' :
-                        exec.status === 'running' ? 'blue' : 'default'
-                      }
-                      style={{ fontSize: 10, margin: 0 }}
-                    >
-                      {exec.status}
-                    </Tag>
-                  </div>
-                  <div style={{ marginLeft: 18, marginTop: 2, display: 'flex', gap: 8 }}>
-                    {exec.duration_seconds != null && (
-                      <span style={{ color: '#666', fontSize: 10 }}>
-                        {formatDuration(exec.duration_seconds)}
-                      </span>
-                    )}
-                    {exec.node_count != null && exec.node_count > 0 && (
-                      <Tooltip title={`${exec.completed_nodes ?? 0} completed, ${exec.failed_nodes ?? 0} failed`}>
-                        <span style={{ color: '#666', fontSize: 10 }}>
-                          {exec.completed_nodes ?? 0}/{exec.node_count} nodes
-                        </span>
-                      </Tooltip>
-                    )}
-                    {exec.started_at && (
-                      <span style={{ color: '#555', fontSize: 10 }}>
-                        {new Date(exec.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
-                  </div>
+            {sessionsExpanded && sessions.map((s) => (
+              <div
+                key={s.session_id}
+                style={{
+                  padding: '6px 16px 6px 32px',
+                  borderBottom: '1px solid #1a1a1a',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <SessionStatusIcon status={s.status} />
+                  <span style={{ color: '#ccc', fontSize: 12, flex: 1 }}>
+                    {s.agent || 'unknown'}
+                  </span>
+                  <Tag
+                    color={sessionStatusColor(s.status)}
+                    style={{ fontSize: 10, margin: 0 }}
+                  >
+                    {s.status}
+                  </Tag>
                 </div>
-              );
-            })}
+                {s.created_at && (
+                  <div style={{ marginLeft: 17, marginTop: 1 }}>
+                    <span style={{ color: '#555', fontSize: 10 }}>
+                      {new Date(s.created_at).toLocaleString([], {
+                        month: 'short', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

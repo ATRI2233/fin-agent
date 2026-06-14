@@ -151,7 +151,13 @@ async def delete_conversation(
 ):
     """Delete a conversation and cleanup session."""
     try:
+        # Cleanup agent session before deleting conversation
+        container = get_container()
+        session_mgr = container.session_manager
         with conv_repo._session() as db:
+            session_id = await session_mgr.cleanup_session(conversation_id, db=db)
+            if session_id:
+                logger.info("Cleaned up session %s for conversation %s", session_id[:12], conversation_id)
             service.delete(conversation_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err

@@ -39,12 +39,21 @@ export type { SessionInfo, SessionListResponse, CleanupRequest, CleanupResponse 
  * Aggregates sessions from workflow executions and conversations into a
  * single paginated envelope with `total` and `active_count` counters.
  *
- * @returns Envelope of session rows. No filter / pagination params are
- *          exposed at the controller layer — the server returns the
- *          full set.
+ * @param params.conversation_id Optional conversation UUID to scope sessions.
+ * @returns Envelope of session rows.
  */
-export async function listSessions(): Promise<SessionListResponse> {
-  return apiGet<SessionListResponse>(`${API_V1_BASE}/sessions`)
+export async function listSessions(params?: {
+  conversation_id?: string
+}): Promise<SessionListResponse> {
+  const search = new URLSearchParams()
+  if (params?.conversation_id) {
+    search.set('conversation_id', params.conversation_id)
+  }
+  const query = search.toString()
+  const url = query.length > 0
+    ? `${API_V1_BASE}/sessions?${query}`
+    : `${API_V1_BASE}/sessions`
+  return apiGet<SessionListResponse>(url)
 }
 
 /**

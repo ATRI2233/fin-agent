@@ -81,7 +81,11 @@ class ConvSessionManager:
         return session_id, self._backend
 
     async def cleanup_session(self, conversation_id: str, db=None) -> str | None:
-        """Delete session for a conversation."""
+        """Delete session for a conversation.
+
+        Looks up the opencode session ID (ses_xxx) from memory or database,
+        then calls backend.cleanup_sessions() to delete from server.
+        """
         from main.framework.models.conversation import Conversation
 
         session_id = self._session_ids.pop(conversation_id, None)
@@ -92,10 +96,14 @@ class ConvSessionManager:
                 session_id = conversation.session_id
 
         if not session_id:
+            logger.info("No session found for conversation %s", conversation_id)
             return None
 
+        logger.info("Cleaning up session %s for conversation %s", session_id, conversation_id)
         try:
-            await self._backend.cleanup_sessions([session_id])
+            results = await self._backend.cleanup_sessions([session_id])
+            if session_id in results:
+                logger.info("Session %s cleanup result: %s", session_id, results[session_id])
         except Exception as e:
             logger.warning(f"Failed to cleanup session {session_id}: {e}")
 

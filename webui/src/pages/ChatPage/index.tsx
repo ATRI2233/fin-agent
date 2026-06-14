@@ -35,10 +35,10 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 
-import { listExecutions } from '../../api/executions';
+import { listSessions } from '../../api/sessions';
 import { useAgents } from '../../hooks/useAgents';
 import { useWorkflows } from '../../hooks/useWorkflows';
-import type { Execution } from '../../types/execution';
+import type { SessionInfo } from '../../types/session';
 import ChatInput, { type ChatMode } from './ChatInput';
 import ConversationSidebar from './ConversationSidebar';
 import {
@@ -82,31 +82,31 @@ export default function ChatPage() {
   const agents = agentsRaw ?? [];
   const workflows = workflowsRaw ?? [];
 
-  // Workflow execution history for the current conversation.
-  const [executions, setExecutions] = useState<Execution[]>([]);
-  const refreshExecutions = () => {
+  // Agent sessions for the current conversation.
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const refreshSessions = () => {
     if (!currentConversation?.id) return;
-    listExecutions({ conversation_id: currentConversation.id, limit: 10 })
-      .then((res) => { setExecutions(res.executions ?? []); })
+    listSessions({ conversation_id: currentConversation.id })
+      .then((res) => { setSessions(res.sessions ?? []); })
       .catch(() => { /* ignore */ });
   };
   useEffect(() => {
     if (!currentConversation?.id) {
-      setExecutions([]);
+      setSessions([]);
       return;
     }
     let cancelled = false;
-    listExecutions({ conversation_id: currentConversation.id, limit: 10 })
+    listSessions({ conversation_id: currentConversation.id })
       .then((res) => {
-        if (!cancelled) setExecutions(res.executions ?? []);
+        if (!cancelled) setSessions(res.sessions ?? []);
       })
       .catch(() => { /* ignore */ });
     return () => { cancelled = true; };
   }, [currentConversation?.id]);
-  // Refresh executions when workflow processing finishes.
+  // Refresh sessions when workflow processing finishes.
   useEffect(() => {
     if (!processingMessage) {
-      refreshExecutions();
+      refreshSessions();
     }
   }, [processingMessage]);
 
@@ -149,7 +149,7 @@ export default function ChatPage() {
       <ConversationSidebar
         conversations={conversations}
         currentId={currentConversation?.id ?? null}
-        executions={executions}
+        sessions={sessions}
         onSelect={setCurrentConversation}
         onCreate={createConversation}
         onDelete={deleteConversation}
