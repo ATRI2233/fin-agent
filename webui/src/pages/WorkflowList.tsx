@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { listWorkflows, getWorkflow, createWorkflow, deleteWorkflow, triggerWorkflow } from '../api/workflows';
 import type { WorkflowStatus } from '../types/workflow';
 import { WORKFLOW_STATUS_CONFIG } from '../utils/statusConfig';
+import { formatDateTime } from '../utils/time';
 
 const { Text } = Typography;
 
@@ -96,7 +97,7 @@ export default function WorkflowList() {
     { title: 'Name', dataIndex: 'name', key: 'name', sorter: (a, b) => a.name.localeCompare(b.name), render: (text: string) => <Text style={{ color: '#F0F0F0', fontWeight: 500, fontSize: 15 }}>{text}</Text> },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (s: WorkflowStatus) => <Tag color={WORKFLOW_STATUS_CONFIG[s]?.tag ?? 'default'}>{WORKFLOW_STATUS_CONFIG[s]?.label ?? s}</Tag> },
     { title: 'Nodes', dataIndex: 'nodeCount', key: 'nodeCount', width: 90, align: 'center', render: (c: number) => <span style={{ color: '#B0B0B0', fontSize: 15 }}>{c}</span> },
-    { title: 'Last Run', dataIndex: 'lastRunAt', key: 'lastRunAt', width: 180, render: (ts?: string) => <Text type="secondary" style={{ fontSize: 13 }}>{ts ?? '—'}</Text> },
+    { title: 'Last Run', dataIndex: 'lastRunAt', key: 'lastRunAt', width: 180, render: (ts?: string) => <Text type="secondary" style={{ fontSize: 13 }}>{formatDateTime(ts)}</Text> },
     { title: 'Actions', key: 'actions', width: 260, render: (_, r) => (
       <Space>
         <Button type="link" icon={<EditOutlined />} onClick={() => navigate(`/workflows/${r.id}/edit`)}>编辑</Button>

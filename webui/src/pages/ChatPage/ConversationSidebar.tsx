@@ -31,6 +31,7 @@ import {
 
 import type { Conversation } from '../../types/conversation';
 import type { SessionInfo } from '../../types/session';
+import { formatDateTime } from '../../utils/time';
 
 export interface ConversationSidebarProps {
   /** All conversations (newest first), as returned by the list hook. */
@@ -189,10 +190,7 @@ export default function ConversationSidebar({
                 {s.created_at && (
                   <div style={{ marginLeft: 17, marginTop: 1 }}>
                     <span style={{ color: '#555', fontSize: 10 }}>
-                      {new Date(s.created_at).toLocaleString([], {
-                        month: 'short', day: 'numeric',
-                        hour: '2-digit', minute: '2-digit',
-                      })}
+                      {formatDateTime(s.created_at)}
                     </span>
                   </div>
                 )}

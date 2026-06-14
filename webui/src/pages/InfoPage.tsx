@@ -445,7 +445,7 @@ export default function InfoPage() {
                       {latestRecord?.data_key && latestRecord.data_key !== 'result'
                         ? latestRecord.data_key
                         : latestRecord?.fetched_at
-                          ? new Date(latestRecord.fetched_at).toLocaleString('zh-CN')
+                          ? formatFull(latestRecord.fetched_at)
                           : ''}
                     </Text>
                     <Space size={8}>
