@@ -47,6 +47,7 @@ import type {
  */
 export async function listExecutions(params?: {
   workflow_id?: string
+  conversation_id?: string
   status?: ExecutionStatus
   limit?: number
   offset?: number
@@ -54,6 +55,9 @@ export async function listExecutions(params?: {
   const search = new URLSearchParams()
   if (params?.workflow_id !== undefined) {
     search.set('workflow_id', params.workflow_id)
+  }
+  if (params?.conversation_id !== undefined) {
+    search.set('conversation_id', params.conversation_id)
   }
   if (params?.status !== undefined) {
     search.set('status', params.status)

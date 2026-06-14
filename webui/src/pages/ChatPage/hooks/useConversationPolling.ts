@@ -91,7 +91,9 @@ export function useConversationPolling(): UseConversationPollingResult {
             const hasTerminal = afterUser.some(
               (m) =>
                 getExtraType(m) === 'workflow_result' ||
-                getExtraType(m) === 'workflow_error',
+                getExtraType(m) === 'workflow_error' ||
+                (getExtraType(m) === 'workflow_status' &&
+                  (m.extra_data as Record<string, unknown>)?.status === 'failed'),
             );
             if (hasTerminal) stopPolling();
           } else {

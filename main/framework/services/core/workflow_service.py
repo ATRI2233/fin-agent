@@ -160,6 +160,17 @@ class WorkflowService:
 
             return self.collect_results()
         except Exception:
+            # Fire status callback so frontend sees the failure
+            try:
+                completed_count = total_nodes - len(self._failed_nodes) - len(self._skipped_nodes)
+                summary = f"Workflow failed: {completed_count}/{total_nodes} nodes completed"
+                if self._failed_nodes:
+                    summary += f", {len(self._failed_nodes)} failed"
+                if self._skipped_nodes:
+                    summary += f", {len(self._skipped_nodes)} skipped"
+                await callback("failed", summary, "")
+            except Exception:
+                pass  # best-effort
             # On critical failure, sync workflow status to failed
             try:
                 self._workflow_repo.update(workflow_id, status=WorkflowStatus.FAILED)

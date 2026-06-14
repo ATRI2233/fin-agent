@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     NODE_TIMEOUT_SECONDS: int = 300
     API_KEY: str = ""
 
+    # Serve backend settings (opencode serve mode)
+    USE_SERVE_BACKEND: bool = False  # Use HTTP API instead of subprocess
+    SERVE_BACKEND_URL: str = "http://127.0.0.1:4096"  # opencode serve URL
+    SERVE_BACKEND_PORT: int = 4096  # Port for opencode serve
+
     class Config:
         env_prefix = "FIN_AGENT_"
 

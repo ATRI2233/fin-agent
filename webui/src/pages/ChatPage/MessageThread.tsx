@@ -109,13 +109,24 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
       }
     }
     const allAgents = Object.keys(agentLatestStatus);
+
+    // Check if the latest overall workflow_status is failed (handles edge case
+    // where no per-agent statuses exist yet but the workflow has failed).
+    const latestWorkflowStatusMsg = messages
+      .filter((m) => getExtraType(m) === 'workflow_status' && !m.agent)
+      .pop();
+    const latestWorkflowStatusVal = (
+      latestWorkflowStatusMsg?.extra_data as { status?: string } | undefined
+    )?.status;
+
     const allDone =
-      allAgents.length > 0 &&
-      allAgents.every(
-        (a) =>
-          agentLatestStatus[a] === 'completed' ||
-          agentLatestStatus[a] === 'failed',
-      );
+      (allAgents.length > 0 &&
+        allAgents.every(
+          (a) =>
+            agentLatestStatus[a] === 'completed' ||
+            agentLatestStatus[a] === 'failed',
+        )) ||
+      (allAgents.length === 0 && latestWorkflowStatusVal === 'failed');
 
     // Track the latest workflow_status message per execution_id so only
     // one MessageBubble renders the shared node list (avoids duplication).

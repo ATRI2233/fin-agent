@@ -88,14 +88,26 @@ export interface Execution {
   id: string;
   /** Owning workflow UUID. */
   workflow_id: string;
+  /** Workflow name (enriched by list endpoint). */
+  workflow_name?: string;
   /** Current lifecycle state. */
   status: ExecutionStatus;
   /** ISO-8601 UTC timestamp when execution started. */
   started_at: string;
   /** ISO-8601 UTC timestamp when execution ended (success or fail). */
   ended_at?: string;
+  /** ISO-8601 UTC timestamp when execution completed. */
+  completed_at?: string;
   /** Wall-clock duration in milliseconds (server-computed). */
   duration_ms?: number;
+  /** Wall-clock duration in seconds (server-computed). */
+  duration_seconds?: number;
+  /** Total node count in the workflow. */
+  node_count?: number;
+  /** Number of completed nodes. */
+  completed_nodes?: number;
+  /** Number of failed nodes. */
+  failed_nodes?: number;
   /** Top-level error message when `status === 'failed'`. */
   error?: string;
   /** Parameters passed to the workflow at trigger time. */

@@ -80,6 +80,7 @@ async def _run_retry_async(
 @router.get("", response_model=ExecutionListResponse)
 async def list_executions(
     workflow_id: str | None = None,
+    conversation_id: str | None = None,
     status: str | None = None,
     limit: int = 20,
     offset: int = 0,
@@ -88,6 +89,7 @@ async def list_executions(
     """List all execution records with optional filters."""
     return service.list_executions(
         workflow_id=workflow_id,
+        conversation_id=conversation_id,
         status=status,
         limit=limit,
         offset=offset,

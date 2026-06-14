@@ -123,6 +123,7 @@ class ExecutionRepository(BaseRepository[WorkflowExecution]):
     def list_executions(
         self,
         workflow_id: str | None = None,
+        conversation_id: str | None = None,
         status: str | None = None,
         limit: int = 20,
         offset: int = 0,
@@ -132,6 +133,8 @@ class ExecutionRepository(BaseRepository[WorkflowExecution]):
             q = db.query(WorkflowExecution)
             if workflow_id:
                 q = q.filter(WorkflowExecution.workflow_id == workflow_id)
+            if conversation_id:
+                q = q.filter(WorkflowExecution.conversation_id == conversation_id)
             if status:
                 q = q.filter(WorkflowExecution.status == status)
             total = q.count()

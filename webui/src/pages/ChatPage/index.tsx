@@ -20,7 +20,7 @@
  * it imperatively via `messageThreadRef.current?.requestScroll()`
  * before sending a message so the new row lands visible.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Space,
@@ -35,8 +35,10 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 
+import { listExecutions } from '../../api/executions';
 import { useAgents } from '../../hooks/useAgents';
 import { useWorkflows } from '../../hooks/useWorkflows';
+import type { Execution } from '../../types/execution';
 import ChatInput, { type ChatMode } from './ChatInput';
 import ConversationSidebar from './ConversationSidebar';
 import {
@@ -80,6 +82,34 @@ export default function ChatPage() {
   const agents = agentsRaw ?? [];
   const workflows = workflowsRaw ?? [];
 
+  // Workflow execution history for the current conversation.
+  const [executions, setExecutions] = useState<Execution[]>([]);
+  const refreshExecutions = () => {
+    if (!currentConversation?.id) return;
+    listExecutions({ conversation_id: currentConversation.id, limit: 10 })
+      .then((res) => { setExecutions(res.executions ?? []); })
+      .catch(() => { /* ignore */ });
+  };
+  useEffect(() => {
+    if (!currentConversation?.id) {
+      setExecutions([]);
+      return;
+    }
+    let cancelled = false;
+    listExecutions({ conversation_id: currentConversation.id, limit: 10 })
+      .then((res) => {
+        if (!cancelled) setExecutions(res.executions ?? []);
+      })
+      .catch(() => { /* ignore */ });
+    return () => { cancelled = true; };
+  }, [currentConversation?.id]);
+  // Refresh executions when workflow processing finishes.
+  useEffect(() => {
+    if (!processingMessage) {
+      refreshExecutions();
+    }
+  }, [processingMessage]);
+
   // Imperative handle for MessageThread so we can request a scroll on send.
   const messageThreadRef = useRef<MessageThreadHandle>(null);
 
@@ -119,6 +149,7 @@ export default function ChatPage() {
       <ConversationSidebar
         conversations={conversations}
         currentId={currentConversation?.id ?? null}
+        executions={executions}
         onSelect={setCurrentConversation}
         onCreate={createConversation}
         onDelete={deleteConversation}

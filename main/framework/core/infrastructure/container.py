@@ -68,14 +68,24 @@ class Container:
     @property
     def backend(self) -> AgentBackend:
         if "backend" not in self._instances:
-            from main.session.opencode_backend import OpenCodeBackend
+            if getattr(self._settings, "USE_SERVE_BACKEND", False):
+                from main.session.serve_backend import ServeBackend
 
-            self._instances["backend"] = OpenCodeBackend(
-                opencode_bin=self._settings.OPENCODE_BIN,
-                max_concurrent=self._settings.MAX_CONCURRENT_SESSIONS,
-                cwd=".",
-                default_timeout=self._settings.NODE_TIMEOUT_SECONDS,
-            )
+                self._instances["backend"] = ServeBackend(
+                    server_url=getattr(self._settings, "SERVE_BACKEND_URL", "http://127.0.0.1:4096"),
+                    opencode_bin=self._settings.OPENCODE_BIN,
+                    cwd=".",
+                    default_timeout=self._settings.NODE_TIMEOUT_SECONDS,
+                )
+            else:
+                from main.session.opencode_backend import OpenCodeBackend
+
+                self._instances["backend"] = OpenCodeBackend(
+                    opencode_bin=self._settings.OPENCODE_BIN,
+                    max_concurrent=self._settings.MAX_CONCURRENT_SESSIONS,
+                    cwd=".",
+                    default_timeout=self._settings.NODE_TIMEOUT_SECONDS,
+                )
         return self._instances["backend"]  # type: ignore[return-value]
 
     @property

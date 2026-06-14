@@ -69,13 +69,13 @@ class ConversationRepository(BaseRepository[Conversation]):
             return db.get(Conversation, id)
 
     def list(self, limit: int = 100, offset: int = 0, **filters) -> builtins.list[Conversation]:
-        """List conversations with optional filters."""
+        """List conversations with optional filters, most-recently-updated first."""
         with self._session() as db:
             query = db.query(Conversation)
             for key, value in filters.items():
                 if hasattr(Conversation, key):
                     query = query.filter(getattr(Conversation, key) == value)
-            return query.limit(limit).offset(offset).all()
+            return query.order_by(Conversation.updated_at.desc()).limit(limit).offset(offset).all()
 
     def create(self, **kwargs) -> Conversation:
         """Create new conversation."""

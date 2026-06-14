@@ -4,6 +4,21 @@
 $ErrorActionPreference = "SilentlyContinue"
 $PROJECT_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# Load .env file
+$envFile = Join-Path $PROJECT_ROOT ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
+        $parts = $_ -split '=', 2
+        if ($parts.Length -eq 2) {
+            $key = $parts[0].Trim()
+            $val = $parts[1].Trim()
+            [System.Environment]::SetEnvironmentVariable($key, $val, "Process")
+        }
+    }
+    Write-Host "[Env] .env loaded" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  fin-agent Startup" -ForegroundColor Cyan

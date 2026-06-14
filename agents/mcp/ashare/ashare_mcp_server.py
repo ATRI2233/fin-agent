@@ -9,6 +9,11 @@ import logging
 import os
 import sys
 
+# Ensure project root is on sys.path for absolute imports
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
 logger = logging.getLogger(__name__)
 
 os.environ.pop("HTTP_PROXY", None)
