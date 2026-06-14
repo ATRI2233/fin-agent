@@ -139,72 +139,44 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "risk-gatekeeper",
-  "timestamp": "2026-05-27T09:30:00Z",
-  "timeframe": "1d-1m",
-  "symbol": "AAPL",
-  "market": "US|CN",
-  "depth": "quick|standard|deep",
-  "confidence": 0.80,
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-  "basis": {
-    "volatility_20d_annualized": 0.25,
-    "volatility_60d_annualized": 0.22,
-    "drawdown_from_52w_high": -0.08,
-    "var_95_10d": -0.05,
-    "sharpe_ratio": 1.2
-  },
+---
 
-  "analysis": {
-    "volatility": "20日年化波动率 25%，处于中等水平，60日 22% 略低，短期波动率上行",
-    "drawdown": "距52周高点回撤 8%，幅度可控，未触及深度回撤区间",
-    "var": "95% 置信 10日 VaR -5%，极端情况下日均损失可控",
-    "sharpe": "夏普比率 1.2，风险调整后收益良好",
-    "kelly": "凯利公式建议 15%，折半后 8%，符合中等风险偏好",
-    "greeks": "IV 处于中性水平，Put/Call 比正常，对冲成本可控"
-  },
+**风险判断**：风险等级 R1-R5，一句话总结，置信度 X%
 
-  "judgment": {
-    "risk_level": "R2",
-    "risk_summary": "风险指标整体正常，波动率中等、回撤可控、夏普良好",
-    "position_recommendation": "建议仓位 8%（half_kelly），不超额",
-    "hedge_recommendation": "可买保护性 Put 对冲尾部风险"
-  },
+**风险指标**：
+- 波动率（20日/60日年化）：X% / X%
+- 距52周高点回撤：X%
+- 95%置信10日VaR：X%
+- 夏普比率：X
 
-  "position_advice": {
-    "kelly_fraction": 0.15,
-    "half_kelly_pct": 8,
-    "max_loss_per_trade_pct": 2
-  },
+**仓位建议**：
+- 凯利公式建议：X%，折半后：X%
+- 最大单笔亏损：X%
 
-  "stop_loss": {
-    "technical": 185,
-    "volatility": 178,
-    "time": "持有超过30天未达目标则退出"
-  },
+**止损位**：
+- 技术止损：X 价位
+- 波动率止损：X 价位
+- 时间止损：持有超过 X 天未达目标则退出
 
-  "hedge": {
-    "needed": true,
-    "suggestion": "买入保护性Put（行权价180，到期日6月）",
-    "cost_pct": 1.5,
-    "unavailable": false
-  },
+**对冲建议**（如有期权数据）：
+- 是否需要对冲：是/否
+- 建议方案：买入保护性 Put（行权价 X，到期日 X）
+- 对冲成本：约 X%
 
-  "narrative": "风险等级 R2，波动率 25% 中等、回撤 8% 可控、VaR -5% 正常、夏普 1.2 良好。凯利公式建议 15%，折半后建议仓位 8%。止损位 185（技术位）/ 178（波动率位）。建议买入保护性 Put（行权价 180，到期 6 月）对冲尾部风险，成本约 1.5%。综合判断：风险可控，可建仓但需严守止损。",
-  "data_unavailable": false,
-  "missing_fields": []
-}
-```
+**给下游的信号**：
+- 给 conflict-resolver：风控结论，是否允许建仓，仓位上限
+
+**风险提示**：风控判断可能在哪种情况下失效
+
+---
 
 **⚠️ 输出规则**：
-1. **先输出 JSON 块**（用 ```json ``` 包裹），严格遵循上面的模板字段，不要添加 `downstream_notes`、`risk_metrics_summary`、`discount_factors` 等模板外字段
-2. **JSON 之后**，用 `---` 分隔，输出一份**用户友好的 markdown 摘要**，包含：
-   - 核心结论表格（风险等级、建议仓位、止损位、置信度）
-   - 关键风险信号（2-3 条）
-   - 给用户的行动建议
-3. JSON 供程序解析，markdown 供用户阅读，两者内容可以呼应但不要重复大段文字
+- **输出且仅输出**上述格式的自然语言
+- 不要添加模板外的字段
+- 不要追加 markdown 标题、表格或调试信息
+- 总字数控制在 250 字以内
 
 ## 错误处理
 

@@ -96,96 +96,36 @@ permission:
 
 ## 输出格式
 
-### 美股输出（来自 fin-agent-mcp-server_news_sentiment）
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-```json
-{
-  "agent": "sentiment-decoder",
-  "timestamp": "2026-06-06T10:00:00Z",
-  "timeframe": "1d-3d",
-  "market": "US",
-  "symbol": "AAPL",
-  "current_price": 185.5,
-  "price_change_pct": 1.2,
-  "raw_sentiment": 0.35,
-  "adjusted_sentiment": 0.35,
-  "news_count": 5,
-  "market_sentiment": 0.15,
-  "market_news_count": 12,
-  "top_positive": [
-    {"title": "...", "source": "reuters", "publishedAt": "...", "sentiment": "positive", "sentimentScore": 0.8, "relevance": 0.8}
-  ],
-  "top_negative": [...],
-  "market_fear_greed": {"score": 65, "rating": "Greed"},
-  "divergence_warning": "新闻情绪看多，但价格下跌",
-  "weighted_sentiment": 0.29,
-  "max_weight_in_fusion": 0.15
-}
-```
+---
 
-**字段说明**：
-- `raw_sentiment`：个股原始情绪分数，范围 [-1, 1]
-- `adjusted_sentiment`：极端值 dampen 后分数（|raw| > 0.7 时乘 0.5）
-- `market_sentiment`：大盘情绪分数，范围 [-1, 1]
-- `market_news_count`：大盘新闻数量
-- `top_positive/negative`：按 sentimentScore 排序的新闻列表
-- `weighted_sentiment`：加权情绪 = 0.7 × adjusted_sentiment + 0.3 × market_sentiment
-- `divergence_warning`：仅在情绪方向与价格方向不一致时存在
-- `max_weight_in_fusion`：建议在融合时的最大权重
+**情绪判断**：一句话结论（偏多/偏空/中性），置信度 X%
 
-### A股输出（来自 ashare-mcp-server_ashare_news_sentiment / ashare_market_breadth）
+**情绪数据**：
+- 个股情绪：分数（来源，如 sentiment_score / raw_sentiment）
+- 大盘情绪：分数（来源）
+- 加权情绪：0.7 × 个股 + 0.3 × 大盘
+- 新闻数量：N 条
 
-```json
-{
-  "agent": "sentiment-decoder",
-  "timestamp": "2026-06-06T10:00:00Z",
-  "timeframe": "1d-3d",
-  "market": "CN",
-  "symbol": "600519",
-  "news_count": 10,
-  "news": [
-    {"title": "...", "datetime": "2026-06-06 09:30:00"}
-  ],
-  "sentiment_score": 60,
-  "sentiment_label": "正面",
-  "market_sentiment": 55,
-  "market_news_count": 8,
-  "weighted_sentiment": 58.5,
-  "max_weight_in_fusion": 0.15
-}
-```
+**关键新闻**：
+- 正面最重要的1条：标题（来源）
+- 负面最重要的1条：标题（来源）
 
-**字段说明**：
-- `sentiment_score`：个股情绪分数，范围 [0, 100]，默认 50（中性）
-- `sentiment_label`：基于 sentiment_score 阈值（>60 正面，<40 负面，否则中性）
-- `market_sentiment`：大盘情绪分数，范围 [0, 100]
-- `market_news_count`：大盘新闻数量
-- `weighted_sentiment`：加权情绪 = 0.7 × sentiment_score + 0.3 × market_sentiment
-- `news`：原始公告标题列表（最多 10 条）
+**分歧警告**（仅在情绪方向与价格方向不一致时输出）：情绪看多但价格下跌 / 情绪看空但价格上涨
 
-### 降级输出（工具不可用或无数据时）
+**给下游的信号**：
+- 给 conflict-resolver：情绪面支持什么方向，强度如何
 
-当工具返回错误、空数据、或工具名不在白名单中时：
+**风险提示**：情绪判断可能在哪种情况下失效
 
-```json
-{
-  "agent": "sentiment-decoder",
-  "timestamp": "2026-06-06T10:00:00Z",
-  "timeframe": "1d-3d",
-  "market": "US|CN",
-  "symbol": "AAPL",
-  "data_unavailable": true,
-  "fallback_note": "未获取到新闻数据，原因：...",
-  "recommendation_signal": "neutral"
-}
-```
+---
 
 **⚠️ 输出规则（严格遵守）**：
-- **只输出上面的 JSON 块**（美股/A股/降级三选一），用 ```json ``` 包裹
-- **不要输出** markdown 标题、表格、叙述、调试信息、工具调用日志
-- **不要输出** JSON 之外的任何文字（包括分析过程、数据收集说明、记忆系统提示等）
-- JSON 内部的 `narrative` 或 `reasoning` 字段是你唯一的叙述空间
-- 下游 agent 会直接解析你的 JSON，任何额外文字都会导致解析失败
+- **输出且仅输出**上述格式的自然语言
+- 没有数据时直接说"情绪数据不可用：原因"，不要编造
+- 不要追加 markdown 标题、表格或调试信息
+- 总字数控制在 200 字以内
 
 ## 协作接口
 

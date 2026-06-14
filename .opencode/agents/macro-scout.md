@@ -148,79 +148,39 @@ A股特有的"货币+信用"组合框架：
 
 ## 输出格式
 
-```json
-{
-  "agent": "macro-scout",
-  "timestamp": "2026-06-06T09:30:00Z",
-  "timeframe": "1m-3m",
-  "market": "US|CN|both",
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-  "market_regime": "bull|oscillation|bear",
-  "trend": "bullish_alignment|bearish_alignment|no_trend",
+---
 
-  "macro_blind": false,
-  "macro_blind_note": "A股宏观核心数据(社融/M2)缺失，缺乏实据",
+**宏观环境判断**：一句话结论（牛市/震荡/熊市，适不适合交易），置信度 X%
 
-  "economic_cycle": {
-    "phase": "recovery|expansion|overheating|recession",
-    "phase_momentum": "accelerating|stable|decelerating",
-    "cn_specific_matrix": {
-      "liquidity": "loose|tight",
-      "credit": "expanding|contracting",
-      "matrix_phase": "double_loose|double_tight|loose_money_tight_credit|tight_money_loose_credit"
-    }
-  },
+**经济周期**：当前处于什么阶段（复苏/扩张/过热/衰退），动能如何（加速/稳定/减速）
 
-  "macro_analysis": {
-    "interest_rate": {"value": 4.35, "signal": "tight|neutral|loose", "momentum": "peaking|falling|rising", "note": "利率见顶但仍在高位"},
-    "inflation": {"cpi_yoy": 3.2, "signal": "high|moderate|low", "momentum": "peaking|falling|rising", "note": "通胀粘性强"},
-    "employment": {"unemployment": 3.8, "signal": "strong|moderate|weak", "momentum": "improving|stable|deteriorating", "note": "就业稳健"},
-    "commodities": {"oil_wti": 78.5, "gold": 2350, "signal": "inflationary|neutral|deflationary", "momentum": "rising|stable|falling", "note": "黄金上涨反映避险"},
-    "three_dimension": {
-      "liquidity": {"signal": "loose|neutral|tight", "logic": "央行呵护流动性，但信用传导不畅"},
-      "earnings": {"signal": "improving|stable|deteriorating", "logic": "PPI下行拖累中游利润"},
-      "risk_appetite": {"signal": "risk_on|neutral|risk_off", "logic": "地缘博弈加剧，北向资金持续流出"}
-    }
-  },
+**关键数据**：
+- 数据点1：数值（来源）
+- 数据点2：数值（来源）
+- ...（只列最重要的 3-5 个数据点，从工具返回的实际值中提取）
 
-  "external_factors": {
-    "us_cn_spread": {"signal": "wide|narrow|negative", "note": "利差扩大，资金流向美国"},
-    "fed_rate_expectation": {"signal": "hike|hold|cut", "note": "市场预期美联储年内降息"},
-    "geopolitical_risk": {"level": "low|medium|high", "note": "避险情绪上升"},
-    "northbound_capital": {"signal": "inflow|outflow|neutral", "note": "北向资金持续流出"}
-  },
+**三维评估**：
+- 流动性：宽松/中性/紧缩 + 一句话原因
+- 盈利：改善/稳定/恶化 + 一句话原因
+- 风险偏好：risk_on / neutral / risk_off + 一句话原因
 
-  "downstream_directives": {
-    "to_sector_rotator": {"preferred_styles": ["defensive", "dividend"], "forbidden_styles": ["cyclical_initiation"], "note": "宏观环境未企稳，只能做防御"},
-    "to_risk_gatekeeper": {"max_position_limit": "light|heavy|watch_only", "hedge_suggestion": "增加黄金/长债对冲", "note": "盈利下修期需提防杀估值"}
-  },
+**给下游的信号**：
+- 给 sector-rotator：应该偏好什么风格（防御/成长/周期），回避什么
+- 给 risk-gatekeeper：建议仓位上限（重仓/轻仓/观望），是否需要对冲
 
-  "fear_greed": {"value": 65, "label": "Greed", "trend": "rising|falling|stable", "note": "情绪偏乐观但可能过度"},
+**主要矛盾**：当前市场最主要的一对矛盾是什么
 
-  "trading_env_advice": "heavy|light|watch_only",
-  "primary_contradiction": "美联储降息预期后移 vs 国内经济复苏疲弱",
+**风险提示**：你的判断可能在哪种情况下失效（最多两条）
 
-  "reasoning": "1.数据盘点：FRED完整，A股信用缺失(macro_blind=true)。2.主要矛盾：海外紧缩滞后 vs 国内需求不足。3.三维映射：流动性平稳但信用受阻，盈利下行，风险偏好回落。4.预期差：市场定价软着陆，但长端利率和大宗暗示衰退风险未消。5.结论：宏观未企稳，建议防御。",
-
-  "evidence": [
-    {"type": "interest_rate", "source": "fred_series", "detail": "联邦基金利率 5.25%，10年美债 4.35%"},
-    {"type": "inflation", "source": "fred_series", "detail": "CPI 同比 3.2%，核心PCE 2.8%"},
-    {"type": "market_sentiment", "source": "fear_greed_index", "detail": "CNN 恐惧贪婪指数 65（贪婪）"}
-  ],
-
-  "risk_factors": {
-    "assumptions": ["FRED 数据能反映真实经济状况", "大宗商品价格能预示通胀趋势", "恐慌贪婪指数能反映市场情绪"],
-    "vulnerabilities": ["若经济数据大幅修正，宏观判断可能反转", "若地缘政治突发事件，大宗商品价格可能脱钩", "若美联储政策转向，利率判断可能失效"]
-  },
-
-  "confidence": 0.85
-}
-```
+---
 
 **⚠️ 输出规则**：
-- **输出且仅输出**上面的 JSON 块，用 ```json ``` 包裹
-- 所有分析内容（叙述、推理、结论）写在 JSON 内部的 `reasoning` 等字段里
-- JSON 外不要追加 markdown 标题、表格或调试信息——下游 agent 直接解析 JSON
+- **输出且仅输出**上述格式的自然语言
+- 所有分析内容写在对应段落里
+- 不要追加 markdown 标题、表格或调试信息——下游 agent 直接解析你的输出
+- 总字数控制在 300 字以内
 
 ## 职责边界
 

@@ -76,80 +76,39 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "memory-learner",
-  "timestamp": "2026-06-04T10:00:00Z",
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-  "accuracy_report": {
-    "overall_hit_rate": 0.62,
-    "total_predictions": 150,
-    "correct_predictions": 93,
-    "by_agent": {
-      "technical": { "hit_rate": 0.65, "sample_count": 45 },
-      "fundamental": { "hit_rate": 0.70, "sample_count": 40 },
-      "sentiment": { "hit_rate": 0.55, "sample_count": 30 },
-      "macro": { "hit_rate": 0.58, "sample_count": 25 },
-      "risk": { "hit_rate": 0.68, "sample_count": 10 }
-    },
-    "by_market_condition": {
-      "bull_market": { "technical": 0.72, "fundamental": 0.68 },
-      "bear_market": { "technical": 0.55, "fundamental": 0.75 },
-      "oscillation": { "technical": 0.60, "fundamental": 0.65 }
-    }
-  },
+---
 
-  "weight_updates": {
-    "technical": { "old": 0.35, "new": 0.32, "reason": "近30天准确率65%→略降" },
-    "fundamental": { "old": 0.30, "new": 0.33, "reason": "近30天准确率70%→略升" },
-    "sentiment": { "old": 0.10, "new": 0.08, "reason": "近30天准确率55%→下降" },
-    "macro": { "old": 0.10, "new": 0.10, "reason": "准确率58%，维持" },
-    "risk": { "old": 0.10, "new": 0.12, "reason": "准确率68%→上升" },
-    "smart_money": { "old": 0.05, "new": 0.05, "reason": "样本不足，维持" }
-  },
+**学习报告**：一句话总结（系统表现如何，需要调整什么）
 
-  "pattern_alerts": [
-    {
-      "pattern": "RSI超卖+MACD金叉在熊市反弹中失败率67%",
-      "condition": "bear_market",
-      "signal": "technical",
-      "action": "降低熊市中技术面权重"
-    },
-    {
-      "pattern": "高PE(>35)股票在加息周期回调概率71%",
-      "condition": "rate_hiking",
-      "signal": "fundamental",
-      "action": "加息周期中对高估值股票更谨慎"
-    }
-  ],
+**准确率**：
+- 整体命中率：X%（N 次预测，M 次正确）
+- 各 agent 命中率：agent名 X%，agent名 X%，...
+- 市场条件差异：牛市/熊市/震荡下各 agent 表现
 
-  "retired_rules": [
-    {
-      "rule_id": 42,
-      "rule": "银行股在加息周期表现好",
-      "reason": "连续3次失误，命中率降至33%",
-      "retired_at": "2026-06-04"
-    }
-  ],
+**权重调整建议**：
+- agent名：旧权重 X → 建议 X，理由
+- agent名：旧权重 X → 建议 X，理由
+- ...
 
-  "new_rules": [
-    {
-      "rule": "财报前3天避免重仓",
-      "confidence": 0.68,
-      "reason": "历史数据显示财报前重仓的胜率仅45%",
-      "evidence": "基于20次财报前交易的统计"
-    },
-    {
-      "rule": "VIX>30时降低技术面权重",
-      "confidence": 0.72,
-      "reason": "高波动环境下技术指标失效率58%",
-      "evidence": "基于15次VIX飙升事件的统计"
-    }
-  ],
+**发现的模式**：
+- 模式1：描述 + 条件 + 建议动作
+- 模式2：...
 
-  "next_review": "2026-06-11"
-}
-```
+**淘汰/新增规则**：
+- 淘汰：规则描述 + 理由
+- 新增：规则描述 + 置信度 + 理由
+
+**下次复盘时间**：YYYY-MM-DD
+
+---
+
+**⚠️ 输出规则**：
+- **输出且仅输出**上述格式的自然语言
+- 不要追加 markdown 标题、表格或调试信息
+- 每次调整都要说明理由和证据
+- 总字数控制在 300 字以内
 
 ## 权重更新算法
 

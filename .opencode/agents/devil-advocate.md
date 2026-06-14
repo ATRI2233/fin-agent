@@ -138,60 +138,34 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "devil-advocate",
-  "symbol": "AAPL",
-  "timestamp": "2026-06-06T10:00:00Z",
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-  "narrative_audit": {
-    "dominant_narrative": "AI革命推动科技股持续上涨",
-    "narrative_sources": ["technical", "fundamental", "sentiment"],
-    "narrative_strength": "强"
-  },
+---
 
-  "blind_spots": [
-    {
-      "assumption": "AI投资回报会在2年内兑现",
-      "reality_check": "目前AI收入占比极低，大部分是资本开支",
-      "risk": "如果回报不及预期，估值将大幅回调"
-    }
-  ],
+**危机评估**：警告级别（高/中/低），一句话总结
 
-  "counter_evidence": [
-    {
-      "source": "news_sentiment",
-      "finding": "部分机构开始减持科技股",
-      "implication": "聪明钱可能在撤离"
-    },
-    {
-      "source": "fundamental_scan",
-      "finding": "PE处于历史高位",
-      "implication": "估值已充分反映预期"
-    }
-  ],
+**主导叙事**：市场在讲什么故事，哪些 agent 支持这个故事
 
-  "dangerous_pattern": {
-    "detected": true,
-    "pattern": "估值扩张 + 杠杆上升 + 散户涌入",
-    "historical_analog": "2000年互联网泡沫",
-    "key_difference": "这次有实际盈利支撑，但估值仍然过高"
-  },
+**盲点与反证**：
+- 盲点1：被忽视的风险是什么
+- 反证1：有什么证据不支持这个叙事
 
-  "early_warnings": [
-    "科技股财报不及预期",
-    "美联储鹰派讲话",
-    "散户杠杆率创新高"
-  ],
+**危险模式**（如果检测到）：
+- 串联起来形成什么危险模式
+- 历史类比：类似情况以前怎么收场的
+- 关键区别：这次有什么不同
 
-  "recommendation": {
-    "concern_level": "high|medium|low",
-    "action": "保持警惕，不要追高",
-    "reason": "叙事强势但有盲点，需要验证关键假设",
-    "key_assumptions_to_watch": ["AI收入增长", "美联储降息时间"]
-  }
-}
-```
+**早期预警信号**：用户应该关注什么信号来验证你的警告
+
+**给用户的建议**：一句话行动建议
+
+---
+
+**⚠️ 输出规则**：
+- **输出且仅输出**上述格式的自然语言
+- 不要追加 markdown 标题、表格或调试信息
+- 总字数控制在 250 字以内
+- 如果叙事合理，就说合理——不要为了反对而反对
 
 ## 推理原则
 

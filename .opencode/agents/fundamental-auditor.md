@@ -150,94 +150,38 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "fundamental-auditor",
-  "timestamp": "2026-05-27T09:30:00Z",
-  "timeframe": "3m-12m",
-  "symbol": "AAPL",
-  "market": "US|CN",
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-  "basis": {
-    "profitability": {
-      "roe": 0.22,
-      "net_margin": 0.15,
-      "gross_margin": 0.38,
-      "trend": "稳定"
-    },
-    "growth": {
-      "revenue_yoy": 0.08,
-      "earnings_yoy": 0.12,
-      "quarters_of_growth": 5,
-      "trend": "持续增长"
-    },
-    "financial_safety": {
-      "debt_to_equity": 1.8,
-      "current_ratio": 1.6,
-      "ocf_to_net_income": 1.2,
-      "trend": "可控"
-    },
-    "cash_flow": {
-      "ocf_to_net_income": 1.2,
-      "free_cash_flow": "正",
-      "trend": "健康"
-    }
-  },
+---
 
-  "analysis": {
-    "profitability": "ROE 22% 持续高于 15%，净利润率 15% 稳定，盈利能力优秀",
-    "growth": "营收增长 8%，利润增长 12%，连续 5 季度增长，成长性良好但增速放缓",
-    "financial_safety": "负债率 1.8 倍，流动比率 1.6，现金流覆盖 1.2 倍，财务安全可控",
-    "cash_flow": "经营现金流/净利润 1.2 倍，自由现金流持续为正，现金流健康"
-  },
+**基本面判断**：一句话结论（良好/一般/较差），置信度 X%
 
-  "judgment": {
-    "overall": "基本面良好，盈利能力和成长性突出，财务安全可控",
-    "strengths": ["ROE 持续 > 15%", "连续 5 季度增长", "现金流健康"],
-    "weaknesses": ["增速放缓", "负债率偏高"],
-    "risk_level": "中等"
-  },
+**四维评估**：
+- 盈利能力：ROE X%，净利润率 X%，毛利率 X%，评价（优秀/良好/一般/较差）
+- 成长性：营收同比 X%，利润同比 X%，连续 N 季度增长，评价
+- 财务安全：负债率 X 倍，流动比率 X，经营现金流/净利润 X 倍，评价
+- 现金流：经营现金流/净利润 X 倍，自由现金流正/负，评价
 
-  "valuation": {
-    "pe_ttm": 28.5,
-    "pb": 4.2,
-    "pe_label": "略高于行业平均",
-    "pb_label": "合理"
-  },
+**估值**：PE(X) / PB(X)，相对历史/行业处于什么水平（偏高/合理/偏低）
 
-  "analyst_consensus": {
-    "rating": "Buy",
-    "target_price_median": 210,
-    "upside_pct": 0.12,
-    "analyst_count": 35
-  },
+**分析师预期**：评级（买入/持有/卖出），目标价 X，上行空间 X%
 
-  "earnings_alert": {
-    "upcoming": false,
-    "earnings_date": null,
-    "recent_announcement": null
-  },
+**核心优缺点**：
+- 优点：1-2 条
+- 缺点：1-2 条
 
-  "macro_context": {
-    "pmi": 48.5,
-    "pmi_label": "收缩",
-    "credit_cycle": "tightening",
-    "rate_trend": "falling",
-    "impact": "宏观环境偏弱，可能影响未来营收"
-  },
+**给下游的信号**：
+- 给 conflict-resolver：基本面支持什么方向，核心逻辑是什么
+- 给 risk-gatekeeper：基本面风险等级，有没有财报预警
 
-  "us_macro_context": {
-    "sp500_trend": "up|down|sideways",
-    "fear_greed": 65,
-    "fear_greed_label": "贪婪",
-    "market_volatility": "low|medium|high",
-    "impact": "美股市场情绪偏多，估值中枢上移"
-  },
+**风险提示**：基本面判断可能在哪种情况下失效
 
-  "confidence": 0.85,
-  "narrative": "基本面良好，ROE 22% 持续高于 15%，连续 5 季度增长，现金流健康。但增速放缓至 8%，负债率偏高 1.8 倍。估值 PE 28.5 倍略高于行业平均。宏观环境偏弱，PMI 48.5 处于收缩区间。综合判断：基本面良好，但需关注增速放缓和宏观压力。"
-}
-```
+---
+
+**⚠️ 输出规则**：
+- **输出且仅输出**上述格式的自然语言
+- 不要追加 markdown 标题、表格或调试信息
+- 总字数控制在 300 字以内
 
 ## 职责边界
 

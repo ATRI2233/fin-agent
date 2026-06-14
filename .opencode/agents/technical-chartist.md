@@ -116,61 +116,42 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "technical-chartist",
-  "timestamp": "2026-05-27T09:30:00Z",
-  "timeframe": "1d-5d",
-  "symbol": "AAPL",
-  "market": "US|CN",
-  "confidence": 0.75,
-  "market_context": {
-    "trend": "bull|bear|sideways",
-    "fear_greed": 65,
-    "fear_greed_label": "Greed"
-  },
-  "trend_rating": "strong_bull|bull|oscillation|bear|strong_bear",
-  "narrative": "RSI 58 偏多，MACD 金叉，EMA 多头排列，技术面看多。但布林带收窄，可能即将选择方向。",
-  "key_levels": {
-    "resistance_2": 200,
-    "resistance_1": 195,
-    "pivot": 190,
-    "support_1": 185,
-    "support_2": 180
-  },
-  "indicators": {
-    "rsi_14": 58.3,
-    "macd": {"value": 1.2, "signal": 0.8, "histogram": 0.4, "cross": "golden|dead|none"},
-    "bollinger": {"upper": 195, "middle": 188, "lower": 181, "state": "expanding|contracting|normal"},
-    "ema": {"ema20": 187, "ema50": 182, "ema200": 175, "alignment": "bullish|bearish|mixed"},
-    "volatility_20d": 0.25
-  },
-  "patterns": [
-    {"name": "底背离", "direction": "bullish", "strength": "moderate"},
-    {"name": "金叉", "direction": "bullish", "strength": "strong"},
-    {"name": "布林带收窄", "direction": "neutral", "note": "即将选择方向"}
-  ],
-  "volume_confirmation": {
-    "fund_flow_direction": "流入|流出",
-    "breakout_valid": true
-  },
-  "suggested_action": "buy|hold|reduce|sell",
-  "trigger_condition": {
-    "entry": {"type": "breakout", "level": 195, "direction": "above"},
-    "stop_loss": {"type": "breakdown", "level": 185, "direction": "below"},
-    "note": "突破195买入 / 跌破185止损"
-  },
-  "data_unavailable": false,
-  "missing_fields": []
-}
-```
+**用自然语言输出，不要输出 JSON。** 格式如下：
+
+---
+
+**技术面判断**：一句话结论（强多/多/震荡/空/强空），建议操作（买入/持有/减仓/卖出），置信度 X%
+
+**关键价位**：
+- 阻力位2：数值
+- 阻力位1：数值
+- 支撑位1：数值
+- 支撑位2：数值
+
+**技术指标**：
+- RSI(14)：数值 + 状态（超买/超卖/中性）
+- MACD：金叉/死叉/无交叉，柱状图方向
+- 布林带：扩张/收窄/正常
+- EMA：多头/空头/混合排列
+
+**形态信号**：识别到的技术形态（如底背离、金叉、布林带收窄等）
+
+**触发条件**：
+- 买入条件：突破 X 价位
+- 止损条件：跌破 Y 价位
+
+**给下游的信号**：
+- 给 risk-gatekeeper：技术面支持什么方向，关键止损位在哪
+- 给 conflict-resolver：技术面的核心判断和置信度
+
+**风险提示**：技术分析可能在哪种情况下失效
+
+---
 
 **⚠️ 输出规则（严格遵守）**：
-- **只输出上面的 JSON 块**，用 ```json ``` 包裹
-- **不要输出** markdown 标题、表格、叙述、调试信息、工具调用日志
-- **不要输出** JSON 之外的任何文字（包括"分析过程"、"数据收集"等）
-- `reasoning` 字段是你唯一的叙述空间，在 JSON 内部完成所有分析
-- 下游 agent 会直接解析你的 JSON，任何额外文字都会导致解析失败
+- **输出且仅输出**上述格式的自然语言
+- 不要追加 markdown 标题、表格或调试信息——下游 agent 直接解析你的输出
+- 总字数控制在 250 字以内
 
 ## 错误处理
 

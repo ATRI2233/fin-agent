@@ -115,99 +115,36 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "smart-money-hound",
-  "timestamp": "2026-05-27T09:30:00Z",
-  "market": "US|CN",
-  "confidence": "高|中|低",
-  "signals": {
-    "fund_flow": {
-      "direction": "流入|流出|无方向",
-      "intensity": "大幅|中等|轻微",
-      "trend": "加速|减速|稳定",
-      "description": "主力资金连续3天大幅流入，超大单占比提升",
-      "basis": {
-        "net_inflow_today": "15.6亿",
-        "net_inflow_5d_avg": "6.8亿",
-        "super_large_order_pct": "35%"
-      },
-      "comparison": {
-        "vs_5d_avg": "2.3倍",
-        "vs_20d_avg": "1.8倍",
-        "consecutive_days": 3
-      }
-    },
-    "northbound": {
-      "direction": "流入|流出",
-      "intensity": "大幅|中等|轻微",
-      "trend": "加速|减速|稳定",
-      "description": "北向资金持续流入，外资看好A股",
-      "basis": {
-        "net_inflow_today": "45.6亿",
-        "net_inflow_5d_avg": "30.2亿"
-      },
-      "comparison": {
-        "vs_5d_avg": "1.5倍",
-        "is_anomaly": false
-      }
-    },
-    "insider": {
-      "direction": "增持|减持|持平",
-      "intensity": "大幅|中等|轻微",
-      "trend": "加速|减速|稳定",
-      "description": "内部人小幅减持，但金额不大",
-      "basis": {
-        "sell_amount": "2.3亿",
-        "buy_amount": "0.8亿",
-        "net": "-1.5亿"
-      },
-      "comparison": {
-        "sell_to_buy_ratio": "2.9倍",
-        "threshold": "3倍",
-        "is_anomaly": false
-      }
-    },
-    "institutional": {
-      "direction": "增持|减持|持平",
-      "intensity": "大幅|中等|轻微",
-      "trend": "加速|减速|稳定",
-      "description": "机构持仓增加，看好长期",
-      "data_staleness": "新鲜|陈旧|过时（45天滞后）",
-      "basis": {
-        "top_holdings_change_pct": "+5.2%",
-        "new_positions": 12,
-        "exited_positions": 3
-      },
-      "comparison": {
-        "vs_prev_quarter": "+3.1%",
-        "data_lag_days": 30
-      }
-    },
-    "lhb": {
-      "pattern": "游资主导|机构主导|混合|无龙虎榜",
-      "description": "游资大幅买入，机构席位净卖出",
-      "basis": {
-        "hot_money_net": "3.2亿",
-        "inst_net": "-1.1亿",
-        "top_buy_count": 5
-      },
-      "comparison": {
-        "hot_money_vs_inst_ratio": "2.9倍",
-        "vs_5d_avg_turnover": "1.8倍"
-      }
-    }
-  },
-  "anomalies": [],
-  "momentum": "加速|减速|稳定",
-  "narrative": "聪明钱整体偏多，主力资金和北向资金持续流入，机构也在增持。内部人小幅减持但金额不大，不影响整体趋势。"
-}
-```
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-**输出原则**：
-- `basis`：展示支撑判断的实际数值（今日净流入、5日均值、占比等），只保留关键数据点
-- `comparison`：展示对比关系（vs 5日均值、vs 20日均值、是否异常等）
-- 不要包含全量原始数据，只输出能解释判断依据的核心证据
+---
+
+**聪明钱判断**：一句话结论（偏多/偏空/中性），置信度 X%
+
+**资金信号**：
+- 主力资金：今日净流入/流出 X亿，vs 5日均值 X倍，趋势（加速/减速/稳定）
+- 北向资金：今日净流入/流出 X亿，是否异常（单日 > 100亿为异常）
+- 龙虎榜（如有）：游资/机构主导，净买入/卖出 X亿
+
+**内部人/机构（美股）**：
+- 内部人交易：增持/减持/持平，金额，卖出/买入比是否异常（> 3倍为异常）
+- 机构持仓：增减变化，数据新鲜度（13F 有45天滞后）
+
+**异常信号**：检测到的异常（没有则写"无"）
+
+**给下游的信号**：
+- 给 conflict-resolver：聪明钱支持什么方向，核心证据
+- 给 risk-gatekeeper：资金面风险提示
+
+**风险提示**：资金判断可能在哪种情况下失效
+
+---
+
+**⚠️ 输出规则**：
+- **输出且仅输出**上述格式的自然语言
+- 只保留能支撑判断的核心数据点，不要全量原始数据
+- 不要追加 markdown 标题、表格或调试信息
+- 总字数控制在 250 字以内
 
 ## 市场识别
 

@@ -93,114 +93,34 @@ permission:
 
 ## 输出格式
 
-```json
-{
-  "agent": "sector-rotator",
-  "timestamp": "2026-06-06T09:30:00Z",
-  "timeframe": "1w-1m",
-  "market": "US|CN",
+**用自然语言输出，不要输出 JSON。** 格式如下：
 
-  "regime": {
-    "rotation_phase": "launch|acceleration|climax|retreat|chaos",
-    "style": "value|growth|cyclical|defensive|mixed",
-    "theme_concentration": 0.72,
-    "theme_concentration_note": "前3大板块资金占比，越高说明主线越明确"
-  },
+---
 
-  "position": "has_view|no_view",
-  "position_note": "有明确主线时 has_view，混沌期或数据不足时 no_view",
+**板块轮动判断**：一句话结论（有明确主线/混沌无方向），当前轮动阶段（launch/acceleration/climax/retreat/chaos），置信度 X%
 
-  "top_sectors": [
-    {
-      "rank": 1,
-      "name": "板块名",
-      "change_pct": 2.5,
-      "net_inflow": 1500000000,
-      "phase": "launch",
-      "launch_type": "left|right",
-      "vs_benchmark": 1.8
-    }
-  ],
+**资金流向**：
+- 流入最强板块TOP3：名称 + 近5日净流入 + 涨幅 + vs大盘超额
+- 流出最强板块TOP3：名称 + 近5日净流出 + 跌幅
 
-  "bottom_sectors": [
-    {
-      "rank": 1,
-      "name": "板块名",
-      "change_pct": -1.5,
-      "net_outflow": -1200000000,
-      "vs_benchmark": -2.1
-    }
-  ],
+**风格信号**：当前市场偏好什么风格（成长/价值/防御/周期）
 
-  "flow_pairs": [
-    {
-      "from": "消费",
-      "to": "半导体",
-      "flow_type": "rotation|independent_divergence",
-      "correlation": -0.45,
-      "narrative": "昨日消费净流出 18亿，半导体净流入 42亿，风格从防御向成长切换"
-    }
-  ],
+**推荐赛道**：
+- 推荐：板块名 + 理由（一句话，含数据来源）
+- 回避：板块名 + 理由（一句话，含数据来源）
 
-  "recommended_tracks": [
-    {
-      "track": "半导体",
-      "reason": "资金净流入 42亿（排名1/31），涨幅 3.2%，处于 launch 阶段",
-      "source": "ashare_fund_flow + ashare_market_snapshot"
-    }
-  ],
+**给下游的信号**：
+- 给 conflict-resolver：板块轮动支持什么方向，主线是什么
+- 给 risk-gatekeeper：当前市场结构是否适合建仓
 
-  "avoid_tracks": [
-    {
-      "track": "医药",
-      "reason": "资金连续7日净流出，行业情绪负面，处于 retreat 阶段",
-      "source": "ashare_fund_flow + ashare_news_sentiment"
-    }
-  ],
+**风险提示**：轮动判断可能在哪种情况下失效
 
-  "reasoning": "基于 ashare_fund_flow 5日数据，半导体板块净流入 42亿（排名1/31），涨幅 3.2%（< 5%），相对大盘强度 +2.1%，符合 launch 定义。资金从消费板块流出，流入成长板块，风格切换明显。",
+---
 
-  "evidence": [
-    {
-      "type": "fund_flow",
-      "source": "ashare_fund_flow",
-      "detail": "半导体近5日净流入 42亿元，板块排名 1/31"
-    },
-    {
-      "type": "price_momentum",
-      "source": "ashare_market_snapshot",
-      "detail": "半导体指数近5日 +3.2%，沪深300 +1.1%，超额 +2.1%"
-    }
-  ],
-
-  "confidence": 0.82,
-
-  "assumptions": [
-    "主力资金净流入数据能代表机构配置方向",
-    "5日资金流向对未来1周有指示意义"
-  ],
-
-  "vulnerability": [
-    "若明日半导体板块净流出超过 20亿元，launch 判定失效",
-    "若 macro-scout 判定宏观流动性收紧，资金流入可能逆转"
-  ],
-
-  "sector_heatmap": {
-    "inflow_leaders": ["半导体", "通信"],
-    "outflow_leaders": ["消费", "医药"],
-    "neutral": ["银行"]
-  },
-
-  "fallback_note": null
-}
-```
-
-**字段说明**：
-- `position`：`has_view` 表示有明确推荐，`no_view` 表示混沌期无观点（允许空列表）
-- `launch_type`：当 `phase: "launch"` 时，`left` 表示左侧潜伏（逢低布局），`right` 表示右侧启动（追击）
-- `flow_pairs.flow_type`：`rotation` 表示跷跷板效应（负相关，资金从A搬到B），`independent_divergence` 表示独立异动（无因果）
-- `flow_pairs.correlation`：滚动5日相关系数，< -0.3 才判定为 rotation
-- `recommended_tracks` / `avoid_tracks`：必须带 reason 和 source，不可为空字符串
+**⚠️ 输出规则**：
+- **输出且仅输出**上述格式的自然语言
+- 不要追加 markdown 标题、表格或调试信息
+- 总字数控制在 250 字以内
 
 ## 职责边界
 

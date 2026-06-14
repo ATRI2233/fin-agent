@@ -58,6 +58,7 @@ import AgentPalettePanel, {
   type PaletteWorkflowBlock,
 } from './AgentPalettePanel';
 import WorkflowCanvasPanel from './WorkflowCanvasPanel';
+import NodeInspector from './NodeInspector';
 
 /* ─── Domain types (ReactFlow-specific, editor-only) ──────────────────── */
 
@@ -246,6 +247,47 @@ export default function WorkflowEditor() {
     (nodeId: string) => {
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      setSelectedNode(null);
+      isDirty.current = true;
+    },
+    [setNodes, setEdges, setSelectedNode],
+  );
+
+  const onUpdateEdge = useCallback(
+    (edgeId: string, data: Record<string, unknown>) => {
+      setEdges((eds) =>
+        eds.map((e) => {
+          if (e.id !== edgeId) return e;
+          return { ...e, data: { ...e.data, ...data } } as WorkflowEdge;
+        }),
+      );
+      isDirty.current = true;
+    },
+    [setEdges],
+  );
+
+  const onCloseEdge = useCallback(() => {
+    setSelectedEdge(null);
+  }, [setSelectedEdge]);
+
+  const onDeleteBlock = useCallback(
+    (blockId: string) => {
+      const block = nodes.find((n) => n.id === blockId) as WorkflowBlockNode | undefined;
+      const childIds = new Set(block?.data?.childNodeIds ?? []);
+      setNodes((nds) => nds.filter((n) => n.id !== blockId && !childIds.has(n.id)));
+      setEdges((eds) =>
+        eds.filter((e) => e.source !== blockId && e.target !== blockId && !childIds.has(e.source) && !childIds.has(e.target)),
+      );
+      setSelectedNode(null);
+      isDirty.current = true;
+    },
+    [nodes, setNodes, setEdges, setSelectedNode],
+  );
+
+  const onUngroupBlock = useCallback(
+    (blockId: string) => {
+      setNodes((nds) => nds.filter((n) => n.id !== blockId));
+      setEdges((eds) => eds.filter((e) => e.source !== blockId && e.target !== blockId));
       setSelectedNode(null);
       isDirty.current = true;
     },
@@ -490,8 +532,8 @@ export default function WorkflowEditor() {
           />
         </div>
 
-        {/* Right: Inspector (placeholder — Wave 6.3b replaces this
-            with the NodeInspector + 5 property panels). */}
+        {/* Right: Inspector — NodeInspector routes to the correct
+            property panel based on selected node/edge type. */}
         <div
           style={{
             width: 260,
@@ -500,7 +542,17 @@ export default function WorkflowEditor() {
             overflowY: 'auto',
           }}
         >
-          <InspectorPlaceholder selectedNode={selectedNode} selectedEdge={selectedEdge} />
+          <NodeInspector
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            onUpdateNode={onUpdateNode}
+            onDeleteNode={onDeleteNode}
+            onDeleteBlock={onDeleteBlock}
+            onUngroupBlock={onUngroupBlock}
+            onUpdateEdge={onUpdateEdge as (edgeId: string, data: Record<string, unknown>) => void}
+            onCloseEdge={onCloseEdge}
+            agents={paletteAgents}
+          />
         </div>
       </div>
 
@@ -521,50 +573,6 @@ export default function WorkflowEditor() {
         onClose={() => setBlockSelectorVisible(false)}
         currentWorkflowId={id}
       />
-    </div>
-  );
-}
-
-/* ─── Inspector placeholder (Wave 6.3b target) ────────────────────────── */
-
-function InspectorPlaceholder({
-  selectedNode,
-  selectedEdge,
-}: {
-  selectedNode: WorkflowNode | null;
-  selectedEdge: WorkflowEdge | null;
-}) {
-  if (selectedNode) {
-    return (
-      <div style={{ padding: 16, color: '#A0A0A0', fontSize: 13 }}>
-        已选节点：<code>{selectedNode.id}</code>（{selectedNode.type}）
-        <div style={{ marginTop: 8, fontSize: 11, color: '#6B6B6B' }}>
-          属性面板将在 Wave 6.3b 中填充。
-        </div>
-      </div>
-    );
-  }
-  if (selectedEdge) {
-    return (
-      <div style={{ padding: 16, color: '#A0A0A0', fontSize: 13 }}>
-        已选连接：<code>{selectedEdge.id}</code>
-        <div style={{ marginTop: 8, fontSize: 11, color: '#6B6B6B' }}>
-          EdgePromptEditor 将在 Wave 6.3b 中填充。
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div
-      style={{
-        padding: 16,
-        color: '#6B6B6B',
-        fontSize: 13,
-        textAlign: 'center',
-        marginTop: 40,
-      }}
-    >
-      选择节点或连接以编辑属性
     </div>
   );
 }

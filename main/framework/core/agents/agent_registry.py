@@ -72,7 +72,10 @@ def _load_agents() -> dict[str, AgentInfo]:
 
     agents: dict[str, AgentInfo] = {}
 
-    # Scan .md files — this is the source of truth for agent existence
+    # Scan .md files — this is the source of truth for agent existence.
+    # Only files with valid YAML frontmatter containing a "description"
+    # key are treated as agent definitions; other .md files (e.g.
+    # PROJECT_STATE.md) are documentation and skipped.
     if agents_dir.is_dir():
         for md_file in sorted(agents_dir.glob("*.md")):
             name = md_file.stem
@@ -81,6 +84,8 @@ def _load_agents() -> dict[str, AgentInfo]:
             except Exception:
                 continue
             meta = _parse_frontmatter(content)
+            if "description" not in meta:
+                continue  # not an agent definition
 
             description = meta.get("description", name.replace("-", " ").title())
             mode = meta.get("mode", "agent")
@@ -100,20 +105,9 @@ def _load_agents() -> dict[str, AgentInfo]:
                 file_path=str(md_file),
             )
 
-    # Fallback: agents in opencode.json that have no .md file yet
-    for name, cfg in agent_cfg.items():
-        if name not in agents:
-            tools_map = cfg.get("tools", {})
-            allowed = [k for k, v in tools_map.items() if k != "*" and v is True]
-            mode = "orchestrator" if "orchestrator" in name else "fusion" if "fusion" in name else "agent"
-            agents[name] = AgentInfo(
-                name=name,
-                description=name.replace("-", " ").title(),
-                capabilities=[],
-                tools=allowed,
-                tools_whitelist=allowed,
-                mode=mode,
-            )
+    # NOTE: opencode.json entries without a matching .md file are intentionally
+    # skipped — the .md file is the sole source of truth for agent existence
+    # (see module docstring).  Orphaned entries in opencode.json are ignored.
 
     return agents
 
