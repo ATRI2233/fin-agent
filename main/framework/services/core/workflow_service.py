@@ -92,6 +92,7 @@ class WorkflowService:
         self.edges: list[dict] = []
         self.params: dict[str, Any] = {}
         self.execution_id: str | None = None
+        self._sessions_cleaned: bool = False  # Track if sessions were cleaned after output node
 
     # ------------------------------------------------------------------
     # Public entry point — mirrors WorkflowEngine.execute() outer loop
@@ -178,7 +179,9 @@ class WorkflowService:
                 pass  # best-effort
             raise
         finally:
-            await self._cleanup_sessions()
+            # Only clean up here if not already cleaned after output node
+            if not self._sessions_cleaned:
+                await self._cleanup_sessions()
 
     # ------------------------------------------------------------------
     # Execution ordering (was WorkflowEngine._execute_in_order)
@@ -192,7 +195,14 @@ class WorkflowService:
         db: Any,
         status_callback: StatusCallback | None = None,
     ) -> None:
-        """Walk the DAG level-by-level; independent siblings run in parallel via asyncio.gather."""
+        """Walk the DAG level-by-level; independent siblings run in parallel via asyncio.gather.
+
+        After each node completes, checks if it's an output node. If so,
+        cleans up all sessions immediately (output node is the final consumer).
+        """
+        # Build a set of output node IDs for quick lookup
+        output_node_ids = {n["id"] for n in self.nodes if n.get("type") == "output"}
+
         levels: dict[int, list[str]] = {}
         for node_id in execution_order:
             level = self._compute_level(node_id, predecessors)
@@ -217,6 +227,13 @@ class WorkflowService:
                     if preds:
                         await self._wait_for_predecessors(preds)
                     await self._execute_wrapped(node_id, db)
+
+            # After each level completes, check if any output node was executed
+            # If so, clean up sessions immediately (output node is the final consumer)
+            executed_output = output_node_ids & set(nodes_to_run)
+            if executed_output and not self._sessions_cleaned:
+                logger.info("Output node(s) %s executed, cleaning up sessions", executed_output)
+                await self._cleanup_sessions()
 
     async def _execute_wrapped(self, node_id: str, db: Any, *, _parallel: bool = False) -> None:
         if node_id in self._failed_nodes or node_id in self._skipped_nodes:
@@ -372,9 +389,15 @@ class WorkflowService:
     # ------------------------------------------------------------------
 
     async def _cleanup_sessions(self) -> None:
+        """Clean up all sessions created during this execution.
+
+        Sets ``_sessions_cleaned`` flag so the finally block in ``run()``
+        can skip a redundant cleanup.
+        """
         logger.info("_cleanup_sessions: chain_sessions=%d, dispatcher=%s", len(self._chain_sessions), self._dispatcher is not None)
         if not self._chain_sessions or self._dispatcher is None:
             logger.info("_cleanup_sessions: skipping (no sessions or no dispatcher)")
+            self._sessions_cleaned = True
             return
         session_ids = list(set(self._chain_sessions.values()))
         logger.info("_cleanup_sessions: cleaning %d sessions: %s", len(session_ids), session_ids[:5])
@@ -387,6 +410,8 @@ class WorkflowService:
                 logger.info("_cleanup_sessions: all %d sessions cleaned", len(session_ids))
         except Exception as e:
             logger.warning("Session cleanup failed: %s", e)
+        finally:
+            self._sessions_cleaned = True
 
     # ------------------------------------------------------------------
     # Helpers
@@ -415,6 +440,7 @@ class WorkflowService:
         self._node_levels = {}
         self.nodes = []
         self.edges = []
+        self._sessions_cleaned = False
 
     @staticmethod
     async def _noop_callback(_status: str, _msg: str, _agent: str) -> None:
