@@ -53,6 +53,9 @@ Desktop.ini
 # Claude Code tool config
 .claude/
 
+# OpenCode node_modules
+.opencode/node_modules/
+
 # Data files
 *.db
 *.db-journal
