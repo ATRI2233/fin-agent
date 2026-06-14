@@ -47,7 +47,7 @@ def client(db: Session):
 
     Patches ``get_service`` factories so repositories use the test session.
     """
-    from main.framework.core.container import get_container
+    from main.framework.core import get_container
 
     # Monkey-patch the container to use the test session for repo creation.
     container = get_container()
