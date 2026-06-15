@@ -112,11 +112,6 @@ class _ExecServiceAdapter:
         if not downstream_ids:
             return []
         try:
-            # Ensure session is in a clean state
-            try:
-                db.rollback()
-            except Exception:
-                pass
             rows = db.query(ExecutionNode).filter(ExecutionNode.node_id.in_(downstream_ids)).all()
             for row in rows:
                 row.status = "skipped"

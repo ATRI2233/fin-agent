@@ -1,19 +1,33 @@
-import requests
 import os
+import time
 from typing import Dict, Optional
+
+import requests
+
 from .exceptions import APIError
+
+# Default TTL: 24 hours
+DEFAULT_TTL_SECONDS = 24 * 60 * 60
 
 
 class TickerCache:
-    """Cache for ticker to CIK mapping."""
+    """Cache for ticker to CIK mapping with TTL expiration."""
 
-    def __init__(self, user_agent: str = None):
+    def __init__(self, user_agent: str = None, ttl_seconds: int = DEFAULT_TTL_SECONDS):
         self._cache: Optional[Dict[str, int]] = None
+        self._loaded_at: float = 0
+        self._ttl_seconds = ttl_seconds
         self._user_agent = user_agent or os.getenv("SEC_EDGAR_USER_AGENT", "SEC EDGAR MCP/1.0")
+
+    def _is_expired(self) -> bool:
+        """Check whether the cache has exceeded its TTL."""
+        if self._cache is None:
+            return True
+        return (time.time() - self._loaded_at) > self._ttl_seconds
 
     def get_cik(self, ticker: str) -> Optional[int]:
         """Get CIK for a ticker symbol."""
-        if self._cache is None:
+        if self._is_expired():
             self._load_cache()
 
         ticker_upper = ticker.upper()
@@ -48,9 +62,12 @@ class TickerCache:
                         if ticker:
                             self._cache[ticker.upper()] = cik
 
+            self._loaded_at = time.time()
+
         except Exception as e:
             raise APIError(f"Failed to fetch ticker to CIK mapping: {str(e)}")
 
     def clear(self) -> None:
         """Clear the cache."""
         self._cache = None
+        self._loaded_at = 0

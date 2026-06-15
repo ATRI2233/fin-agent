@@ -33,7 +33,8 @@ const FRONTEND_DIST = process.env.FIN_AGENT_HOME
   : path.join(__dirname, '..', '..', 'dist'); // web/dist/
 
 // ── Middleware ──────────────────────────────────────────────────────
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:9876').split(',').map(s => s.trim());
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // ── API routes (must come before static/slash handler) ─────────────

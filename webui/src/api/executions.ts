@@ -132,3 +132,17 @@ export async function retryExecution(id: string): Promise<RetryResponse> {
 export async function abortExecution(id: string): Promise<{ execution_id: string; status: string }> {
   return apiDelete<{ execution_id: string; status: string }>(`${API_V1_BASE}/executions/${id}`)
 }
+
+/**
+ * GET `/api/v1/executions/{id}/status` — fetch the node-level statuses
+ * for a running or completed execution.
+ *
+ * Used by the chat view to poll individual node progress within a
+ * workflow execution.
+ *
+ * @param id Server-assigned execution UUID.
+ * @returns Object with a `nodes` array of node status entries.
+ */
+export async function getExecutionStatus(id: string): Promise<{ nodes: Array<Record<string, unknown>> }> {
+  return apiGet<{ nodes: Array<Record<string, unknown>> }>(`${API_V1_BASE}/executions/${id}/status`)
+}

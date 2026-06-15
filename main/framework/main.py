@@ -266,3 +266,4 @@ async def shutdown():
     from main.framework.core.workflow.session_cleanup import cleanup_on_shutdown
 
     cleanup_on_shutdown(container.backend)
+    container.shutdown()

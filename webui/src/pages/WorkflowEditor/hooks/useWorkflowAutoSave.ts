@@ -54,7 +54,6 @@ export function useWorkflowAutoSave({
   getSaveData,
 }: UseWorkflowAutoSaveOptions): void {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isDirty = useWorkflowStore((s) => s.isDirty);
   const setDirty = useWorkflowStore((s) => s.setDirty);
   const { mutate } = useUpdateWorkflow();
 
@@ -65,8 +64,10 @@ export function useWorkflowAutoSave({
     }
 
     timerRef.current = setInterval(() => {
+      // Read isDirty from the store directly to avoid stale closure.
+      const dirty = useWorkflowStore.getState().isDirty;
       // Guard: only save when dirty AND a valid (non-new) id exists.
-      if (!isDirty || !workflowId || workflowId === 'new') return;
+      if (!dirty || !workflowId || workflowId === 'new') return;
 
       const data = getSaveData();
       mutate({ id: workflowId, data })
@@ -83,9 +84,7 @@ export function useWorkflowAutoSave({
         clearInterval(timerRef.current);
       }
     };
-    // `isDirty` and `mutate` are intentionally excluded from deps:
-    // - isDirty is read on each tick via closure, not when the ref changes.
-    // - mutate is stable (useCallback inside useMutation).
+    // mutate is stable (useCallback inside useMutation).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId, getSaveData, setDirty]);
 }

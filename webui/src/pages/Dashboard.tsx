@@ -88,6 +88,7 @@ export default function Dashboard() {
 
   /* ─── Polling helpers ─── */
   const fetchSystemStatus = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const data = await getSystemStatus();
       setSystemStatus(data);
@@ -95,6 +96,7 @@ export default function Dashboard() {
   }, []);
 
   const fetchWorkflowStats = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const data = await getWorkflowStats();
       setWorkflowStats(data);
@@ -102,6 +104,7 @@ export default function Dashboard() {
   }, []);
 
   const fetchAgentStats = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const data = await getAgentStats();
       setAgentStats(data);
@@ -109,6 +112,7 @@ export default function Dashboard() {
   }, []);
 
   const fetchLogStats = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const data = await getLogsStats();
       setLogStats(data);
@@ -116,6 +120,7 @@ export default function Dashboard() {
   }, []);
 
   const fetchCacheStats = useCallback(async () => {
+    if (document.hidden) return;
     try {
       const data = await getCacheState();
       setCacheStats(data);

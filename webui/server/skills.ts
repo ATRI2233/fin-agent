@@ -8,6 +8,11 @@ const router = Router();
 const PROJECT_ROOT = resolveProjectRoot();
 const PROJECT_SKILLS_DIR = path.join(PROJECT_ROOT, '.opencode', 'skills');
 
+// Security: validate name to prevent path traversal
+function safeName(name: string): boolean {
+  return !!name && !name.includes('..') && !name.includes('/') && !name.includes('\\') && !name.includes('\0');
+}
+
 // Interface for skill metadata
 interface SkillMeta {
   name: string;
@@ -209,6 +214,7 @@ router.get('/', (req: Request, res: Response) => {
 router.get('/:name/content', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid skill name' }); return; }
     const scope = req.query.scope as string | undefined;
     const skillMdPath = resolveSkillPath(name, scope);
 
@@ -229,6 +235,7 @@ router.get('/:name/content', (req: Request, res: Response) => {
 router.put('/:name/content', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid skill name' }); return; }
     const { content } = req.body as { content: string };
     const scope = req.query.scope as string | undefined;
 
@@ -281,6 +288,7 @@ router.put('/:name/content', (req: Request, res: Response) => {
 router.delete('/:name', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid skill name' }); return; }
     const scope = (req.query.scope as string) || 'project';
 
     if (scope === 'global') {
@@ -322,6 +330,7 @@ router.delete('/:name', (req: Request, res: Response) => {
 router.post('/:name/toggle', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid skill name' }); return; }
     const scope = (req.query.scope as string) || 'project';
     let enabled = true;
 
@@ -371,6 +380,7 @@ router.post('/:name/toggle', (req: Request, res: Response) => {
 router.post('/:name/move', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid skill name' }); return; }
     const { from } = req.body as { from: string };
 
     if (from === 'global') {

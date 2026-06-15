@@ -175,8 +175,8 @@ function groupByTimeframe(signals: Record<string, AgentSignal>): Record<string, 
     }
 
     groups[tf].agents.push(agent);
-    groups[tf].avg_p_bullish += signal.distribution.p_bullish;
-    groups[tf].avg_p_bearish += signal.distribution.p_bearish;
+    groups[tf].avg_p_bullish += signal.distribution?.p_bullish ?? 0;
+    groups[tf].avg_p_bearish += signal.distribution?.p_bearish ?? 0;
   }
 
   // 计算平均值和共识
@@ -203,8 +203,8 @@ function detectConflict(
 
   // 检查同时间框架内的方向冲突
   for (const [tf, group] of Object.entries(timeframeGroups)) {
-    const bullishAgents = group.agents.filter(a => signals[a].distribution.p_bullish > 0.5);
-    const bearishAgents = group.agents.filter(a => signals[a].distribution.p_bearish > 0.5);
+    const bullishAgents = group.agents.filter(a => (signals[a].distribution?.p_bullish ?? 0) > 0.5);
+    const bearishAgents = group.agents.filter(a => (signals[a].distribution?.p_bearish ?? 0) > 0.5);
 
     if (bullishAgents.length > 0 && bearishAgents.length > 0) {
       // 同时间框架内有方向冲突
@@ -302,6 +302,14 @@ function generateLayeredRecommendations(timeframeGroups: Record<string, Timefram
   return recommendations;
 }
 
+// ── 判断信号方向 ──────────────────────────────────────────
+function getSignalDirection(signal: AgentSignal): "看多" | "看空" | "中性" {
+  const { p_bullish, p_bearish } = signal.distribution;
+  if (p_bullish > p_bearish) return "看多";
+  if (p_bearish > p_bullish) return "看空";
+  return "中性";
+}
+
 // ── 生成条件化结论 ────────────────────────────────────────
 function generateConditionalConclusions(
   signals: Record<string, AgentSignal>,
@@ -322,7 +330,7 @@ function generateConditionalConclusions(
       conclusions.push({
         condition: `如果${agentA.assumptions[0]}成立`,
         dominant_view: conflict.agent_a,
-        conclusion: conflict.agent_a.includes("bullish") ? "看多" : "看空",
+        conclusion: getSignalDirection(agentA),
         position_pct: 10,
       });
     }
@@ -331,7 +339,7 @@ function generateConditionalConclusions(
       conclusions.push({
         condition: `如果${agentB.assumptions[0]}成立`,
         dominant_view: conflict.agent_b,
-        conclusion: conflict.agent_b.includes("bearish") ? "看空" : "看多",
+        conclusion: getSignalDirection(agentB),
         position_pct: 0,
       });
     }

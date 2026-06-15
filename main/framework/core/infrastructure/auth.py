@@ -9,9 +9,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if not settings.API_KEY:
             return await call_next(request)
 
-        # Skip auth for localhost
+        # Skip auth for localhost only when explicitly allowed (default: not allowed behind proxy)
         client_host = request.client.host if request.client else ""
-        if client_host in ("127.0.0.1", "::1", "localhost"):
+        if settings.AUTH_SKIP_LOCALHOST and client_host in ("127.0.0.1", "::1", "localhost"):
             return await call_next(request)
 
         # Check API key

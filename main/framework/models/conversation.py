@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from main.framework.models.database import Base
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 
@@ -41,3 +41,8 @@ class Message(Base):
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
+
+    __table_args__ = (
+        Index("ix_messages_conversation_id", "conversation_id"),
+        Index("ix_messages_execution_id", "execution_id"),
+    )

@@ -10,8 +10,8 @@ const PROJECT_ROOT = resolveProjectRoot();
 // GET /api/config/opencode - Read opencode.json (auto-discovers global → project)
 router.get('/opencode', (_req: Request, res: Response) => {
   try {
-    const { data, source, path: configPath } = readConfigFile('opencode.json', PROJECT_ROOT);
-    res.json({ ...data, _meta: { source, path: configPath } });
+    const { data, source } = readConfigFile('opencode.json', PROJECT_ROOT);
+    res.json({ ...data, _meta: { source } });
   } catch (err: unknown) {
     console.error('Failed to read opencode config:', err);
     res.status(500).json({ error: 'Failed to read config file' });
@@ -59,8 +59,8 @@ router.put('/opencode/project', (req: Request, res: Response) => {
 // GET /api/config/oh-my-openagent - Read oh-my-openagent.jsonc
 router.get('/oh-my-openagent', (_req: Request, res: Response) => {
   try {
-    const { data, source, path: configPath } = readConfigFile('oh-my-openagent.jsonc', PROJECT_ROOT);
-    res.json({ ...data, _meta: { source, path: configPath } });
+    const { data, source } = readConfigFile('oh-my-openagent.jsonc', PROJECT_ROOT);
+    res.json({ ...data, _meta: { source } });
   } catch (err: unknown) {
     console.error('Failed to read oh-my-openagent config:', err);
     res.status(500).json({ error: 'Failed to read oh-my-openagent config file' });

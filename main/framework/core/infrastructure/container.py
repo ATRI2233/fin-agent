@@ -1,4 +1,4 @@
-﻿"""Lightweight dependency injection container.
+"""Lightweight dependency injection container.
 
 Centralises the creation and lifecycle of all core services.
 Modules receive their dependencies via constructor injection instead
@@ -7,6 +7,7 @@ of importing concrete classes or module-level singletons.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -23,12 +24,40 @@ T = TypeVar("T")
 
 
 class Container:
-    """DI container —?single source of truth for service instances."""
+    """DI container — single source of truth for service instances."""
 
     def __init__(self, settings: Settings):
         self._settings = settings
         self._instances: dict[str, object] = {}
         self._factories: dict[str, Callable[[], Any]] = {}
+        self._lock = threading.RLock()
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _get_or_create(
+        self,
+        key: str,
+        class_name: str | None,
+        default_factory: Callable[[], Any],
+    ) -> Any:
+        """Thread-safe resolution: ``_instances`` -> ``_factories`` -> *default_factory*.
+
+        If *class_name* is given and present in ``_factories``, that factory is
+        preferred over *default_factory* so that ``register_factory`` overrides
+        are honoured by property getters (avoids double-cache path).
+        """
+        with self._lock:
+            if key in self._instances:
+                return self._instances[key]
+            if class_name and class_name in self._factories:
+                instance = self._factories[class_name]()
+                self._instances[key] = instance
+                return instance
+            instance = default_factory()
+            self._instances[key] = instance
+            return instance
 
     # ------------------------------------------------------------------
     # Registration helpers
@@ -36,7 +65,8 @@ class Container:
 
     def register_singleton(self, cls: type, instance: object) -> None:
         """Register an existing instance as a singleton for *cls*."""
-        self._instances[cls.__name__] = instance
+        with self._lock:
+            self._instances[cls.__name__] = instance
 
     def register_factory(self, cls: type, factory: Callable[[], Any]) -> None:
         """Register a factory callable for *cls*.
@@ -44,7 +74,8 @@ class Container:
         The factory is invoked once on first access via ``get_service``
         and its return value is cached as a singleton.
         """
-        self._factories[cls.__name__] = factory
+        with self._lock:
+            self._factories[cls.__name__] = factory
 
     def register(self, name: str, instance: object) -> None:
         """Register *instance* under *name* (idempotent — replaces any prior value).
@@ -55,7 +86,32 @@ class Container:
         :meth:`register_singleton` (typed) or :meth:`register_factory`
         (lazy).
         """
-        self._instances[name] = instance
+        with self._lock:
+            self._instances[name] = instance
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def shutdown(self) -> None:
+        """Clean up all held resource instances.
+
+        Iterates over every cached singleton and calls ``close()``,
+        ``cleanup()``, ``shutdown()``, or ``stop()`` if the instance
+        exposes such a method.  Errors are swallowed to ensure best-effort
+        teardown.  Clears both ``_instances`` and ``_factories``.
+        """
+        with self._lock:
+            for _name, instance in list(self._instances.items()):
+                for method_name in ("close", "cleanup", "shutdown", "stop"):
+                    closer = getattr(instance, method_name, None)
+                    if callable(closer):
+                        try:
+                            closer()
+                        except Exception:  # noqa: BLE001
+                            pass
+            self._instances.clear()
+            self._factories.clear()
 
     # ------------------------------------------------------------------
     # Core infrastructure
@@ -67,22 +123,23 @@ class Container:
 
     @property
     def backend(self) -> AgentBackend:
-        if "backend" not in self._instances:
+        def _create():
             from main.session.serve_backend import ServeBackend
 
-            self._instances["backend"] = ServeBackend(
+            return ServeBackend(
                 server_url=getattr(self._settings, "SERVE_BACKEND_URL", "http://127.0.0.1:4096"),
                 opencode_bin=self._settings.OPENCODE_BIN,
                 cwd=".",
                 default_timeout=self._settings.NODE_TIMEOUT_SECONDS,
             )
-        return self._instances["backend"]  # type: ignore[return-value]
+
+        return self._get_or_create("backend", None, _create)
 
     @property
     def dispatcher(self) -> AgentDispatcher:
-        if "dispatcher" not in self._instances:
-            self._instances["dispatcher"] = AgentDispatcher(self.backend)
-        return self._instances["dispatcher"]  # type: ignore[return-value]
+        return self._get_or_create(
+            "dispatcher", None, lambda: AgentDispatcher(self.backend)
+        )
 
     # ------------------------------------------------------------------
     # Repositories
@@ -90,57 +147,61 @@ class Container:
 
     @property
     def execution_repo(self) -> ExecutionRepository:
-        if "execution_repo" not in self._instances:
-            self._instances["execution_repo"] = ExecutionRepository()
-        return self._instances["execution_repo"]  # type: ignore[return-value]
+        return self._get_or_create(
+            "execution_repo", "ExecutionRepository", ExecutionRepository
+        )
 
     @property
     def agent_repo(self) -> AgentRepository:
-        if "agent_repo" not in self._instances:
-            self._instances["agent_repo"] = AgentRepository()
-        return self._instances["agent_repo"]  # type: ignore[return-value]
+        return self._get_or_create("agent_repo", "AgentRepository", AgentRepository)
 
     @property
     def workflow_repo(self) -> WorkflowRepository:
-        if "workflow_repo" not in self._instances:
-            self._instances["workflow_repo"] = WorkflowRepository()
-        return self._instances["workflow_repo"]  # type: ignore[return-value]
+        return self._get_or_create(
+            "workflow_repo", "WorkflowRepository", WorkflowRepository
+        )
 
     @property
     def conversation_repo(self) -> ConversationRepository:
-        if "conversation_repo" not in self._instances:
-            self._instances["conversation_repo"] = ConversationRepository()
-        return self._instances["conversation_repo"]  # type: ignore[return-value]
+        return self._get_or_create(
+            "conversation_repo", "ConversationRepository", ConversationRepository
+        )
 
     @property
     def maintenance_repo(self) -> MaintenanceRepository:
-        if "maintenance_repo" not in self._instances:
-            self._instances["maintenance_repo"] = MaintenanceRepository()
-        return self._instances["maintenance_repo"]  # type: ignore[return-value]
+        return self._get_or_create(
+            "maintenance_repo", "MaintenanceRepository", MaintenanceRepository
+        )
 
     @property
     def workflow_query_service(self):
         """WorkflowQueryService (lazy singleton) — see :meth:`create_workflow_query_service`."""
-        if "workflow_query_service" not in self._instances:
+
+        def _create():
             from main.framework.services.workflow_query_service import WorkflowQueryService
 
-            self._instances["workflow_query_service"] = WorkflowQueryService(
+            return WorkflowQueryService(
                 workflow_repo=self.workflow_repo,
                 exec_repo=self.execution_repo,
                 conv_repo=self.conversation_repo,
             )
-        return self._instances["workflow_query_service"]
+
+        return self._get_or_create(
+            "workflow_query_service", "WorkflowQueryService", _create
+        )
 
     @property
     def dispatch_query_service(self):
         """DispatchQueryService (lazy singleton) — see :meth:`create_dispatch_query_service`."""
-        if "dispatch_query_service" not in self._instances:
+
+        def _create():
             from main.framework.services.dispatch_query_service import DispatchQueryService
 
-            self._instances["dispatch_query_service"] = DispatchQueryService(
-                dispatcher=self.dispatcher,
-            )
-        return self._instances["dispatch_query_service"]
+            return DispatchQueryService(dispatcher=self.dispatcher)
+
+        return self._get_or_create(
+            "dispatch_query_service", "DispatchQueryService", _create
+        )
 
     @property
     def tool_query_service(self):
@@ -149,11 +210,13 @@ class Container:
         No constructor dependencies.  The tool manifest is loaded lazily on
         first call to a public method, so container init has zero file IO.
         """
-        if "tool_query_service" not in self._instances:
+
+        def _create():
             from main.framework.services.tool_query_service import ToolQueryService
 
-            self._instances["tool_query_service"] = ToolQueryService()
-        return self._instances["tool_query_service"]
+            return ToolQueryService()
+
+        return self._get_or_create("tool_query_service", "ToolQueryService", _create)
 
     @property
     def agent_query_service(self):
@@ -164,13 +227,13 @@ class Container:
         ``core.agent_registry``; ``agent_stats`` aggregates ``ExecutionNode``
         rows bound to the caller's session.
         """
-        if "agent_query_service" not in self._instances:
+
+        def _create():
             from main.framework.services.agent_query_service import AgentQueryService
 
-            self._instances["agent_query_service"] = AgentQueryService(
-                agent_repo=self.agent_repo,
-            )
-        return self._instances["agent_query_service"]
+            return AgentQueryService(agent_repo=self.agent_repo)
+
+        return self._get_or_create("agent_query_service", "AgentQueryService", _create)
 
     @property
     def system_query_service(self):
@@ -184,24 +247,28 @@ class Container:
         and an optional ``session_factory`` for the historical
         ``ExecutionNode`` row count.
         """
-        if "system_query_service" not in self._instances:
+
+        def _create():
             from main.framework.config.database import SessionLocal
             from main.framework.services.system_query_service import SystemQueryService
 
-            self._instances["system_query_service"] = SystemQueryService(
+            return SystemQueryService(
                 scheduler_service=self.create_scheduler_service(),
                 session_factory=SessionLocal,
             )
-        return self._instances["system_query_service"]
+
+        return self._get_or_create("system_query_service", "SystemQueryService", _create)
 
     @property
     def session_manager(self):
-        """Conversation —?session mapping (lazy, needs backend)."""
-        if "session_manager" not in self._instances:
+        """Conversation — session mapping (lazy, needs backend)."""
+
+        def _create():
             from main.framework.core.workflow.session_manager import ConvSessionManager
 
-            self._instances["session_manager"] = ConvSessionManager(self.backend)
-        return self._instances["session_manager"]
+            return ConvSessionManager(self.backend)
+
+        return self._get_or_create("session_manager", None, _create)
 
     # ------------------------------------------------------------------
     # Service properties (Wave 4 — DI hardening)
@@ -254,7 +321,7 @@ class Container:
         return self.create_maintenance_query_service()
 
     # ------------------------------------------------------------------
-    # Factory methods —?create per-request / per-execution instances
+    # Factory methods — create per-request / per-execution instances
     # ------------------------------------------------------------------
 
     def create_workflow_engine(self, workflow_id: str, params: dict, db=None, status_callback=None, execution_id=None):
@@ -275,15 +342,17 @@ class Container:
 
     def create_scheduler(self):
         """Create or return the WorkflowScheduler singleton."""
-        from main.framework.config.database import SessionLocal
-        from main.framework.core.workflow.scheduler import WorkflowScheduler
 
-        if "scheduler" not in self._instances:
-            self._instances["scheduler"] = WorkflowScheduler(
+        def _create():
+            from main.framework.config.database import SessionLocal
+            from main.framework.core.workflow.scheduler import WorkflowScheduler
+
+            return WorkflowScheduler(
                 session_factory=SessionLocal,
                 engine_factory=self.create_workflow_engine,
             )
-        return self._instances["scheduler"]  # type: ignore[return-value]
+
+        return self._get_or_create("scheduler", None, _create)
 
     def create_debate_executor(self):
         """Create a DebateExecutor with injected dependencies."""
@@ -302,14 +371,18 @@ class Container:
         resolved lazily from the container so no eager DB connections are
         created at container init.
         """
-        from main.framework.services.conversation_service import ConversationService
 
-        if "conversation_service" not in self._instances:
-            self._instances["conversation_service"] = ConversationService(
+        def _create():
+            from main.framework.services.conversation_service import ConversationService
+
+            return ConversationService(
                 conv_repo=self.conversation_repo,
                 workflow_repo=self.workflow_repo,
             )
-        return self._instances["conversation_service"]
+
+        return self._get_or_create(
+            "conversation_service", "ConversationService", _create
+        )
 
     def create_execution_service(self):
         """@singleton — ExecutionService(exec_repo).
@@ -317,13 +390,15 @@ class Container:
         Manages WorkflowExecution + ExecutionNode lifecycle (status
         updates, failure cascade, recording).
         """
-        from main.framework.services.execution_service import ExecutionService
 
-        if "execution_service" not in self._instances:
-            self._instances["execution_service"] = ExecutionService(
-                exec_repo=self.execution_repo,
-            )
-        return self._instances["execution_service"]
+        def _create():
+            from main.framework.services.execution_service import ExecutionService
+
+            return ExecutionService(exec_repo=self.execution_repo)
+
+        return self._get_or_create(
+            "execution_service", "ExecutionService", _create
+        )
 
     def create_workflow_service(self):
         """@singleton — WorkflowService(workflow_repo, exec_service, registry).
@@ -332,19 +407,21 @@ class Container:
         dispatch, failure cascade.  Depends on ExecutionService (created via
         :meth:`create_execution_service`) and NodeExecutorRegistry.
         """
-        from main.framework.core.workflow.node_executors.registry import (
-            NodeExecutorRegistry,
-        )
-        from main.framework.services.workflow_service import WorkflowService
 
-        if "workflow_service" not in self._instances:
-            self._instances["workflow_service"] = WorkflowService(
+        def _create():
+            from main.framework.core.workflow.node_executors.registry import (
+                NodeExecutorRegistry,
+            )
+            from main.framework.services.workflow_service import WorkflowService
+
+            return WorkflowService(
                 workflow_repo=self.workflow_repo,
                 exec_service=self.create_execution_service(),  # type: ignore[arg-type]
                 registry=NodeExecutorRegistry(),
                 dispatcher=self.dispatcher,
             )
-        return self._instances["workflow_service"]
+
+        return self._get_or_create("workflow_service", "WorkflowService", _create)
 
     def create_scheduler_service(self):
         """@singleton — SchedulerService(session_factory, workflow_service).
@@ -352,15 +429,19 @@ class Container:
         APScheduler wrapper for cron-based workflow execution.  Depends on
         WorkflowService (created via :meth:`create_workflow_service`).
         """
-        from main.framework.config.database import SessionLocal
-        from main.framework.services.scheduler_service import SchedulerService
 
-        if "scheduler_service" not in self._instances:
-            self._instances["scheduler_service"] = SchedulerService(
+        def _create():
+            from main.framework.config.database import SessionLocal
+            from main.framework.services.scheduler_service import SchedulerService
+
+            return SchedulerService(
                 session_factory=SessionLocal,
                 workflow_service=self.create_workflow_service(),
             )
-        return self._instances["scheduler_service"]
+
+        return self._get_or_create(
+            "scheduler_service", "SchedulerService", _create
+        )
 
     def create_message_processor(self):
         """@per_execution — MessageProcessor.
@@ -381,15 +462,19 @@ class Container:
         ``api/workflows.py`` and supersedes ``WorkflowCrudService``.  Exposes
         CRUD, stats, and trigger-workflow as a single coherent surface.
         """
-        from main.framework.services.workflow_query_service import WorkflowQueryService
 
-        if "workflow_query_service" not in self._instances:
-            self._instances["workflow_query_service"] = WorkflowQueryService(
+        def _create():
+            from main.framework.services.workflow_query_service import WorkflowQueryService
+
+            return WorkflowQueryService(
                 workflow_repo=self.workflow_repo,
                 exec_repo=self.execution_repo,
                 conv_repo=self.conversation_repo,
             )
-        return self._instances["workflow_query_service"]
+
+        return self._get_or_create(
+            "workflow_query_service", "WorkflowQueryService", _create
+        )
 
     def create_execution_query_service(self):
         """@singleton — ExecutionQueryService(exec_repo).
@@ -404,16 +489,20 @@ class Container:
         Distinct from :meth:`create_execution_service`, which owns the
         lifecycle side (status transitions, failure cascade).
         """
-        from main.framework.services.execution_query_service import (
-            ExecutionQueryService,
-        )
 
-        if "execution_query_service" not in self._instances:
-            self._instances["execution_query_service"] = ExecutionQueryService(
+        def _create():
+            from main.framework.services.execution_query_service import (
+                ExecutionQueryService,
+            )
+
+            return ExecutionQueryService(
                 exec_repo=self.execution_repo,
                 workflow_repo=self.workflow_repo,
             )
-        return self._instances["execution_query_service"]
+
+        return self._get_or_create(
+            "execution_query_service", "ExecutionQueryService", _create
+        )
 
     def create_dispatch_query_service(self):
         """@singleton — DispatchQueryService(dispatcher).
@@ -423,28 +512,32 @@ class Container:
         and result shaping for the ``/api/v1/dispatch`` HTTP API.  Replaces
         the inline handlers that previously lived in ``api/dispatch.py``.
         """
-        from main.framework.services.dispatch_query_service import DispatchQueryService
 
-        if "dispatch_query_service" not in self._instances:
-            self._instances["dispatch_query_service"] = DispatchQueryService(
-                dispatcher=self.dispatcher,
-            )
-        return self._instances["dispatch_query_service"]
+        def _create():
+            from main.framework.services.dispatch_query_service import DispatchQueryService
+
+            return DispatchQueryService(dispatcher=self.dispatcher)
+
+        return self._get_or_create(
+            "dispatch_query_service", "DispatchQueryService", _create
+        )
 
     def create_session_service(self):
         """@singleton — SessionService(exec_repo, conv_repo, backend).
 
         Session listing, lookup, and cleanup.
         """
-        from main.framework.services.session_service import SessionService
 
-        if "session_service" not in self._instances:
-            self._instances["session_service"] = SessionService(
+        def _create():
+            from main.framework.services.session_service import SessionService
+
+            return SessionService(
                 exec_repo=self.execution_repo,
                 conv_repo=self.conversation_repo,
                 backend=self.backend,
             )
-        return self._instances["session_service"]
+
+        return self._get_or_create("session_service", "SessionService", _create)
 
     def create_tool_query_service(self):
         """@singleton — ToolQueryService().
@@ -453,11 +546,13 @@ class Container:
         the tool manifest lazily on first public-method call so the container
         does not do file IO at init time.  No constructor dependencies.
         """
-        from main.framework.services.tool_query_service import ToolQueryService
 
-        if "tool_query_service" not in self._instances:
-            self._instances["tool_query_service"] = ToolQueryService()
-        return self._instances["tool_query_service"]
+        def _create():
+            from main.framework.services.tool_query_service import ToolQueryService
+
+            return ToolQueryService()
+
+        return self._get_or_create("tool_query_service", "ToolQueryService", _create)
 
     def create_system_query_service(self):
         """@singleton — SystemQueryService(scheduler_service).
@@ -468,13 +563,17 @@ class Container:
         HTTP API.  Depends on :class:`SchedulerService` (created via
         :meth:`create_scheduler_service`).
         """
-        from main.framework.services.system_query_service import SystemQueryService
 
-        if "system_query_service" not in self._instances:
-            self._instances["system_query_service"] = SystemQueryService(
+        def _create():
+            from main.framework.services.system_query_service import SystemQueryService
+
+            return SystemQueryService(
                 scheduler_service=self.create_scheduler_service(),
             )
-        return self._instances["system_query_service"]
+
+        return self._get_or_create(
+            "system_query_service", "SystemQueryService", _create
+        )
 
     def create_skill_query_service(self):
         """@singleton — SkillQueryService().
@@ -483,11 +582,13 @@ class Container:
         constructor dependencies; the static catalog lives on the
         module-level ``SKILLS`` constant.
         """
-        from main.framework.services.skill_query_service import SkillQueryService
 
-        if "skill_query_service" not in self._instances:
-            self._instances["skill_query_service"] = SkillQueryService()
-        return self._instances["skill_query_service"]
+        def _create():
+            from main.framework.services.skill_query_service import SkillQueryService
+
+            return SkillQueryService()
+
+        return self._get_or_create("skill_query_service", "SkillQueryService", _create)
 
     def create_maintenance_query_service(self):
         """@singleton — MaintenanceQueryService(maintenance_service).
@@ -502,16 +603,20 @@ class Container:
         The fallback below uses ``dispatcher=self.dispatcher`` so the
         instance is fully constructible in any container context.
         """
-        from main.data_maintenance.services.data_maintenance import DataMaintenanceService
-        from main.data_maintenance.services.maintenance_query_service import (
-            MaintenanceQueryService,
-        )
 
-        if "maintenance_query_service" not in self._instances:
-            self._instances["maintenance_query_service"] = MaintenanceQueryService(
+        def _create():
+            from main.data_maintenance.services.data_maintenance import DataMaintenanceService
+            from main.data_maintenance.services.maintenance_query_service import (
+                MaintenanceQueryService,
+            )
+
+            return MaintenanceQueryService(
                 DataMaintenanceService(dispatcher=self.dispatcher, scheduler=None)
             )
-        return self._instances["maintenance_query_service"]
+
+        return self._get_or_create(
+            "maintenance_query_service", "MaintenanceQueryService", _create
+        )
 
     def create_conv_session_manager(self):
         """@singleton — ConvSessionManager(backend).
@@ -539,11 +644,11 @@ def configure(container: Container) -> None:
 def get_container() -> Container:
     """Return the global container. Raises if not configured."""
     if _container is None:
-        raise RuntimeError("Container not configured —?call configure() first")
+        raise RuntimeError("Container not configured — call configure() first")
     return _container
 
 
-# Interface —?container-property mapping for get_service lookup.
+# Interface — container-property mapping for get_service lookup.
 # Keys are class-name strings (e.g. "WorkflowQueryService"), values are the
 # attribute name on the Container instance to fetch.  Wave 4 (DI hardening)
 # extends this to every service class so Depends(get_service(...)) resolves
@@ -578,7 +683,7 @@ _SERVICE_MAP: dict[str, str] = {
 
 
 def get_service(interface: type[T]):
-    """FastAPI ``Depends`` factory —?resolve *interface* from the DI container.
+    """FastAPI ``Depends`` factory — resolve *interface* from the DI container.
 
     Usage::
 
@@ -600,12 +705,13 @@ def get_service(interface: type[T]):
     def _from_factory() -> T:
         c = get_container()
         key = interface.__name__
-        if key in c._instances:
-            return c._instances[key]  # type: ignore[return-value]
-        if key in c._factories:
-            instance = c._factories[key]()
-            c._instances[key] = instance
-            return instance  # type: ignore[return-value]
+        with c._lock:
+            if key in c._instances:
+                return c._instances[key]  # type: ignore[return-value]
+            if key in c._factories:
+                instance = c._factories[key]()
+                c._instances[key] = instance
+                return instance  # type: ignore[return-value]
         raise ValueError(f"No service registered for {interface.__name__}")
 
     return _from_factory

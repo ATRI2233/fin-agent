@@ -272,14 +272,20 @@ class WorkflowService:
 
     async def _wait_for_predecessors(self, pred_ids: list[str]) -> None:
         for pred_id in pred_ids:
+            deadline = asyncio.get_event_loop().time() + 600  # NODE_TIMEOUT_SECONDS
             while (
                 pred_id not in self._results
                 and pred_id not in self._failed_nodes
                 and pred_id not in self._skipped_nodes
             ):
-                await asyncio.sleep(0.1)
+                if asyncio.get_event_loop().time() > deadline:
+                    raise asyncio.TimeoutError(f"Timeout waiting for predecessor node {pred_id}")
+                await asyncio.sleep(0.5)
 
     def _compute_level(self, node_id: str, predecessors: dict[str, list[str]]) -> int:
+        # Check cache first to avoid redundant recursion
+        if node_id in self._node_levels:
+            return self._node_levels[node_id]
         preds = predecessors.get(node_id, [])
         if not preds:
             level = 0
@@ -303,12 +309,13 @@ class WorkflowService:
 
         predecessor_ids = [e["source"] for e in self.edges if e.get("target") == node_id]
         executor = self._registry.get(node.get("type", "agent"))
-        # Create a shallow copy for parallel safety — avoids shared _db on singleton
-        executor = copy.copy(executor)
-        # Always give each node its own _chain_sessions dict so parallel
-        # siblings don't share session IDs via the shallow copy.
-        if hasattr(executor, "_chain_sessions"):
-            executor._chain_sessions = {}
+        # Create a copy for parallel safety — avoids shared mutable state on singleton.
+        # Use deepcopy for mutable attributes to prevent data races between parallel nodes.
+        executor = copy.deepcopy(executor) if hasattr(executor, '__deepcopy__') else copy.copy(executor)
+        # Always give each node its own mutable state so parallel siblings don't interfere.
+        for attr in ("_chain_sessions", "_results", "_failed_nodes"):
+            if hasattr(executor, attr):
+                setattr(executor, attr, {})
         # Inject per-execution dependencies that the registry singleton lacks.
         if hasattr(executor, "_db"):
             # Ensure session is in a clean state before injecting

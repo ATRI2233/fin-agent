@@ -16,13 +16,6 @@ if _PROJECT_ROOT not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-os.environ.pop("HTTP_PROXY", None)
-os.environ.pop("HTTPS_PROXY", None)
-os.environ.pop("http_proxy", None)
-os.environ.pop("https_proxy", None)
-os.environ.pop("ALL_PROXY", None)
-os.environ.pop("all_proxy", None)
-
 # Tool implementations
 from agents.mcp.ashare.tools import (
     get_quote,
@@ -208,6 +201,11 @@ def handle_request(req):
 
 
 if __name__ == "__main__":
+    # 启动时清除代理环境变量，避免 akshare HTTP 请求被代理拦截
+    for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
+        if os.environ.pop(var, None) is not None:
+            logger.info("Removed proxy env var: %s", var)
+
     for line in sys.stdin:
         line = line.strip()
         if not line:

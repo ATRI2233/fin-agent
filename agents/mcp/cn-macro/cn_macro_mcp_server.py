@@ -224,12 +224,12 @@ def get_cn_macro_rates(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "mlf":
-            df = ak.macro_china_reserve_requirement_ratio()
+            df = ak.macro_china_lpr()
             df = df.tail(periods)
             return {
-                "indicator": "MLF利率",
+                "indicator": "MLF/LPR利率",
                 "unit": "%",
-                "note": "使用存款准备金率数据作为货币政策工具代理指标",
+                "note": "akshare 无独立 MLF 接口，返回 LPR 数据（LPR 以 MLF 利率为定价基准）。RATE_1/RATE_2 为历史贷款基准利率",
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "omo":
@@ -314,12 +314,8 @@ def get_cn_macro_industry(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "crude_steel":
-            df = ak.macro_china_gdp()
-            df = df.tail(periods)
             return {
-                "indicator": "粗钢产量",
-                "note": "使用GDP数据作为工业产出代理指标",
-                "data": df.to_dict(orient="records"),
+                "error": "粗钢产量数据源不可用：akshare 未提供粗钢产量专用接口（macro_china_gdp 返回的是 GDP 而非粗钢数据）。建议使用国家统计局或 Wind 数据源获取粗钢产量。",
             }
         else:
             return {"error": f"Unknown indicator: {indicator}"}
@@ -350,7 +346,7 @@ def get_cn_macro_fx(indicator, periods=20):
             df = ak.fx_spot_quote()
             df = df[df["货币对"] == "美元/人民币"]
             df = df.tail(periods)
-            return {"indicator": "USD/CNY", "data": df.values.tolist()}
+            return {"indicator": "USD/CNY", "data": df.to_dict(orient="records")}
         elif indicator == "usd_cnh":
             df = ak.fx_spot_quote()
             df = df[df["货币对"] == "美元/人民币"]
@@ -427,9 +423,39 @@ def handle_request(req):
             "cn_macro_inflation",
             "cn_macro_industry",
         ]:
-            result = handler(arguments.get("indicator"), arguments.get("periods", 12))
+            indicator = arguments.get("indicator")
+            if not indicator:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps({"error": "缺少必需参数 'indicator'"}),
+                            }
+                        ],
+                        "isError": True,
+                    },
+                }
+            result = handler(indicator, arguments.get("periods", 12))
         elif tool_name == "cn_macro_fx":
-            result = handler(arguments.get("indicator"), arguments.get("periods", 20))
+            indicator = arguments.get("indicator")
+            if not indicator:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps({"error": "缺少必需参数 'indicator'"}),
+                            }
+                        ],
+                        "isError": True,
+                    },
+                }
+            result = handler(indicator, arguments.get("periods", 20))
         else:
             result = handler(**arguments)
 

@@ -113,7 +113,6 @@ export function registerConsistencyCheck(): ToolRegistration {
           consistencyScore = Math.max(0, consistencyScore);
         } else {
           consistencyScore = 100 - flipCount30d * 10;
-          if (flipCount30d > 0) consistencyScore -= 10;
           consistencyScore = Math.max(0, consistencyScore);
         }
 

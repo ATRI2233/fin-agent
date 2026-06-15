@@ -70,7 +70,7 @@ class WorkflowScheduler:
         job_id = f"workflow_{workflow_id}"
 
         # Remove existing job if present
-        if job_id in self._scheduler.get_jobs():
+        if any(j.id == job_id for j in self._scheduler.get_jobs()):
             self._scheduler.remove_job(job_id)
 
         # Parse cron expression
@@ -202,12 +202,13 @@ def validate_cron_expression(cron_expression: str) -> bool:
         return False
 
     # Field patterns: minute(0-59), hour(0-23), day(1-31), month(1-12), weekday(0-6 or sun-sat)
+    # All fields support: *, ranges (1-5), lists (1,3,5), steps (*/5, 1-10/2)
     patterns = [
         r"^(\*|([0-5]?\d)(-([0-5]?\d))?(,([0-5]?\d)(-([0-5]?\d))?)*(\/(\d+))?|[0-5]?\d(,\d+)*)$",  # minute
         r"^(\*|([01]?\d|2[0-3])(-([01]?\d|2[0-3]))?(,([01]?\d|2[0-3])(-([01]?\d|2[0-3]))?)*(\/(\d+))?|[01]?\d(,\d+)*)$",  # hour
         r"^(\*|([1-9]|[12]\d|3[01])(-([1-9]|[12]\d|3[01]))?(,([1-9]|[12]\d|3[01])(-([1-9]|[12]\d|3[01]))?)*(\/(\d+))?)$",  # day
         r"^(\*|([1-9]|1[0-2])(-([1-9]|1[0-2]))?(,([1-9]|1[0-2])(-([1-9]|1[0-2]))?)*(\/(\d+))?)$",  # month
-        r"^(\*|[0-6](-([0-6]))?(,([0-6])(-([0-6]))?)*)$",  # weekday (0-6)
+        r"^(\*|[0-6](-([0-6]))?(,([0-6])(-([0-6]))?)*(\/(\d+))?)$",  # weekday (0-6)
     ]
 
     return all(re.match(pattern, part) for part, pattern in zip(parts, patterns, strict=False))

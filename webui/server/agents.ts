@@ -8,6 +8,11 @@ const router = Router();
 const PROJECT_ROOT = resolveProjectRoot();
 const AGENTS_DIR = path.join(PROJECT_ROOT, '.opencode', 'agents');
 
+// Security: validate name to prevent path traversal
+function safeName(name: string): boolean {
+  return !!name && !name.includes('..') && !name.includes('/') && !name.includes('\\') && !name.includes('\0');
+}
+
 // Interface for agent metadata
 interface AgentMeta {
   name: string;
@@ -97,6 +102,7 @@ router.get('/', (_req: Request, res: Response) => {
 router.get('/:name/content', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid agent name' }); return; }
     const filePath = path.join(AGENTS_DIR, `${name}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -123,6 +129,7 @@ router.get('/:name/content', (req: Request, res: Response) => {
 router.put('/:name/content', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid agent name' }); return; }
     const { content } = req.body as { content: string };
 
     if (!content) {
@@ -136,6 +143,10 @@ router.put('/:name/content', (req: Request, res: Response) => {
     }
 
     const filePath = path.join(AGENTS_DIR, `${name}.md`);
+    // Final safety: ensure resolved path is inside AGENTS_DIR
+    if (!path.resolve(filePath).startsWith(path.resolve(AGENTS_DIR))) {
+      res.status(400).json({ error: 'Invalid agent name' }); return;
+    }
     fs.writeFileSync(filePath, content, 'utf-8');
 
     res.json({
@@ -215,6 +226,7 @@ router.post('/batch-model', (req: Request, res: Response) => {
 router.get('/:name/tools-whitelist', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid agent name' }); return; }
     const config = readConfigFile('opencode.json', PROJECT_ROOT);
     const agentSection = config.data.agent as Record<string, unknown> | undefined;
     
@@ -241,6 +253,7 @@ router.get('/:name/tools-whitelist', (req: Request, res: Response) => {
 router.put('/:name/tools-whitelist', (req: Request, res: Response) => {
   try {
     const { name } = req.params;
+    if (!safeName(name)) { res.status(400).json({ error: 'Invalid agent name' }); return; }
     const { tools_whitelist } = req.body as { tools_whitelist: string[] };
 
     if (!Array.isArray(tools_whitelist)) {

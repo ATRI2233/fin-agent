@@ -1,8 +1,35 @@
 #!/usr/bin/env pwsh
 # fin-agent single-window startup
 
-$ErrorActionPreference = "SilentlyContinue"
+$ErrorActionPreference = "Continue"
 $PROJECT_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
+$pidFile = Join-Path $PROJECT_ROOT ".pids"
+$script:processes = @()
+
+# ── Cleanup: kill all tracked child processes ───────────────
+function Stop-ChildProcesses {
+    if (Test-Path $pidFile) {
+        Get-Content $pidFile | ForEach-Object {
+            $pid = $_.Trim()
+            if ($pid -and $pid -match '^\d+$') {
+                try {
+                    $proc = Get-Process -Id ([int]$pid) -ErrorAction SilentlyContinue
+                    if ($proc) {
+                        Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+                        Write-Host "  Killed PID $pid ($($proc.ProcessName))" -ForegroundColor Yellow
+                    }
+                } catch { }
+            }
+        }
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ── Kill leftover processes from previous run ───────────────
+if (Test-Path $pidFile) {
+    Write-Host "[Cleanup] Found .pids file from previous run, killing old processes..." -ForegroundColor Yellow
+    Stop-ChildProcesses
+}
 
 # Load .env file
 $envFile = Join-Path $PROJECT_ROOT ".env"
@@ -13,6 +40,10 @@ if (Test-Path $envFile) {
         if ($parts.Length -eq 2) {
             $key = $parts[0].Trim()
             $val = $parts[1].Trim()
+            # Strip surrounding quotes (single or double)
+            if (($val.StartsWith('"') -and $val.EndsWith('"')) -or ($val.StartsWith("'") -and $val.EndsWith("'"))) {
+                $val = $val.Substring(1, $val.Length - 2)
+            }
             [System.Environment]::SetEnvironmentVariable($key, $val, "Process")
         }
     }
@@ -48,28 +79,39 @@ Write-Host ""
 Write-Host "[1/4] opencode serve (port 4096)..." -ForegroundColor Yellow
 $ocBin = Join-Path $PROJECT_ROOT "agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
 if (Test-Path $ocBin) {
-    Start-Process -FilePath $ocBin -ArgumentList "serve", "--port", "4096" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden
+    $p = Start-Process -FilePath $ocBin -ArgumentList "serve", "--port", "4096" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
+    $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
+    $script:processes += $p
     Start-Sleep -Seconds 3
-    Write-Host "  opencode serve started" -ForegroundColor Green
+    Write-Host "  opencode serve started (PID $($p.Id))" -ForegroundColor Green
 } else {
     Write-Host "  opencode binary not found, skipping" -ForegroundColor Red
 }
 
 # Start FastAPI
 Write-Host "[2/4] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
-Start-Process -FilePath "python" -ArgumentList "-m uvicorn main.framework.main:app --port 8000" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden
+$p = Start-Process -FilePath "python" -ArgumentList "-m uvicorn main.framework.main:app --port 8000" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
+$p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
+$script:processes += $p
 Start-Sleep -Seconds 2
+Write-Host "  FastAPI started (PID $($p.Id))" -ForegroundColor Green
 
 # Start WebUI Server
 Write-Host "[3/4] WebUI Server (port 9876)..." -ForegroundColor Yellow
 $webuiServerDir = Join-Path $PROJECT_ROOT "webui\server"
-Start-Process -FilePath "node" -ArgumentList "node_modules/tsx/dist/cli.mjs watch index.ts" -WorkingDirectory $webuiServerDir -WindowStyle Hidden
+$p = Start-Process -FilePath "node" -ArgumentList "node_modules/tsx/dist/cli.mjs watch index.ts" -WorkingDirectory $webuiServerDir -WindowStyle Hidden -PassThru
+$p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
+$script:processes += $p
 Start-Sleep -Seconds 2
+Write-Host "  WebUI Server started (PID $($p.Id))" -ForegroundColor Green
 
 # Start WebUI Frontend
 Write-Host "[4/4] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
 $webuiDir = Join-Path $PROJECT_ROOT "webui"
-Start-Process -FilePath "cmd" -ArgumentList "/c npm run dev" -WorkingDirectory $webuiDir -WindowStyle Hidden
+$p = Start-Process -FilePath "cmd" -ArgumentList "/c npm run dev" -WorkingDirectory $webuiDir -WindowStyle Hidden -PassThru
+$p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
+$script:processes += $p
+Write-Host "  WebUI Frontend started (PID $($p.Id))" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -113,5 +155,30 @@ Write-Host "  Or close this window" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
+# ── Register Ctrl+C handler ────────────────────────────────
+$cleanupDone = $false
+[System.Console]::TreatControlCAsInput = $false
+[Console]::add_CancelKeyPress({
+    param($sender, $e)
+    $e.Cancel = $true
+    if (-not $cleanupDone) {
+        $cleanupDone = $true
+        Write-Host ""
+        Write-Host "[Shutdown] Ctrl+C detected, stopping all services..." -ForegroundColor Yellow
+        Stop-ChildProcesses
+        Write-Host "[Shutdown] All services stopped." -ForegroundColor Green
+    }
+})
+
 # Keep window open
-Read-Host "Press Enter to exit"
+try {
+    Read-Host "Press Enter to exit"
+} finally {
+    if (-not $cleanupDone) {
+        $cleanupDone = $true
+        Write-Host ""
+        Write-Host "[Shutdown] Stopping all services..." -ForegroundColor Yellow
+        Stop-ChildProcesses
+        Write-Host "[Shutdown] All services stopped." -ForegroundColor Green
+    }
+}

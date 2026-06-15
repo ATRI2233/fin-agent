@@ -39,6 +39,7 @@ import remarkGfm from 'remark-gfm';
 import type { Message } from '../../types/conversation';
 import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../../utils/statusConfig';
 import { formatTime } from '../../utils/time';
+import { getExecutionStatus } from '../../api/executions';
 
 const { Text } = Typography;
 
@@ -75,10 +76,10 @@ function useNodeStatuses(executionId: string | undefined): NodeStatus[] | null {
     if (!executionId) { setNodes([]); return; }
     let cancelled = false;
     const poll = async () => {
+      // Skip requests when the tab is not visible to reduce network overhead.
+      if (document.hidden) return;
       try {
-        const res = await fetch(`/api/v1/executions/${executionId}/status`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await getExecutionStatus(executionId);
         if (!cancelled && Array.isArray(data.nodes)) {
           setNodes(data.nodes.map((n: Record<string, unknown>) => ({
             node_id: String(n.node_id ?? ''),

@@ -260,5 +260,28 @@ export function getAllExperience(minConfidence = 0): any[] {
   return query("SELECT * FROM learned_rules WHERE active = 1 AND confidence >= ? ORDER BY confidence DESC", minConfidence);
 }
 
+// ── 优雅关闭数据库连接 ─────────────────────────────────────
+export function closeDb() {
+  if (db) {
+    try {
+      db.close();
+      db = null;
+      console.error("[dataHub] 数据库连接已关闭");
+    } catch (err) {
+      console.error("[dataHub] 关闭数据库连接失败:", err);
+    }
+  }
+}
+
+process.on("SIGTERM", () => {
+  closeDb();
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  closeDb();
+  process.exit(0);
+});
+
 // ── 导出路径 (供调试) ─────────────────────────────────────
 export const DB_INFO = { dir: DB_DIR, path: DB_PATH };

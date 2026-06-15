@@ -3,7 +3,7 @@
 import json
 import os
 import sys
-from urllib.request import Request, build_opener, ProxyHandler
+from ..utils import _session
 
 # Common A-share stock name to code mapping
 # This is a fallback; the primary method is API lookup
@@ -56,16 +56,15 @@ STOCK_NAME_MAP = {
 
 
 def _http_get(url, headers=None, timeout=15, encoding="utf-8"):
-    """HTTP GET request without proxy."""
+    """HTTP GET request using shared session with connection pooling and retry."""
     if headers is None:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
     try:
-        opener = build_opener(ProxyHandler({}))
-        req = Request(url, headers=headers)
-        with opener.open(req, timeout=timeout) as resp:
-            return resp.read().decode(encoding, errors="replace")
+        resp = _session.get(url, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        return resp.content.decode(encoding, errors="replace")
     except Exception:
         return None
 

@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_NODES: int = 5
     NODE_TIMEOUT_SECONDS: int = 600
     API_KEY: str = ""
+    AUTH_SKIP_LOCALHOST: bool = False  # Set to True to skip auth for localhost (not recommended behind proxy)
 
     # Serve backend settings (opencode serve HTTP API)
     SERVE_BACKEND_URL: str = "http://127.0.0.1:4096"  # opencode serve URL

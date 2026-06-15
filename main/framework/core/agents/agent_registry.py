@@ -11,12 +11,20 @@ an immediate refresh.  The cache is per-process (module-level singleton).
 """
 
 import json
+import re
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 _CACHE_TTL = 30  # seconds
+
+# Regex for a single YAML frontmatter line:  key: value
+# Supports unquoted, single-quoted, and double-quoted values.
+_FRONTMATTER_LINE_RE = re.compile(
+    r"""^([^\s:]+):\s*(?:"([^"]*)"|'([^']*)'|(.*))\s*$"""
+)
 
 
 @dataclass
@@ -36,7 +44,14 @@ def _project_root() -> Path:
 
 
 def _parse_frontmatter(text: str) -> dict:
-    """Extract YAML frontmatter delimited by '---' lines."""
+    """Extract YAML frontmatter delimited by '---' lines.
+
+    Uses a regex-based parser that correctly handles:
+    - Double-quoted values:   key: "value with: colons"
+    - Single-quoted values:   key: 'value with: colons'
+    - Unquoted values with colons: key: value: with: colons
+    - Comment lines (skipped)
+    """
     lines = text.strip().splitlines()
     if len(lines) < 2 or lines[0].strip() != "---":
         return {}
@@ -49,9 +64,20 @@ def _parse_frontmatter(text: str) -> dict:
         return {}
     meta: dict = {}
     for line in lines[1:end]:
-        if ":" in line:
-            key, _, val = line.partition(":")
-            meta[key.strip()] = val.strip().strip('"').strip("'")
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        m = _FRONTMATTER_LINE_RE.match(stripped)
+        if m:
+            key = m.group(1)
+            # group(2) = double-quoted, group(3) = single-quoted, group(4) = unquoted
+            if m.group(2) is not None:
+                value = m.group(2)
+            elif m.group(3) is not None:
+                value = m.group(3)
+            else:
+                value = (m.group(4) or "").strip()
+            meta[key] = value
     return meta
 
 
@@ -118,13 +144,15 @@ class AgentRegistry:
     def __init__(self) -> None:
         self._cache: dict[str, AgentInfo] | None = None
         self._loaded_at: float = 0.0
+        self._lock = threading.RLock()
 
     def _ensure_loaded(self) -> dict[str, AgentInfo]:
-        now = time.monotonic()
-        if self._cache is None or (now - self._loaded_at) > _CACHE_TTL:
-            self._cache = _load_agents()
-            self._loaded_at = now
-        return self._cache
+        with self._lock:
+            now = time.monotonic()
+            if self._cache is None or (now - self._loaded_at) > _CACHE_TTL:
+                self._cache = _load_agents()
+                self._loaded_at = now
+            return self._cache
 
     def get_agent(self, name: str) -> AgentInfo | None:
         return self._ensure_loaded().get(name)
@@ -133,13 +161,15 @@ class AgentRegistry:
         return list(self._ensure_loaded().values())
 
     def register_agent(self, info: AgentInfo):
-        cache = self._ensure_loaded()
-        cache[info.name] = info
+        with self._lock:
+            cache = self._ensure_loaded()
+            cache[info.name] = info
 
     def reload(self):
         """Force reload from disk, ignoring TTL."""
-        self._cache = None
-        self._loaded_at = 0.0
+        with self._lock:
+            self._cache = None
+            self._loaded_at = 0.0
 
 
 registry = AgentRegistry()

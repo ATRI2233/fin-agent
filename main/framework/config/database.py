@@ -41,10 +41,16 @@ def get_session() -> Iterator[Session]:
 
     Use ``get_db()`` (FastAPI Depends) in request handlers;
     use ``get_session()`` everywhere else.
+
+    Rolls back on exception to avoid dirty state in WAL.
+    Callers should still call ``db.commit()`` explicitly before the block ends.
     """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 

@@ -22,6 +22,10 @@ ignore = [
     "F841",  # unused-local-vars
     "E402",  # module-level import not at top (lazy imports)
     "B008",  # FastAPI Depends() in argument defaults
+    "E741",  # ambiguous variable name
+    "B905",  # zip-without-strict
+    "SIM105", # suppressible-exception
+    "SIM108", # if-else-block-instead-of-if-exp
 ]
 
 [tool.ruff.lint.per-file-ignores]

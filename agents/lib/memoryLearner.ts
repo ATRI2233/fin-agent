@@ -244,7 +244,7 @@ function computeWeightUpdates(accuracy: MemoryLearnerResult["accuracy_report"]):
 
     // 限制调整幅度（单次最多调整30%）
     const maxAdjustment = 0.3;
-    const adjustment = (newWeight - oldWeight) / oldWeight;
+    const adjustment = oldWeight === 0 ? 0 : (newWeight - oldWeight) / oldWeight;
     if (Math.abs(adjustment) > maxAdjustment) {
       newWeight = oldWeight * (1 + Math.sign(adjustment) * maxAdjustment);
     }
