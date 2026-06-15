@@ -35,11 +35,21 @@ from agents.mcp.ashare.tools import (
     get_sector_rotation,
     get_fund_flow_real,
     get_market_breadth,
+    stock_lookup,
 )
 
 # ─── MCP Tool Definitions ────────────────────────────────────────────
 
 TOOLS = [
+    {
+        "name": "ashare_stock_lookup",
+        "description": "根据股票名称查询A股代码（必须在调用其他ashare工具前使用，确保代码正确）",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"name": {"type": "string", "description": "股票名称，如 招商南油、贵州茅台"}},
+            "required": ["name"],
+        },
+    },
     {
         "name": "ashare_quote",
         "description": "获取 A 股实时行情：价格/涨跌幅/成交量/涨跌额等",
@@ -132,6 +142,7 @@ TOOLS = [
 # ─── Tool dispatch map ───────────────────────────────────────────────
 
 TOOL_DISPATCH = {
+    "ashare_stock_lookup": lambda args: stock_lookup(args.get("name", "")),
     "ashare_quote": lambda args: get_quote(args.get("symbol", "")),
     "ashare_technical_levels": lambda args: get_technical_levels(args.get("symbol", "")),
     "ashare_fundamental_scan": lambda args: get_fundamental_scan(args.get("symbol", "")),

@@ -26,6 +26,20 @@ def _close_series(data):
 # ═══════════════════════════════════════════════
 
 
+def _to_yfinance_symbol(symbol):
+    """Convert A-share codes to yfinance format (601975 -> 601975.SS)"""
+    s = symbol.strip().upper()
+    if s.endswith(".SS") or s.endswith(".SZ") or s.endswith(".HK"):
+        return s
+    # A-share: 6xxxxx = Shanghai, 0/3xxxxx = Shenzhen
+    if s.isdigit() and len(s) == 6:
+        if s.startswith("6"):
+            return f"{s}.SS"
+        else:
+            return f"{s}.SZ"
+    return s
+
+
 def calculate_risk(symbol):
     if not HAS_DEPS:
         return error_result(
@@ -34,11 +48,12 @@ def calculate_risk(symbol):
         )
 
     try:
-        data = yf.download(symbol, period="1y", progress=False, timeout=30)
+        yf_symbol = _to_yfinance_symbol(symbol)
+        data = yf.download(yf_symbol, period="1y", progress=False, timeout=30)
         if data.empty or len(data) < 60:
             return {
                 **base_result(symbol),
-                "error": "Insufficient data (need >=60 trading days)",
+                "error": f"Insufficient data for {yf_symbol} (got {len(data) if not data.empty else 0} days, need >=60)",
                 "risk_level": "unknown",
             }
 
@@ -110,11 +125,12 @@ def calculate_position(symbol, expected_return=None, risk_free_rate=0.05, kelly_
         return error_result(symbol, "yfinance/numpy not installed")
 
     try:
-        data = yf.download(symbol, period="1y", progress=False, timeout=30)
+        yf_symbol = _to_yfinance_symbol(symbol)
+        data = yf.download(yf_symbol, period="1y", progress=False, timeout=30)
         if data.empty or len(data) < 120:
             return {
                 **base_result(symbol),
-                "error": "Insufficient data (need >=120 trading days)",
+                "error": f"Insufficient data for {yf_symbol} (got {len(data) if not data.empty else 0} days, need >=120)",
                 "confidence": "low",
             }
 
@@ -196,7 +212,8 @@ def get_institutional_flow(symbol, top_n=10):
         return error_result(symbol, "yfinance not installed")
 
     try:
-        ticker = yf.Ticker(symbol)
+        yf_symbol = _to_yfinance_symbol(symbol)
+        ticker = yf.Ticker(yf_symbol)
 
         # 机构持仓
         holders = []

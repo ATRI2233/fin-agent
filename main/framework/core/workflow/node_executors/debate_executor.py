@@ -47,11 +47,16 @@ class DebateNodeExecutor(NodeExecutor):
         # debate/agent executors, matching the inline handler in
         # ``workflow_engine.py``.
         debate_exec = DebateExecutor(self.dispatcher)  # type: ignore[arg-type]
-        debate_output = await debate_exec.execute_debate(node_with_prompt)
+        debate_output, session_ids = await debate_exec.execute_debate(node_with_prompt)
 
+        # Return the first session_id for tracking; the rest are stored
+        # in extra_data so the workflow service can clean them all up.
+        primary_sid = session_ids[0] if session_ids else None
         return NodeResult(
             result={"debate_output": debate_output},
             output=debate_output,
+            session_id=primary_sid,
+            extra_data={"debate_session_ids": session_ids} if session_ids else None,
         )
 
     # ------------------------------------------------------------------

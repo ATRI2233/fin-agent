@@ -173,7 +173,9 @@ class ServeBackend(AgentBackend):
         await self.ensure_server()
 
         http = await self._get_http()
-        resp = await http.post("/session", json={})
+        # Pass agent name to opencode serve so it loads the correct tool permissions
+        payload = {"agent": agent} if agent and agent != "opencode" else {}
+        resp = await http.post("/session", json=payload)
         resp.raise_for_status()
 
         data = resp.json()

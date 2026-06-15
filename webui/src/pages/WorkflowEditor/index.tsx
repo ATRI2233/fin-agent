@@ -166,7 +166,15 @@ export default function WorkflowEditor() {
       return;
     }
     if (!workflow) return;
-    setNodes((workflow.nodes ?? []) as unknown as WorkflowNode[]);
+    // Deduplicate nodes by id (safety net for legacy data with duplicates)
+    const rawNodes = (workflow.nodes ?? []) as unknown as WorkflowNode[];
+    const seenIds = new Set<string>();
+    const dedupedNodes = rawNodes.filter((n) => {
+      if (seenIds.has(n.id)) return false;
+      seenIds.add(n.id);
+      return true;
+    });
+    setNodes(dedupedNodes);
     setEdges((workflow.edges ?? []) as unknown as WorkflowEdge[]);
     setWorkflowName(workflow.name ?? 'Workflow');
   }, [workflow, id, setNodes, setEdges]);

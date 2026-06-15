@@ -115,7 +115,13 @@ async def _run_workflow_async(
                 )
 
         engine = container.create_workflow_engine(workflow_id, params, execution_id=execution_id)
-        await engine.execute()
+        result = await engine.execute()
+        # Update execution status based on result
+        final_status = "completed"
+        if result and isinstance(result, dict):
+            final_status = result.get("status", "completed")
+        with contextlib.suppress(Exception):
+            exec_repo.update_execution(execution_id, status=final_status)
     except Exception as e:  # noqa: BLE001 — last-resort guard for the background task
         logger.error("Workflow execution failed: %s", e, exc_info=True)
         with contextlib.suppress(Exception):

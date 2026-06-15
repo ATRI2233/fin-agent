@@ -111,8 +111,11 @@ permission:
 
 ## 市场识别
 
+**⚠️ 重要：如果输入是股票名称（如"招商南油"），必须先调用 `ashare_stock_lookup` 获取正确代码，再调用其他工具。**
+
 - 纯数字代码（600036）→ `ashare_technical_levels` + `ashare_quote`
 - 字母代码（AAPL）→ `technical_levels`
+- 股票名称（招商南油）→ 先 `ashare_stock_lookup` 获取代码 → 再调用对应工具
 
 ## 输出格式
 

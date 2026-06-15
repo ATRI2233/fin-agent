@@ -17,7 +17,7 @@ class DebateExecutor:
     def __init__(self, dispatcher: AgentDispatcher):
         self._dispatcher = dispatcher
 
-    async def execute_debate(self, debate_node: dict[str, Any]) -> dict[str, Any]:
+    async def execute_debate(self, debate_node: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         """Execute a debate block.
 
         Args:
@@ -29,7 +29,9 @@ class DebateExecutor:
             }
 
         Returns:
-            {"winner": str, "analysis": dict, "reasoning": str}
+            Tuple of (result, session_ids) where:
+            - result: {"winner": str, "analysis": dict, "reasoning": str}
+            - session_ids: all session IDs created during debate (for cleanup)
         """
         agents = debate_node.get("agents", [])
         judge = debate_node.get("judge")
@@ -38,8 +40,8 @@ class DebateExecutor:
         if not agents:
             raise ValueError("Debate requires at least one agent")
 
-        # Run all agents in parallel
-        raw_results = await self._dispatcher.dispatch_parallel(agents, prompt)
+        # Run all agents in parallel, collecting session IDs
+        raw_results, session_ids = await self._dispatcher.dispatch_parallel(agents, prompt)
 
         # Normalise to the shape the judge expects
         agent_results = [
@@ -52,8 +54,11 @@ class DebateExecutor:
         ]
 
         if judge:
-            return await self._run_judge(judge, agent_results)
-        return self._select_winner(agent_results)
+            judge_result, judge_sid = await self._run_judge(judge, agent_results)
+            if judge_sid:
+                session_ids.append(judge_sid)
+            return judge_result, session_ids
+        return self._select_winner(agent_results), session_ids
 
     # ------------------------------------------------------------------
     # Judge
@@ -61,11 +66,12 @@ class DebateExecutor:
 
     async def _run_judge(
         self, judge_agent: str, agent_results: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], str | None]:
+        """Run judge agent and return (parsed_result, session_id)."""
         logger.info(f"Running judge agent: {judge_agent}")
         judge_prompt = self._build_judge_prompt(agent_results)
         resp = await self._dispatcher.dispatch(judge_agent, judge_prompt, timeout=300)
-        return self._parse_judge_result(resp["result"], agent_results)
+        return self._parse_judge_result(resp["result"], agent_results), resp.get("session_id")
 
     def _build_judge_prompt(self, agent_results: list[dict[str, Any]]) -> str:
         parts = ["请评估以下各代理的分析结果，选择最佳分析：\n"]

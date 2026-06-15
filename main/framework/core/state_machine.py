@@ -75,7 +75,7 @@ TRANSITIONS: dict[str, dict[str, frozenset[str]]] = {
         WorkflowStatus.DRAFT:     frozenset({WorkflowStatus.RUNNING, WorkflowStatus.PAUSED}),
         WorkflowStatus.RUNNING:   frozenset({WorkflowStatus.COMPLETED, WorkflowStatus.FAILED, WorkflowStatus.PAUSED}),
         WorkflowStatus.COMPLETED: frozenset({WorkflowStatus.DRAFT}),
-        WorkflowStatus.FAILED:    frozenset({WorkflowStatus.DRAFT}),
+        WorkflowStatus.FAILED:    frozenset({WorkflowStatus.DRAFT, WorkflowStatus.RUNNING}),
         WorkflowStatus.PAUSED:    frozenset({WorkflowStatus.RUNNING, WorkflowStatus.DRAFT}),
     },
     "execution": {

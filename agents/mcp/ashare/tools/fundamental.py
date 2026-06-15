@@ -1,5 +1,16 @@
 # Fundamental analysis tools
 from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
+import logging
+
+try:
+    import akshare as ak
+    import pandas as pd
+
+    HAS_DEPS = True
+except ImportError:
+    HAS_DEPS = False
+
+logger = logging.getLogger(__name__)
 
 def get_fundamental_scan(symbol):
     """获取基本面数据"""

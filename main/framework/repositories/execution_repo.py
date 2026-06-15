@@ -82,11 +82,13 @@ class ExecutionRepository(BaseRepository[WorkflowExecution]):
             return entity
 
     def delete(self, id: str) -> bool:
-        """Delete execution by id."""
+        """Delete execution by id (cascades to ExecutionNode records)."""
         with self._session() as db:
             entity = db.get(WorkflowExecution, id)
             if entity is None:
                 return False
+            # Delete child ExecutionNode records first
+            db.query(ExecutionNode).filter(ExecutionNode.execution_id == id).delete(synchronize_session=False)
             db.delete(entity)
             db.commit()
             return True

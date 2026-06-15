@@ -10,6 +10,7 @@ from .sentiment import get_news_sentiment
 from .market import get_market_snapshot, get_market_breadth, get_sector_rotation
 from .fund_flow import get_fund_flow, get_fund_flow_real
 from .lhb import get_lhb
+from .stock_lookup import stock_lookup
 
 __all__ = [
     "get_quote",
@@ -22,4 +23,5 @@ __all__ = [
     "get_fund_flow",
     "get_fund_flow_real",
     "get_lhb",
+    "stock_lookup",
 ]

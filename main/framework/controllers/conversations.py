@@ -37,6 +37,7 @@ from main.framework.schemas.conversation import (
     MessageCreate,
     MessageResponse,
 )
+from main.framework.models.conversation import Message
 from main.framework.services.conversation_service import ConversationService
 from main.framework.services.exceptions import NotFoundError
 from main.framework.services.message_processor import (
@@ -158,6 +159,24 @@ async def delete_conversation(
             session_id = await session_mgr.cleanup_session(conversation_id, db=db)
             if session_id:
                 logger.info("Cleaned up session %s for conversation %s", session_id[:12], conversation_id)
+
+            # Also cleanup execution node sessions before DB delete
+            from main.framework.models.workflow_execution import ExecutionNode
+            from main.framework.core.workflow.session_cleanup import cleanup_workflow_sessions
+
+            execution_ids = [
+                m.execution_id for m in
+                db.query(Message.execution_id)
+                  .filter(Message.conversation_id == conversation_id,
+                          Message.execution_id.isnot(None))
+                  .distinct().all()
+            ]
+            for exec_id in execution_ids:
+                try:
+                    cleanup_workflow_sessions(exec_id, backend=container.backend)
+                except Exception as cleanup_err:
+                    logger.warning("Failed to cleanup sessions for execution %s: %s", exec_id, cleanup_err)
+
             service.delete(conversation_id, db)
     except NotFoundError as err:
         raise HTTPException(status_code=404, detail="Conversation not found") from err

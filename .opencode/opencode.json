@@ -3,6 +3,7 @@
   "agent": {
     "macro-scout": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "ashare-mcp-server_ashare_market_snapshot": true,
         "ashare-mcp-server_ashare_market_breadth": true,
         "fin-agent-mcp-server_market_snapshot": true,
@@ -23,6 +24,7 @@
     },
     "technical-chartist": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "ashare-mcp-server_ashare_quote": true,
         "ashare-mcp-server_ashare_technical_levels": true,
         "fin-agent-mcp-server_technical_levels": true,
@@ -36,6 +38,7 @@
     },
     "fundamental-auditor": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "ashare-mcp-server_ashare_fundamental_scan": true,
         "ashare-mcp-server_ashare_market_snapshot": true,
         "ashare-mcp-server_ashare_news_sentiment": true,
@@ -61,6 +64,7 @@
     },
     "sentiment-decoder": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "ashare-mcp-server_ashare_news_sentiment": true,
         "ashare-mcp-server_ashare_market_breadth": true,
         "ashare-mcp-server_ashare_market_snapshot": true,
@@ -72,6 +76,7 @@
     },
     "sector-rotator": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "ashare-mcp-server_ashare_fund_flow": true,
         "ashare-mcp-server_ashare_market_snapshot": true,
         "ashare-mcp-server_ashare_news_sentiment": true,
@@ -82,6 +87,7 @@
     },
     "smart-money-hound": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "ashare-mcp-server_ashare_fund_flow": true,
         "ashare-mcp-server_ashare_fund_flow_real": true,
         "ashare-mcp-server_ashare_lhb": true,
@@ -122,6 +128,7 @@
     },
     "devil-advocate": {
       "tools": {
+        "ashare-mcp-server_ashare_stock_lookup": true,
         "lib-mcp-server_devil_advocate": true,
         "lib-mcp-server_memory_recall": true,
         "fin-agent-mcp-server_news_sentiment": true,

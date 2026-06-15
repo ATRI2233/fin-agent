@@ -1,6 +1,7 @@
 # Technical analysis tools
 from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
 import math
+import numpy as np
 
 def calculate_rsi(close, period=14):
     """计算 RSI"""

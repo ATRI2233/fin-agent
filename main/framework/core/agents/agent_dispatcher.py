@@ -93,22 +93,34 @@ class AgentDispatcher:
         prompt: str,
         *,
         timeout: int = 300,
-    ) -> list[dict[str, Any]]:
+        reuse_session: bool = False,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         """Dispatch the same prompt to multiple agents in parallel.
 
-        Returns a list of {"agent": str, "result": Any, "error": str | None}.
+        Returns:
+            Tuple of (results, session_ids) where:
+            - results: list of {"agent": str, "result": Any, "error": str | None}
+            - session_ids: list of all session IDs created during dispatch
         """
         import asyncio
 
+        _session_ids: list[str] = []
+
         async def _one(agent_name: str) -> dict[str, Any]:
             try:
-                resp = await self.dispatch(agent_name, prompt, timeout=timeout)
+                resp = await self.dispatch(
+                    agent_name, prompt, timeout=timeout, reuse_session=reuse_session
+                )
+                sid = resp.get("session_id")
+                if sid:
+                    _session_ids.append(sid)
                 return {"agent": agent_name, "result": resp["result"], "error": None}
             except Exception as e:
                 logger.error(f"Agent {agent_name} failed: {e}")
                 return {"agent": agent_name, "result": None, "error": str(e)}
 
-        return await asyncio.gather(*[_one(a) for a in agents])
+        results = await asyncio.gather(*[_one(a) for a in agents])
+        return results, _session_ids
 
     # ------------------------------------------------------------------
     # Helpers

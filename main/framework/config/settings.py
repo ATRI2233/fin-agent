@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_JOBS: int = 10
     MAX_CONCURRENT_SESSIONS: int = 10
     MAX_CONCURRENT_NODES: int = 5
-    NODE_TIMEOUT_SECONDS: int = 300
+    NODE_TIMEOUT_SECONDS: int = 600
     API_KEY: str = ""
 
     # Serve backend settings (opencode serve HTTP API)

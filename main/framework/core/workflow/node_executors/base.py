@@ -68,12 +68,14 @@ class NodeResult:
             Used for serial chain session reuse.
         error: Populated when the executor wants to report a soft failure
             while still returning a result object.
+        extra_data: Arbitrary metadata (e.g. debate session IDs for cleanup).
     """
 
     result: dict[str, Any]
     output: dict[str, Any] | None = None
     session_id: str | None = None
     error: str | None = None
+    extra_data: dict[str, Any] | None = None
 
 
 class NodeExecutor(ABC):

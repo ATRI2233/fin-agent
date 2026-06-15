@@ -83,6 +83,18 @@ class WorkflowQueryService:
         return WorkflowRepository()
 
     @staticmethod
+    def _dedup_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Remove duplicate nodes by id, keeping the first occurrence."""
+        seen: set[str] = set()
+        result: list[dict[str, Any]] = []
+        for node in nodes:
+            nid = node.get("id", "")
+            if nid not in seen:
+                seen.add(nid)
+                result.append(node)
+        return result
+
+    @staticmethod
     def _to_response(workflow: Any) -> dict[str, Any]:
         """Build the full response dict for a single workflow row."""
         return {
@@ -133,7 +145,7 @@ class WorkflowQueryService:
 
         Raises :class:`ServiceError` on validation failure.
         """
-        nodes = payload.get("nodes", []) or []
+        nodes = self._dedup_nodes(payload.get("nodes", []) or [])
         edges = payload.get("edges", []) or []
 
         if len(nodes) > MAX_NODES:
@@ -192,6 +204,10 @@ class WorkflowQueryService:
             if payload.get(key) is not None:
                 update_fields[key] = payload[key]
 
+        # Deduplicate nodes by id before saving.
+        if "nodes" in update_fields:
+            update_fields["nodes"] = self._dedup_nodes(update_fields["nodes"])
+
         # Re-validate DAG when the topology changes.
         if "nodes" in update_fields or "edges" in update_fields:
             nodes = update_fields.get("nodes", workflow.nodes or [])
@@ -217,8 +233,18 @@ class WorkflowQueryService:
         if workflow is None:
             raise NotFoundError(f"Workflow {workflow_id} not found")
 
-        # Cascade: delete executions before the workflow row.
-        db.query(WorkflowExecution).filter(WorkflowExecution.workflow_id == workflow_id).delete()
+        # Cascade: delete execution nodes + executions before the workflow row.
+        from main.framework.models.workflow_execution import ExecutionNode
+
+        exec_ids = [
+            r[0] for r in
+            db.query(WorkflowExecution.id)
+              .filter(WorkflowExecution.workflow_id == workflow_id)
+              .all()
+        ]
+        if exec_ids:
+            db.query(ExecutionNode).filter(ExecutionNode.execution_id.in_(exec_ids)).delete(synchronize_session=False)
+        db.query(WorkflowExecution).filter(WorkflowExecution.workflow_id == workflow_id).delete(synchronize_session=False)
         db.commit()
 
         if not repo.delete(workflow_id):

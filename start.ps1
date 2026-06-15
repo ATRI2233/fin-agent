@@ -44,19 +44,30 @@ else { Write-Host " Not found at $ocBin" -ForegroundColor Red }
 
 Write-Host ""
 
+# Start opencode serve
+Write-Host "[1/4] opencode serve (port 4096)..." -ForegroundColor Yellow
+$ocBin = Join-Path $PROJECT_ROOT "agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+if (Test-Path $ocBin) {
+    Start-Process -FilePath $ocBin -ArgumentList "serve", "--port", "4096" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden
+    Start-Sleep -Seconds 3
+    Write-Host "  opencode serve started" -ForegroundColor Green
+} else {
+    Write-Host "  opencode binary not found, skipping" -ForegroundColor Red
+}
+
 # Start FastAPI
-Write-Host "[1/3] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
+Write-Host "[2/4] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
 Start-Process -FilePath "python" -ArgumentList "-m uvicorn main.framework.main:app --port 8000" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden
 Start-Sleep -Seconds 2
 
 # Start WebUI Server
-Write-Host "[2/3] WebUI Server (port 9876)..." -ForegroundColor Yellow
+Write-Host "[3/4] WebUI Server (port 9876)..." -ForegroundColor Yellow
 $webuiServerDir = Join-Path $PROJECT_ROOT "webui\server"
 Start-Process -FilePath "node" -ArgumentList "node_modules/tsx/dist/cli.mjs watch index.ts" -WorkingDirectory $webuiServerDir -WindowStyle Hidden
 Start-Sleep -Seconds 2
 
 # Start WebUI Frontend
-Write-Host "[3/3] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
+Write-Host "[4/4] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
 $webuiDir = Join-Path $PROJECT_ROOT "webui"
 Start-Process -FilePath "cmd" -ArgumentList "/c npm run dev" -WorkingDirectory $webuiDir -WindowStyle Hidden
 
@@ -65,6 +76,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  All services started" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "  opencode serve:     http://localhost:4096" -ForegroundColor White
 Write-Host "  FastAPI Framework:  http://localhost:8000/api/v1/health" -ForegroundColor White
 Write-Host "  WebUI Server:       http://localhost:9876/api/health" -ForegroundColor White
 Write-Host "  WebUI Frontend:     http://localhost:5173" -ForegroundColor White
@@ -79,8 +91,9 @@ Write-Host ""
 Write-Host "[Health Check]" -ForegroundColor Cyan
 
 $checks = @(
-    @{ Name = "FastAPI";  Url = "http://localhost:8000/api/v1/health" },
-    @{ Name = "WebUI";    Url = "http://localhost:9876/api/health" }
+    @{ Name = "opencode";  Url = "http://localhost:4096/session" },
+    @{ Name = "FastAPI";   Url = "http://localhost:8000/api/v1/health" },
+    @{ Name = "WebUI";     Url = "http://localhost:9876/api/health" }
 )
 
 foreach ($check in $checks) {

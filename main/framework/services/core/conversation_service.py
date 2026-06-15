@@ -170,6 +170,8 @@ class ConversationService:
         # 4. Delete conversation
         repo.delete(conv_id)
 
+        db.commit()
+
     # ------------------------------------------------------------------
     # Messages
     # ------------------------------------------------------------------

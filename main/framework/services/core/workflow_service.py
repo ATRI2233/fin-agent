@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from main.framework.core.state_machine import WorkflowStatus, validate_transition
 from main.framework.core.workflow.node_executors.base import NodeContext
+from main.framework.core.workflow.session_cleanup import register_cleanup_hook
 from main.framework.core.workflow.workflow_parser import (
     identify_parallel_branches,
     topological_sort,
@@ -137,6 +138,12 @@ class WorkflowService:
             if self.execution_id is None:
                 execution = self._exec_service.create_execution_for_workflow(workflow, self.params, db)
                 self.execution_id = str(execution.id)
+
+            # ---- Register atexit/signal cleanup as safety net ----
+            try:
+                register_cleanup_hook(self.execution_id, backend=self._dispatcher.backend)
+            except Exception as hook_err:
+                logger.debug("Failed to register cleanup hook: %s", hook_err)
 
             # ---- Walk the DAG ----
             await self._execute_in_order(execution_order, parallel_branches, predecessors, db, status_callback=callback)
@@ -330,6 +337,14 @@ class WorkflowService:
             logger.info("Node %s completed, session_id=%s", node_id, node_result.session_id[:12] if node_result.session_id else None)
         else:
             logger.info("Node %s completed, no session_id", node_id)
+
+        # Track extra session IDs from debate nodes (multiple parallel agents)
+        extra = getattr(node_result, "extra_data", None) or {}
+        debate_sids = extra.get("debate_session_ids", [])
+        for sid in debate_sids:
+            if sid and sid != getattr(node_result, "session_id", None):
+                self._chain_sessions[f"{node_id}:debate:{sid[:8]}"] = sid
+
         return {
             "result": getattr(node_result, "result", None),
             "output": getattr(node_result, "output", None),
@@ -412,6 +427,29 @@ class WorkflowService:
             logger.warning("Session cleanup failed: %s", e)
         finally:
             self._sessions_cleaned = True
+            # Update database status for nodes with sessions
+            if self.execution_id:
+                try:
+                    from main.framework.models.database import SessionLocal
+                    from main.framework.models.workflow_execution import ExecutionNode
+
+                    db = SessionLocal()
+                    try:
+                        nodes = db.query(ExecutionNode).filter(
+                            ExecutionNode.execution_id == self.execution_id,
+                            ExecutionNode.session_id.isnot(None)
+                        ).all()
+                        for node in nodes:
+                            node.status = "cleaned_up"
+                        db.commit()
+                        logger.info("Updated %d nodes to cleaned_up status", len(nodes))
+                    except Exception as db_err:
+                        logger.warning("Failed to update node cleanup status: %s", db_err)
+                        db.rollback()
+                    finally:
+                        db.close()
+                except Exception as e:
+                    logger.warning("Failed to update node cleanup status: %s", e)
 
     # ------------------------------------------------------------------
     # Helpers

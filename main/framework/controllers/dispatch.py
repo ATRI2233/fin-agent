@@ -48,7 +48,7 @@ class DispatchRequest(BaseModel):
     """Single-agent dispatch payload."""
 
     agent: str
-    prompt: str = Field(..., max_length=10000)
+    prompt: str = Field(..., min_length=1, max_length=10000)
     timeout: int = Field(default=120, ge=10, le=600)
 
 
