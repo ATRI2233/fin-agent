@@ -1,5 +1,24 @@
 # Market tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
+from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
+from datetime import datetime
+
+try:
+    import akshare as ak
+
+    HAS_DEPS = True
+except ImportError:
+    HAS_DEPS = False
+
+INDEX_CODES = {
+    "上证指数": "000001",
+    "深证成指": "399001",
+    "创业板指": "399006",
+    "沪深300": "000300",
+    "科创50": "000688",
+    "上证50": "000016",
+    "中证500": "000905",
+    "中证1000": "000852",
+}
 
 def get_market_snapshot():
     """获取 A 股主要大盘指数行情"""
@@ -58,7 +77,7 @@ def get_sector_rotation(period="近5日"):
 
     try:
         # 获取行业板块列表
-        df_industries = ak.stock_board_industry_name_em()
+        df_industries = retry_akshare(ak.stock_board_industry_name_em)
         if df_industries is None or df_industries.empty:
             return {"error": "无法获取行业板块列表"}
 
@@ -76,7 +95,8 @@ def get_sector_rotation(period="近5日"):
         for _, row in df_industries.head(30).iterrows():
             sector_name = str(row[name_col])
             try:
-                df_hist = ak.stock_board_industry_hist_em(
+                df_hist = retry_akshare(
+                    ak.stock_board_industry_hist_em,
                     symbol=sector_name,
                     period="日k",
                     start_date="20200101",
@@ -203,7 +223,7 @@ def get_market_breadth():
         limit_up_count = 0
         limit_up_list = []
         try:
-            df_zt = ak.stock_zt_pool_em(date=today)
+            df_zt = retry_akshare(ak.stock_zt_pool_em, date=today)
             if df_zt is not None and not df_zt.empty:
                 limit_up_count = len(df_zt)
                 zcols = df_zt.columns.tolist()
@@ -221,7 +241,7 @@ def get_market_breadth():
         limit_down_count = 0
         limit_down_list = []
         try:
-            df_dt = ak.stock_dt_pool_em(date=today)
+            df_dt = retry_akshare(ak.stock_dt_pool_em, date=today)
             if df_dt is not None and not df_dt.empty:
                 limit_down_count = len(df_dt)
                 dcols = df_dt.columns.tolist()
@@ -269,139 +289,3 @@ def get_market_breadth():
         }
     except Exception as e:
         return {"error": f"市场广度获取失败: {str(e)}"}
-
-
-# ═══════════════════════════════════════════════════
-# MCP 协议处理
-# ═══════════════════════════════════════════════════
-
-TOOLS = [
-    {
-        "name": "ashare_quote",
-        "description": "获取 A 股实时行情：价格/涨跌幅/成交量/涨跌额等",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "A 股代码，如 600318 或 603318",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "ashare_technical_levels",
-        "description": "获取 A 股技术指标：RSI/EMA/布林带/MACD/枢轴点/波动率",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "A 股代码，如 600318 或 603318",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "ashare_fundamental_scan",
-        "description": "获取 A 股基本面：ROE/净利润/营收/PE/PB/每股收益/股息率/资产负债率/流动比率/毛利率/营业利润率/同比增速",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "A 股代码，如 600318 或 603318",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "ashare_news_sentiment",
-        "description": "获取 A 股新闻及情绪评分",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "A 股代码，如 600318 或 603318",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "ashare_market_snapshot",
-        "description": "获取 A 股大盘指数（上证/深证/创业板/沪深300/科创50等）",
-        "inputSchema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-    {
-        "name": "ashare_fund_flow",
-        "description": "获取 A 股个股资金流向（超大单/大单/中单/小单净流入）",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "A 股代码，如 600318 或 603318",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "ashare_lhb",
-        "description": "获取龙虎榜数据（最近上榜股票）",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "date": {
-                    "type": "string",
-                    "description": "日期，格式 YYYYMMDD，如 20250125",
-                },
-            },
-        },
-    },
-    {
-        "name": "ashare_sector_rotation",
-        "description": "获取 A 股板块轮动分析：行业板块涨跌幅排名、动量信号、轮入/轮出板块",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "period": {
-                    "type": "string",
-                    "description": "分析周期：近1日/近5日/近10日/近20日",
-                    "enum": ["近1日", "近5日", "近10日", "近20日"],
-                    "default": "近5日",
-                },
-            },
-        },
-    },
-    {
-        "name": "ashare_fund_flow_real",
-        "description": "获取 A 股个股实时资金流向：主力/超大单/大单/中单/小单 净流入与净占比",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "A 股代码，如 600318 或 603318",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "ashare_market_breadth",
-        "description": "获取 A 股市场广度：涨跌家数、涨停/跌停家数、涨跌家数比、市场情绪",
-        "inputSchema": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-]

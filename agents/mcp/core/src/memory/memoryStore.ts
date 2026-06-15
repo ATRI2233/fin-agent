@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 
 // 统一数据库路径 (与 lib/dataHub.ts 一致)
-const DB_DIR = "D:\\github_place\\fin-agent\\data";
+const DB_DIR = path.resolve(__dirname, "..", "..", "..", "..", "..", "data");
 const DB_PATH = path.join(DB_DIR, "fin-agent.db");
 let db: Database.Database;
 

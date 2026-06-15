@@ -9,7 +9,7 @@
  * button.
  *
  * Stop conditions (preserved verbatim from the original implementation):
- *   - poll count > 120 (4 minutes at 2s interval) — bail out
+ *   - poll count > MAX_POLLS (600 = 20 minutes at 2s interval) — bail out
  *   - workflow mode: a `workflow_result` or `workflow_error` message
  *     appears AFTER the user message
  *   - agent mode: any `assistant` message OR a non-workflow `system`
@@ -25,8 +25,8 @@ import type { Message } from '../../../types/conversation';
 
 /** Poll cadence — must match the original `setInterval(…, 2000)`. */
 const POLL_INTERVAL_MS = 2000;
-/** Max polls — 4 minutes total. */
-const MAX_POLLS = 120;
+/** Max polls — 20 minutes total (workflows with multiple agents can take 10+ min). */
+const MAX_POLLS = 600;
 
 export type PollingMode = 'agent' | 'workflow';
 

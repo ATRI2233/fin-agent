@@ -1,5 +1,27 @@
 # News sentiment tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
+from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
+import logging
+
+try:
+    import akshare as ak
+    import pandas as pd
+
+    HAS_DEPS = True
+except ImportError:
+    HAS_DEPS = False
+
+logger = logging.getLogger(__name__)
+
+INDEX_CODES = {
+    "上证指数": "000001",
+    "深证成指": "399001",
+    "创业板指": "399006",
+    "沪深300": "000300",
+    "科创50": "000688",
+    "上证50": "000016",
+    "中证500": "000905",
+    "中证1000": "000852",
+}
 
 def _calc_sentiment_score(text):
     """基于关键词匹配计算情绪评分 (0-100)，50 为中性"""
@@ -61,7 +83,9 @@ def get_news_sentiment(symbol):
 
         # ── 个股新闻: ak.stock_news_em ──
         try:
-            df_news = ak.stock_news_em(symbol=stock_code)
+            df_news = retry_akshare(ak.stock_news_em, symbol=stock_code)
+            if df_news is None:
+                df_news = pd.DataFrame()
         except Exception:
             df_news = pd.DataFrame()
 
@@ -91,8 +115,8 @@ def get_news_sentiment(symbol):
         market_sentiment = 50
         market_news_count = 0
         try:
-            df_global = ak.stock_info_global_em()
-            if not df_global.empty:
+            df_global = retry_akshare(ak.stock_info_global_em)
+            if df_global is not None and not df_global.empty:
                 gcols = df_global.columns.tolist()
                 g_title_col = "标题" if "标题" in gcols else gcols[1] if len(gcols) > 1 else gcols[0]
                 g_summary_col = "摘要" if "摘要" in gcols else gcols[2] if len(gcols) > 2 else None
@@ -126,19 +150,3 @@ def get_news_sentiment(symbol):
         }
     except Exception as e:
         return {"error": f"新闻获取失败: {str(e)}", "symbol": symbol}
-
-
-# ═══════════════════════════════════════════════════
-# Tool 5: ashare_market_snapshot — A 股大盘指数
-# ═══════════════════════════════════════════════════
-
-INDEX_CODES = {
-    "上证指数": "000001",
-    "深证成指": "399001",
-    "创业板指": "399006",
-    "沪深300": "000300",
-    "科创50": "000688",
-    "上证50": "000016",
-    "中证500": "000905",
-    "中证1000": "000852",
-}

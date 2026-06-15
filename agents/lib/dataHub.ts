@@ -10,7 +10,7 @@ import path from "path";
 import fs from "fs";
 
 // ── 数据库路径 ────────────────────────────────────────────
-const DB_DIR = "D:\\github_place\\fin-agent\\data";
+const DB_DIR = path.resolve(__dirname, "..", "..", "..", "data");
 const DB_PATH = path.join(DB_DIR, "fin-agent.db");
 
 // ── 单例连接 ──────────────────────────────────────────────

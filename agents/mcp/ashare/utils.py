@@ -1,11 +1,60 @@
 """Shared utilities for ashare MCP server."""
 
 import json
+import logging
 import os
 import subprocess
 import sys
 
-from urllib.request import Request, build_opener, ProxyHandler
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+_logger = logging.getLogger(__name__)
+
+
+def retry_akshare(func, *args, retries=3, **kwargs):
+    """Call an akshare function with retry on transient errors.
+
+    akshare internally uses bare ``requests.get`` against eastmoney APIs
+    which aggressively rate-limit, causing frequent RemoteDisconnected,
+    timeout, and chunked-encoding errors.  We wrap the call here because
+    we cannot patch akshare internals.
+    """
+    import time as _time
+
+    for attempt in range(retries):
+        try:
+            return func(*args, **kwargs)
+        except (
+            requests.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.Timeout,
+            ConnectionResetError,
+            TimeoutError,
+        ) as e:
+            _logger.warning("akshare %s attempt %d/%d failed: %s", func.__name__, attempt + 1, retries, e)
+            if attempt < retries - 1:
+                _time.sleep(2 * (attempt + 1))
+        except Exception:
+            raise
+    return None
+
+# Module-level session with connection pooling and auto-retry.
+# Eastmoney API aggressively rate-limits; bare urllib drops ~90% of requests.
+# requests.Session reuses TCP connections and the Retry adapter handles
+# transient RemoteDisconnected / 5xx errors with exponential backoff.
+_session = requests.Session()
+_retry = Retry(
+    total=3,
+    backoff_factor=1,
+    status_forcelist=[500, 502, 503, 504],
+    allowed_methods=["GET"],
+)
+_session.mount("https://", HTTPAdapter(max_retries=_retry, pool_connections=2, pool_maxsize=2))
+_session.mount("http://", HTTPAdapter(max_retries=_retry, pool_connections=2, pool_maxsize=2))
+# Strip any system proxy — matches the original ProxyHandler({}) intent.
+_session.trust_env = False
 
 
 def _run_akshare(script):
@@ -117,19 +166,19 @@ def parse_ashare_code(symbol):
         return None, code
 
 
-def http_get(url, headers=None, timeout=15, encoding="gbk"):
-    """HTTP GET request without proxy."""
+def http_get(url, headers=None, timeout=15, encoding="gbk", retries=3):
+    """HTTP GET request using requests.Session with connection pooling and retry."""
     if headers is None:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://finance.sina.com.cn",
         }
     try:
-        opener = build_opener(ProxyHandler({}))
-        req = Request(url, headers=headers)
-        with opener.open(req, timeout=timeout) as resp:
-            return resp.read().decode(encoding, errors="replace")
-    except Exception:
+        resp = _session.get(url, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        return resp.content.decode(encoding, errors="replace")
+    except Exception as e:
+        _logger.warning("http_get failed for %s: %s", url[:80], e)
         return None
 
 
