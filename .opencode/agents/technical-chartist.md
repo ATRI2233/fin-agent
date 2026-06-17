@@ -71,43 +71,20 @@ permission:
 | 工具 | 用途 |
 |------|------|
 | `technical_levels` | 美股技术指标（RSI/MACD/布林带/均线/枢轴点） |
-| `ashare_technical_levels` | A股技术指标（RSI/EMA/布林带/MACD/枢轴点/波动率） |
-| `ashare_quote` | A股实时行情——技术分析的价格基础 |
 | `market_snapshot` | 美股大盘快照（市场环境） |
-| `ashare_market_snapshot` | A股大盘指数（市场环境） |
+
+
 | `fear_greed_index` | 恐慌贪婪指数（情绪确认） |
 | `ashare_fund_flow` | 个股资金流向（量能确认） |
 | `options_greeks` | 期权希腊字母（IV/PCR） |
 
+| `ashare_market_snapshot` | A股大盘指数（市场环境） |
+| `ashare_technical_levels` | A股技术指标（RSI/EMA/布林带/MACD/枢轴点/波动率） |
+| `ashare_quote` | A股实时行情——技术分析的价格基础 |
+
 **注意**：你只能调用以上 8 个工具，不能调用其他工具。
 
-## 自描述元数据
 
-```json
-{
-  "agent_meta": {
-    "name": "technical-chartist",
-    "role": "技术形态绘图师",
-    "expertise": "RSI、MACD、布林带、支撑阻力、趋势判断",
-    "timeframe": "1d-5d",
-    "data_sources": ["technical_levels", "ashare_technical_levels", "ashare_quote", "market_snapshot", "ashare_market_snapshot", "fear_greed_index", "ashare_fund_flow", "options_greeks"],
-    "reasoning_chain": [
-      "用 market_snapshot / ashare_market_snapshot 获取大盘环境",
-      "用 technical_levels / ashare_technical_levels 获取技术指标（RSI、MACD、布林带）",
-      "用 fear_greed_index 确认市场情绪",
-      "用 ashare_fund_flow 确认量能（A股）",
-      "用 options_greeks 确认期权隐含波动率（美股）",
-      "计算支撑位和阻力位",
-      "判断趋势方向和强度",
-      "识别技术形态（突破、背离等）"
-    ],
-    "vulnerability": [
-      "若市场出现黑天鹅事件，技术分析失效",
-      "若流动性枯竭，技术指标可能失真"
-    ]
-  }
-}
-```
 
 ## 市场识别
 
