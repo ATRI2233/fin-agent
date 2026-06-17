@@ -6,8 +6,8 @@
  *   - `MessageThread`                  — scrollable message list + auto-scroll
  *   - `ChatInput`                      — mode toggle + agent/workflow + composer
  *   - `hooks/useConversations`         — list + create + delete (page wrapper)
- *   - `hooks/useMessages`              — load + send + polling state (page wrapper)
- *   - `hooks/useConversationPolling`   — used by `useMessages`
+ *   - `hooks/useMessages`              — load + send + SSE state (page wrapper)
+ *   - `hooks/useConversationStream`    — used by `useMessages`
  *
  * Top-level state owned here (UI-only):
  *   - `mode`, `selectedAgent`, `selectedWorkflow` — composer targeting
@@ -36,9 +36,9 @@ import {
 } from '@ant-design/icons';
 
 import { listSessions } from '../../api/sessions';
+import type { SessionInfo } from '../../types/session';
 import { useAgents } from '../../hooks/useAgents';
 import { useWorkflows } from '../../hooks/useWorkflows';
-import type { SessionInfo } from '../../types/session';
 import ChatInput, { type ChatMode } from './ChatInput';
 import ConversationSidebar from './ConversationSidebar';
 import {
@@ -72,7 +72,7 @@ export default function ChatPage() {
     sendMessage,
     processingMessage,
     sendingMessage,
-    stopPolling,
+    stopStream,
   } = useMessages();
 
   // Registry data (Wave 5 hooks — read-only). `useFetch` returns
@@ -82,33 +82,47 @@ export default function ChatPage() {
   const agents = agentsRaw ?? [];
   const workflows = workflowsRaw ?? [];
 
-  // Agent sessions for the current conversation.
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
-  const refreshSessions = () => {
-    if (!currentConversation?.id) return;
-    listSessions({ conversation_id: currentConversation.id })
-      .then((res) => { setSessions(res.sessions ?? []); })
-      .catch(() => { /* ignore */ });
-  };
-  useEffect(() => {
-    if (!currentConversation?.id) {
-      setSessions([]);
-      return;
-    }
-    let cancelled = false;
-    listSessions({ conversation_id: currentConversation.id })
+  // Sessions grouped by conversation id (for per-row sidebar sub-lists).
+  const [sessionsByConversation, setSessionsByConversation] = useState<Record<string, SessionInfo[]>>({});
+  // Which conversations have their session sub-list expanded in the sidebar.
+  const [expandedConversations, setExpandedConversations] = useState<string[]>([]);
+
+  const fetchSessionsForConversation = (conversationId: string) => {
+    listSessions({ conversation_id: conversationId })
       .then((res) => {
-        if (!cancelled) setSessions(res.sessions ?? []);
+        setSessionsByConversation((prev) => ({
+          ...prev,
+          [conversationId]: res.sessions ?? [],
+        }));
       })
       .catch(() => { /* ignore */ });
-    return () => { cancelled = true; };
-  }, [currentConversation?.id]);
-  // Refresh sessions when workflow processing finishes.
-  useEffect(() => {
-    if (!processingMessage) {
-      refreshSessions();
+  };
+
+  const handleConversationExpand = (conversationId: string) => {
+    setExpandedConversations((prev) =>
+      prev.includes(conversationId)
+        ? prev.filter((id) => id !== conversationId)
+        : [...prev, conversationId]
+    );
+    // Lazy-fetch sessions for this conversation if not yet loaded
+    if (!sessionsByConversation[conversationId]) {
+      fetchSessionsForConversation(conversationId);
     }
-  }, [processingMessage]);
+  };
+
+  const handleSessionClick = (session: SessionInfo) => {
+    // Find which conversation this session belongs to
+    const convId = Object.entries(sessionsByConversation).find(
+      ([, sessions]) => sessions.some((s) => s.session_id === session.session_id)
+    )?.[0];
+    if (convId) {
+      const conv = conversations.find((c) => c.id === convId);
+      if (conv) {
+        setCurrentConversation(conv);
+        loadMessages(conv.id);
+      }
+    }
+  };
 
   // Imperative handle for MessageThread so we can request a scroll on send.
   const messageThreadRef = useRef<MessageThreadHandle>(null);
@@ -149,7 +163,10 @@ export default function ChatPage() {
       <ConversationSidebar
         conversations={conversations}
         currentId={currentConversation?.id ?? null}
-        sessions={sessions}
+        sessionsByConversation={sessionsByConversation}
+        expandedConversations={new Set(expandedConversations)}
+        onConversationExpand={handleConversationExpand}
+        onSessionClick={handleSessionClick}
         onSelect={setCurrentConversation}
         onCreate={createConversation}
         onDelete={deleteConversation}
@@ -186,7 +203,7 @@ export default function ChatPage() {
                       <Tag color="orange" icon={<LoadingOutlined spin />}>
                         Processing
                       </Tag>
-                      <Button size="small" danger onClick={() => stopPolling()}>
+                      <Button size="small" danger onClick={() => stopStream()}>
                         取消
                       </Button>
                     </Space>

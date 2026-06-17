@@ -15,9 +15,9 @@
  *                      `useCreateMessage` mutation, appends the user
  *                      echo to the store, and kicks off polling
  *                      (see `useConversationPolling`).
- *   4. **Polling**   — forwards `processingMessage` /
- *                      `pendingMessageId` / `stopPolling` from the
- *                      polling hook for the page to render the
+ *   4. **Streaming** — forwards `processingMessage` /
+ *                      `pendingMessageId` / `stopStream` from the
+ *                      SSE hook for the page to render the
  *                      "Processing" badge and cancel button.
  */
 import { useCallback, useEffect, useState } from 'react';
@@ -25,11 +25,11 @@ import { message as antdMessage } from 'antd';
 import { useCreateMessage } from '../../../hooks/useConversations';
 import { listMessages } from '../../../api/conversations';
 import { useConversationStore } from '../../../store/useConversationStore';
-import { useConversationPolling, type PollingMode } from './useConversationPolling';
+import { useConversationStream, type StreamMode } from './useConversationStream';
 
 export interface SendMessageParams {
   content: string;
-  mode: PollingMode;
+  mode: StreamMode;
   agent?: string;
   workflow_id?: string | null;
 }
@@ -41,7 +41,7 @@ export interface UseMessagesResult {
   processingMessage: boolean;
   pendingMessageId: string | null;
   sendingMessage: boolean;
-  stopPolling: () => void;
+  stopStream: () => void;
 }
 
 export function useMessages(): UseMessagesResult {
@@ -52,12 +52,14 @@ export function useMessages(): UseMessagesResult {
 
   const [sendingMessage, setSendingMessage] = useState(false);
   const createMessageMutation = useCreateMessage();
-  const { startPolling, stopPolling, processingMessage, pendingMessageId } =
-    useConversationPolling();
+  const { startStream, stopStream, processingMessage, pendingMessageId } =
+    useConversationStream();
 
-  // Auto-load messages when the active conversation changes. Mirrors
-  // the original `useEffect(() => loadMessages(current.id), [current])`.
+  // Auto-load messages when the active conversation changes. Also stop any
+  // in-flight SSE stream from the previous conversation so its events don't
+  // overwrite the new conversation's messages.
   useEffect(() => {
+    stopStream();
     if (currentConversation) {
       void (async (): Promise<void> => {
         try {
@@ -68,7 +70,7 @@ export function useMessages(): UseMessagesResult {
         }
       })();
     }
-  }, [currentConversation, setMessages]);
+  }, [currentConversation, setMessages, stopStream]);
 
   const loadMessages = useCallback(
     async (conversationId: string): Promise<void> => {
@@ -109,8 +111,8 @@ export function useMessages(): UseMessagesResult {
             created_at: new Date().toISOString(),
           });
 
-          // Start polling for the assistant / workflow response.
-          startPolling(currentConversation.id, userMessageId, mode);
+          // Start SSE stream for the assistant / workflow response.
+          startStream(currentConversation.id, userMessageId, mode);
         }
       } catch (err) {
         antdMessage.error('Failed to send message');
@@ -123,7 +125,7 @@ export function useMessages(): UseMessagesResult {
       processingMessage,
       createMessageMutation,
       appendMessage,
-      startPolling,
+      startStream,
     ],
   );
 
@@ -134,6 +136,6 @@ export function useMessages(): UseMessagesResult {
     processingMessage,
     pendingMessageId,
     sendingMessage,
-    stopPolling,
+    stopStream,
   };
 }

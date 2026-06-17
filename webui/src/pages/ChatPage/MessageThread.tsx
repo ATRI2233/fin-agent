@@ -119,15 +119,6 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
       latestWorkflowStatusMsg?.extra_data as { status?: string } | undefined
     )?.status;
 
-    const allDone =
-      (allAgents.length > 0 &&
-        allAgents.every(
-          (a) =>
-            agentLatestStatus[a] === 'completed' ||
-            agentLatestStatus[a] === 'failed',
-        )) ||
-      (allAgents.length === 0 && latestWorkflowStatusVal === 'failed');
-
     // Track the latest workflow_status message per execution_id so only
     // one MessageBubble renders the shared node list (avoids duplication).
     const latestWorkflowMsgId: Record<string, string> = {};
@@ -139,6 +130,55 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
       }
     }
 
+    // Identify the execution_id of the latest in-flight workflow so we can
+    // scope workflow_result lookups to the correct execution (prevents stale
+    // results from previous executions in the same conversation).
+    // Always scan all messages — `showWorkflowIndicator` only controls the
+    // status banner rendering, not the completion-detection logic.
+    const latestWorkflowExecutionId = (() => {
+      const msgs = messages.filter((m) => {
+        const t = getExtraType(m);
+        return t === 'workflow_status' || t === 'workflow_start';
+      });
+      const latest = msgs[msgs.length - 1];
+      return latest?.execution_id ?? null;
+    })();
+
+    // Also check for workflow_result messages — they are terminal even if the
+    // workflow_status/failed callback message was never saved (e.g. due to a
+    // DB write failure in the status_callback closure).
+    // CRITICAL: scope to the latest execution_id so old results don't
+    // incorrectly mark a new running workflow as failed.
+    const workflowResultMsg = messages
+      .filter((m) => {
+        if (getExtraType(m) !== 'workflow_result') return false;
+        if (latestWorkflowExecutionId) {
+          return m.execution_id === latestWorkflowExecutionId;
+        }
+        // No execution_id on the message — be conservative and skip
+        return false;
+      })
+      .pop();
+    const hasWorkflowResult = !!workflowResultMsg;
+
+    const allDone =
+      (allAgents.length > 0 &&
+        allAgents.every(
+          (a) =>
+            agentLatestStatus[a] === 'completed' ||
+            agentLatestStatus[a] === 'failed',
+        )) ||
+      (allAgents.length === 0 && latestWorkflowStatusVal === 'failed') ||
+      hasWorkflowResult;
+
+    // Determine the final workflow status from either the workflow_result message
+    // (most authoritative, scoped to current execution) or the latest
+    // workflow_status message.
+    const finalWorkflowStatus =
+      (workflowResultMsg?.extra_data as { status?: string } | undefined)?.status
+      ?? latestWorkflowStatusVal
+      ?? 'running';
+
     // Latest workflow message (status or start) for the status indicator.
     const workflowMsgs = showWorkflowIndicator
       ? messages.filter((m) => {
@@ -148,7 +188,7 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
       : [];
     const latestWorkflowMsg = workflowMsgs[workflowMsgs.length - 1];
     const latestWorkflowExtra = latestWorkflowMsg?.extra_data as { status?: string } | undefined;
-    const isWorkflowFailed = latestWorkflowExtra?.status === 'failed' || allAgents.some(a => agentLatestStatus[a] === 'failed');
+    const isWorkflowFailed = finalWorkflowStatus === 'failed';
 
     return (
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
@@ -159,7 +199,7 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
             <MessageBubble
               key={msg.id}
               message={{
-                ...applyStrikethrough(msg, agentLatestStatus, allDone),
+                ...applyStrikethrough(msg, agentLatestStatus, allDone, finalWorkflowStatus),
                 _latestWorkflow: latestWorkflowMsgId[msg.execution_id ?? ''] === msg.id,
               }}
             />
@@ -244,6 +284,7 @@ function applyStrikethrough(
   msg: Message,
   agentLatestStatus: Record<string, string>,
   allDone: boolean,
+  finalWorkflowStatus?: string,
 ): ChatMessage {
   const extra = msg.extra_data as
     | { type?: string; status?: string }
@@ -259,8 +300,13 @@ function applyStrikethrough(
     }
   }
   // Strike the initial "Workflow started…" message (agent is empty) when all agents are done.
+  // Also update its status to reflect the actual final state.
   if (extra?.type === 'workflow_status' && !msg.agent && allDone) {
-    return { ...msg, _struck: true };
+    return {
+      ...msg,
+      _struck: true,
+      extra_data: { ...extra, status: finalWorkflowStatus ?? extra.status },
+    };
   }
   if (extra?.type === 'workflow_start' && allDone) {
     return { ...msg, _struck: true };

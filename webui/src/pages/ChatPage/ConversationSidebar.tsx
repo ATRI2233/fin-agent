@@ -1,22 +1,23 @@
 /**
- * `ConversationSidebar` — left-rail conversation list + session history.
+ * `ConversationSidebar` — left-rail conversation list + per-conversation session sub-lists.
  *
  * Extracted from `pages/ChatPage/index.tsx` (Wave 6.1a). Pure
  * presentation component — the orchestrator owns the data and passes
  * derived props down. No HTTP calls, no store reads; the parent wires
- * `onSelect` / `onCreate` / `onDelete` to the conversation hook.
+ * `onSelect` / `onCreate` / `onDelete` / `onConversationExpand` /
+ * `onSessionClick` to the conversation hook.
  *
- * Behavior preserved verbatim from the original `ChatPage.tsx`:
+ * Behavior:
  *   - "New Conversation" button at the top, full width.
- *   - Each row shows title + message count + a delete (Popconfirm) button.
- *   - Clicking the row selects it (delegates to `onSelect`).
+ *   - Each conversation row has a expand/collapse toggle on the left.
+ *   - Clicking a conversation row selects it (delegates to `onSelect`).
+ *   - Expanding a conversation row shows its sessions sub-list below it.
+ *   - Each session in the sub-list is clickable (delegates to `onSessionClick`).
  *   - The delete button's `stopPropagation` prevents row click from firing.
  *   - The currently active row has a `#1a1a1a` background.
- *
- * Additionally shows agent sessions for the current conversation.
  */
 import { useState } from 'react';
-import { Button, List, Popconfirm, Tag } from 'antd';
+import { Button, Popconfirm, Tag } from 'antd';
 import {
   ApiOutlined,
   CheckCircleOutlined,
@@ -38,8 +39,14 @@ export interface ConversationSidebarProps {
   conversations: Conversation[];
   /** Currently-selected conversation id, or `null` when nothing is open. */
   currentId: string | null;
-  /** Agent sessions for the current conversation. */
-  sessions?: SessionInfo[];
+  /** Sessions grouped by conversation id. */
+  sessionsByConversation?: Record<string, SessionInfo[]>;
+  /** Which conversations are currently expanded (show sessions sub-list). */
+  expandedConversations?: Set<string>;
+  /** Fired when the user expands a conversation row (to fetch its sessions). */
+  onConversationExpand?: (conversationId: string) => void;
+  /** Fired when the user clicks a session sub-list item (to open that session). */
+  onSessionClick?: (session: SessionInfo) => void;
   /** Fired when the user clicks a row. */
   onSelect: (conv: Conversation) => void;
   /** Fired when the user clicks the "New Conversation" button. */
@@ -73,12 +80,15 @@ function sessionStatusColor(status: string): string {
 export default function ConversationSidebar({
   conversations,
   currentId,
-  sessions,
+  sessionsByConversation = {},
+  expandedConversations = new Set<string>(),
+  onConversationExpand,
+  onSessionClick,
   onSelect,
   onCreate,
   onDelete,
 }: ConversationSidebarProps) {
-  const [sessionsExpanded, setSessionsExpanded] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   return (
     <div
       style={{
@@ -103,101 +113,124 @@ export default function ConversationSidebar({
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <List
-          dataSource={conversations}
-          renderItem={(conv) => (
-            <div
-              onClick={() => onSelect(conv)}
-              style={{
-                padding: '12px 16px',
-                cursor: 'pointer',
-                background: currentId === conv.id ? '#1a1a1a' : 'transparent',
-                borderBottom: '1px solid #1a1a1a',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#E0E0E0', fontSize: 14 }}>{conv.title}</div>
-                <div style={{ color: '#666', fontSize: 12, marginTop: 4 }}>
-                  {conv.message_count} messages
-                </div>
-              </div>
-              <Popconfirm
-                title="Delete this conversation?"
-                onConfirm={(e) => {
-                  e?.stopPropagation();
-                  void onDelete(conv.id);
-                }}
-              >
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ color: '#666' }}
-                />
-              </Popconfirm>
-            </div>
-          )}
-        />
-
-        {/* Agent Sessions — collapsed by default, click to expand */}
-        {sessions && sessions.length > 0 && (
-          <div style={{ borderTop: '1px solid #222' }}>
-            <div
-              onClick={() => setSessionsExpanded(!sessionsExpanded)}
-              style={{
-                padding: '10px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                cursor: 'pointer',
-                userSelect: 'none',
-              }}
-            >
-              {sessionsExpanded
-                ? <DownOutlined style={{ color: '#666', fontSize: 10 }} />
-                : <RightOutlined style={{ color: '#666', fontSize: 10 }} />
-              }
-              <ApiOutlined style={{ color: '#666', fontSize: 12 }} />
-              <span style={{ color: '#888', fontSize: 12, flex: 1 }}>
-                Sessions
-              </span>
-              <Tag style={{ fontSize: 10, margin: 0 }}>{sessions.length}</Tag>
-            </div>
-            {sessionsExpanded && sessions.map((s) => (
+        {conversations.map((conv) => {
+          const isExpanded = expandedConversations.has(conv.id);
+          const sessions = sessionsByConversation[conv.id] ?? [];
+          const isHovered = hoveredId === conv.id;
+          return (
+            <div key={conv.id}>
               <div
-                key={s.session_id}
                 style={{
-                  padding: '6px 16px 6px 32px',
+                  padding: '10px 16px',
+                  cursor: 'pointer',
+                  background: currentId === conv.id ? '#1a1a1a' : 'transparent',
                   borderBottom: '1px solid #1a1a1a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
+                onMouseEnter={() => setHoveredId(conv.id)}
+                onMouseLeave={() => setHoveredId(null)}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <SessionStatusIcon status={s.status} />
-                  <span style={{ color: '#ccc', fontSize: 12, flex: 1 }}>
-                    {s.agent || 'unknown'}
-                  </span>
-                  <Tag
-                    color={sessionStatusColor(s.status)}
-                    style={{ fontSize: 10, margin: 0 }}
-                  >
-                    {s.status}
-                  </Tag>
-                </div>
-                {s.created_at && (
-                  <div style={{ marginLeft: 17, marginTop: 1 }}>
-                    <span style={{ color: '#555', fontSize: 10 }}>
-                      {formatDateTime(s.created_at)}
-                    </span>
+                {/* Expand/collapse toggle */}
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConversationExpand?.(conv.id);
+                  }}
+                  style={{ cursor: 'pointer', color: '#555', fontSize: 10 }}
+                >
+                  {isExpanded
+                    ? <DownOutlined style={{ fontSize: 10 }} />
+                    : <RightOutlined style={{ fontSize: 10 }} />
+                  }
+                </span>
+
+                {/* Conversation row — click to select */}
+                <div
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}
+                  onClick={() => onSelect(conv)}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: '#E0E0E0', fontSize: 14 }}>{conv.title}</div>
+                    <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>
+                      {conv.message_count} messages
+                      {sessions.length > 0 && (
+                        <Tag style={{ fontSize: 10, marginLeft: 6, marginBottom: 0 }}>{sessions.length} sessions</Tag>
+                      )}
+                    </div>
                   </div>
+                </div>
+
+                {/* Delete button — only on hover */}
+                {isHovered && (
+                  <Popconfirm
+                    title="Delete this conversation?"
+                    onConfirm={(e) => {
+                      e?.stopPropagation();
+                      void onDelete(conv.id);
+                    }}
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ color: '#666' }}
+                    />
+                  </Popconfirm>
                 )}
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* Sessions sub-list — shown when this conversation is expanded */}
+              {isExpanded && sessions.length > 0 && (
+                <div style={{ background: '#0d0d0d' }}>
+                  {sessions.map((s) => (
+                    <div
+                      key={s.session_id}
+                      style={{
+                        padding: '6px 16px 6px 36px',
+                        borderBottom: '1px solid #1a1a1a',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                      onClick={() => onSessionClick?.(s)}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLDivElement).style.background = '#1a1a1a';
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+                      }}
+                    >
+                      <SessionStatusIcon status={s.status} />
+                      <span style={{ color: '#ccc', fontSize: 12, flex: 1 }}>
+                        {s.agent || 'unknown'}
+                      </span>
+                      <Tag
+                        color={sessionStatusColor(s.status)}
+                        style={{ fontSize: 10, margin: 0 }}
+                      >
+                        {s.status}
+                      </Tag>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isExpanded && sessions.length === 0 && (
+                <div style={{
+                  padding: '6px 16px 6px 36px',
+                  color: '#555',
+                  fontSize: 11,
+                  borderBottom: '1px solid #1a1a1a',
+                }}>
+                  No sessions
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

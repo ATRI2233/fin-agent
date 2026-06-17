@@ -24,7 +24,7 @@
  * `Record<string, unknown>` and narrowed per call site — never typed as
  * `any`.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Tag, Tooltip, Typography } from 'antd';
 import {
   BranchesOutlined,
@@ -37,9 +37,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message } from '../../types/conversation';
-import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../../utils/statusConfig';
+import { NODE_STATUS_CONFIG } from '../../utils/statusConfig';
 import { formatTime } from '../../utils/time';
-import { getExecutionStatus } from '../../api/executions';
 
 const { Text } = Typography;
 
@@ -60,43 +59,6 @@ function getExtraType(msg: Message): string | undefined {
   return typeof extra?.type === 'string' ? extra.type : undefined;
 }
 
-// ── Node status for workflow display ─────────────────────────────────────────
-interface NodeStatus {
-  node_id: string;
-  agent: string;
-  status: NodeStatusKey;
-  error?: string | null;
-}
-
-/** Fetch node statuses for a given execution_id. Returns null while loading. */
-function useNodeStatuses(executionId: string | undefined): NodeStatus[] | null {
-  const [nodes, setNodes] = useState<NodeStatus[] | null>(null);
-
-  useEffect(() => {
-    if (!executionId) { setNodes([]); return; }
-    let cancelled = false;
-    const poll = async () => {
-      // Skip requests when the tab is not visible to reduce network overhead.
-      if (document.hidden) return;
-      try {
-        const data = await getExecutionStatus(executionId);
-        if (!cancelled && Array.isArray(data.nodes)) {
-          setNodes(data.nodes.map((n: Record<string, unknown>) => ({
-            node_id: String(n.node_id ?? ''),
-            agent: String(n.agent ?? ''),
-            status: String(n.status ?? 'pending') as NodeStatus['status'],
-            error: n.error != null ? String(n.error) : null,
-          })));
-        }
-      } catch { /* ignore */ }
-    };
-    poll();
-    const interval = setInterval(poll, 3000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [executionId]);
-
-  return nodes;
-}
 
 export default function MessageBubble({ message: msg }: MessageBubbleProps) {
   const isUser = msg.role === 'user';
@@ -108,10 +70,9 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
   const isWorkflowError = msgType === 'workflow_error';
   const isStruck = msg._struck;
 
-  // Poll node statuses for workflow messages (hook must be called unconditionally)
-  const executionId = (msg.extra_data as Record<string, unknown>)?.execution_id as string | undefined
-    ?? msg.execution_id ?? undefined;
-  const nodeStatuses = useNodeStatuses(isWorkflowStart || isWorkflowStatus || isWorkflowError ? executionId : undefined);
+  // Node statuses are no longer polled separately — with SSE, the message list
+  // is refreshed on every workflow_status event and already contains the data.
+  const nodeStatuses = null;
 
   // Compact inline row for workflow status / start — no avatar/bubble chrome.
   if (isWorkflowStatus || isWorkflowStart) {
