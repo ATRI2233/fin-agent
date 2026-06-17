@@ -51,22 +51,47 @@ class ConvSessionManager:
     def __init__(self, backend: AgentBackend):
         self._backend = backend
         self._session_ids: dict[str, str] = {}  # conversation_id -> session_id
+        self._bad_sessions: set[str] = set()  # sessions that send_message has failed on
 
     async def get_or_create_session(
         self, conversation_id: str, agent: str = "opencode", db=None
-    ) -> tuple[str, AgentBackend]:
-        """Get or create a session for a conversation."""
+    ) -> tuple[str, AgentBackend, bool]:
+        """Get or create a session for a conversation.
+
+        Returns:
+            (session_id, backend, created_new) — created_new is True if a fresh
+            session was created, False if an existing one was reused.
+        """
         from main.framework.models.conversation import Conversation
 
         if conversation_id in self._session_ids:
-            return self._session_ids[conversation_id], self._backend
+            return self._session_ids[conversation_id], self._backend, False
 
         # Check DB for persisted session
         if db is not None:
             conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conversation and conversation.session_id:
-                self._session_ids[conversation_id] = conversation.session_id
-                return conversation.session_id, self._backend
+                stored_sid = conversation.session_id
+                # Verify the session is still valid (backend may have restarted, clearing _history)
+                valid = self._backend.has_history(stored_sid)
+                if valid:
+                    self._session_ids[conversation_id] = stored_sid
+                    return stored_sid, self._backend, False
+                # Session is stale locally (backend restarted and lost _history) but
+                # the session may still be alive on opencode serve — do NOT overwrite
+                # the DB session_id.  Return it and let message_processor restore
+                # history via send_message_no_wait.  Only create a new session if
+                # we've already tried and failed with this one (marked "bad").
+                if stored_sid not in self._bad_sessions:
+                    self._session_ids[conversation_id] = stored_sid
+                    logger.info(
+                        "Session %s lost local history, returning existing (history "
+                        "restoration will be attempted)",
+                        stored_sid,
+                    )
+                    return stored_sid, self._backend, False
+                # Already tried this session and it failed — it's truly dead.
+                logger.info("Session %s confirmed dead, creating new one", stored_sid)
 
         # Create new session with the target agent
         session_id = await self._backend.create_session(agent=agent)
@@ -78,7 +103,7 @@ class ConvSessionManager:
                 db.commit()
 
         self._session_ids[conversation_id] = session_id
-        return session_id, self._backend
+        return session_id, self._backend, True
 
     async def cleanup_session(self, conversation_id: str, db=None) -> str | None:
         """Delete session for a conversation.
@@ -111,3 +136,12 @@ class ConvSessionManager:
 
     def get_session_id(self, conversation_id: str) -> str | None:
         return self._session_ids.get(conversation_id)
+
+    def mark_bad(self, session_id: str) -> None:
+        """Mark a session as definitively dead so the next get_or_create_session
+        call will create a fresh one instead of returning this one again."""
+        self._bad_sessions.add(session_id)
+        logger.info("Session %s marked as bad", session_id)
+
+    def is_bad(self, session_id: str) -> bool:
+        return session_id in self._bad_sessions

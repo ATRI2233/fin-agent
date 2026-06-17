@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from main.framework.core.workflow.node_executors.base import (
@@ -122,11 +123,35 @@ class AgentNodeExecutor(NodeExecutor):
                 node_id=node_id,
             )
 
-            resp = await dispatcher.dispatch(
-                agent=agent,
-                prompt=prompt,
-                session_id=session_id,
-            )
+            # Dispatch with retry for transient HTTP errors (e.g. backend 500).
+            # Retry up to 2 times with exponential backoff for 5xx errors.
+            resp = None
+            last_error: Exception | None = None
+            for attempt in range(3):  # original + 2 retries
+                try:
+                    resp = await dispatcher.dispatch(
+                        agent=agent,
+                        prompt=prompt,
+                        session_id=session_id,
+                    )
+                    last_error = None
+                    break
+                except RuntimeError as dispatch_err:
+                    err_str = str(dispatch_err)
+                    # Only retry on 5xx server errors, not 4xx client errors
+                    if "HTTP 5" in err_str and attempt < 2:
+                        logger.warning(
+                            "Dispatch to agent '%s' failed (attempt %d/3): %s. Retrying...",
+                            agent, attempt + 1, err_str[:120],
+                        )
+                        await asyncio.sleep(1.0 * (attempt + 1))
+                        last_error = dispatch_err
+                        continue
+                    # Non-retryable or last attempt — store and re-raise
+                    last_error = dispatch_err
+                    raise
+            if last_error:
+                raise last_error
             result = resp["result"]
             new_session_id = resp["session_id"]
             self._chain_sessions[node_id] = new_session_id
