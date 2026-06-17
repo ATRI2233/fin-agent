@@ -174,6 +174,14 @@ class Container:
         )
 
     @property
+    def event_bus(self):
+        """EventBus singleton — see :meth:`create_event_bus`."""
+        def _create():
+            from main.framework.core.infrastructure.event_bus import EventBus
+            return EventBus()
+        return self._get_or_create("event_bus", "EventBus", _create)
+
+    @property
     def workflow_query_service(self):
         """WorkflowQueryService (lazy singleton) — see :meth:`create_workflow_query_service`."""
 
@@ -679,6 +687,8 @@ _SERVICE_MAP: dict[str, str] = {
     "ToolQueryService": "tool_query_service",
     "SkillQueryService": "skill_query_service",
     "MaintenanceQueryService": "maintenance_query_service",
+    # ----- Infrastructure -----------------------------------------------
+    "EventBus": "event_bus",
 }
 
 

@@ -23,8 +23,9 @@ class AgentBackend(Protocol):
         """Spawn a new agent session.  Returns the session ID."""
         ...
 
-    async def send_message(self, session_id: str, text: str) -> str:
-        """Send *text* to an existing session."""
+    async def send_message(self, session_id: str, text: str, agent: str | None = None) -> str:
+        """Send *text* to an existing session. Optionally specify *agent* to switch
+        the active agent for this message (Tab-switch style within the same session)."""
         ...
 
     async def get_messages(self, session_id: str, offset: int = 0, limit: int = 50) -> list[dict]:
