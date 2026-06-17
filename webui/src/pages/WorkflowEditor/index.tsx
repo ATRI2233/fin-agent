@@ -59,6 +59,7 @@ import AgentPalettePanel, {
 } from './AgentPalettePanel';
 import WorkflowCanvasPanel from './WorkflowCanvasPanel';
 import NodeInspector from './NodeInspector';
+import WorkflowSettingsModal from './WorkflowSettingsModal';
 
 /* ─── Domain types (ReactFlow-specific, editor-only) ──────────────────── */
 
@@ -277,6 +278,15 @@ export default function WorkflowEditor() {
   const onCloseEdge = useCallback(() => {
     setSelectedEdge(null);
   }, [setSelectedEdge]);
+
+  const onDeleteEdge = useCallback(
+    (edgeId: string) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      setSelectedEdge(null);
+      isDirty.current = true;
+    },
+    [setEdges, setSelectedEdge],
+  );
 
   const onDeleteBlock = useCallback(
     (blockId: string) => {
@@ -555,6 +565,7 @@ export default function WorkflowEditor() {
             selectedEdge={selectedEdge}
             onUpdateNode={onUpdateNode}
             onDeleteNode={onDeleteNode}
+            onDeleteEdge={onDeleteEdge}
             onDeleteBlock={onDeleteBlock}
             onUngroupBlock={onUngroupBlock}
             onUpdateEdge={onUpdateEdge as (edgeId: string, data: Record<string, unknown>) => void}
@@ -564,14 +575,18 @@ export default function WorkflowEditor() {
         </div>
       </div>
 
-      {/* Modal 1: Settings (Wave 6.3c replaces with the extracted
-          full implementation). */}
-      <SettingsModalShell
+      {/* Modal 1: Settings */}
+      <WorkflowSettingsModal
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
         workflowId={id ?? 'new'}
-        workflowName={workflowName}
-        onNameChange={setWorkflowName}
+        initialName={workflowName}
+        initialTriggerType={workflow?.trigger_type ?? 'manual'}
+        initialCronExpression={(workflow?.config?.cron_expression as string) ?? ''}
+        initialCommandString={(workflow?.config?.command_string as string) ?? ''}
+        onSaved={(next) => {
+          setWorkflowName(next.name);
+        }}
       />
 
       {/* Modal 2: BlockSelector (Wave 6.3c replaces with the extracted
@@ -587,34 +602,11 @@ export default function WorkflowEditor() {
 
 /* ─── Modal shells (Wave 6.3c target) ────────────────────────────────────
  *
- * The full implementations of these modals (CronEditor wiring for
- * Settings, search/import flow for BlockSelector) live in the legacy
- * `pages/WorkflowEditor.tsx` and will be extracted into dedicated files
- * by 6.3c. The shells below exist so the orchestrator can render the
- * modal slot today and 6.3c can swap them in place.
+ * The full implementation of BlockSelector (search/import flow) lives in the
+ * legacy `pages/WorkflowEditor.tsx` and will be extracted into a dedicated
+ * file by 6.3c. The shell below exists so the orchestrator can render the
+ * modal slot today and 6.3c can swap it in place.
  */
-
-interface SettingsModalShellProps {
-  visible: boolean;
-  onClose: () => void;
-  workflowId: string;
-  workflowName: string;
-  onNameChange: (name: string) => void;
-}
-
-function SettingsModalShell({
-  visible,
-  onClose,
-  workflowId,
-}: SettingsModalShellProps) {
-  return (
-    <Modal title="工作流设置" open={visible} onCancel={onClose} footer={null} width={520} destroyOnClose>
-      <div style={{ padding: '24px 0', color: '#A0A0A0', fontSize: 13 }}>
-        Workflow {workflowId} — 完整实现在 Wave 6.3c 中提取。
-      </div>
-    </Modal>
-  );
-}
 
 interface BlockSelectorModalShellProps {
   visible: boolean;

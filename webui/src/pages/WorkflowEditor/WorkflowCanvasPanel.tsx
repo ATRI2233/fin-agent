@@ -131,6 +131,13 @@ function EdgeWithLabel({
 
 /* ─── Custom node renderers ────────────────────────────────────────────── */
 
+const HANDLE_STYLE: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  border: '3px solid #121212',
+  borderRadius: '50%',
+};
+
 function AgentPaletteNode({ data }: NodeProps) {
   const nodeData = data as unknown as AgentNodeData;
   return (
@@ -142,10 +149,10 @@ function AgentPaletteNode({ data }: NodeProps) {
       minWidth: 120,
       textAlign: 'center',
     }}>
-      <Handle type="target" position={Position.Top} style={{ background: '#8B9DC3' }} />
+      <Handle type="target" position={Position.Top} style={{ ...HANDLE_STYLE, background: '#8B9DC3', top: -8 }} />
       <div style={{ fontSize: 13, fontWeight: 600, color: '#E5E5E5' }}>{nodeData.label}</div>
       <div style={{ fontSize: 11, color: '#A0A0A0' }}>{nodeData.agentType}</div>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#8B9DC3' }} />
+      <Handle type="source" position={Position.Bottom} style={{ ...HANDLE_STYLE, background: '#8B9DC3', bottom: -8 }} />
     </div>
   );
 }
@@ -162,13 +169,13 @@ function WorkflowBlockNodeComponent({ data }: NodeProps) {
       textAlign: 'center',
       position: 'relative',
     }}>
-      <Handle type="target" position={Position.Top} style={{ background: '#52C41A' }} />
+      <Handle type="target" position={Position.Top} style={{ ...HANDLE_STYLE, background: '#52C41A', top: -8 }} />
       <div style={{ fontSize: 11, color: '#52C41A', marginBottom: 2 }}>工作流块</div>
       <div style={{ fontSize: 13, fontWeight: 600, color: '#E5E5E5' }}>{nodeData.label}</div>
       <div style={{ fontSize: 11, color: '#A0A0A0', marginTop: 2 }}>
         {nodeData.childNodeIds.length} 个节点
       </div>
-      <Handle type="source" position={Position.Bottom} style={{ background: '#52C41A' }} />
+      <Handle type="source" position={Position.Bottom} style={{ ...HANDLE_STYLE, background: '#52C41A', bottom: -8 }} />
     </div>
   );
 }

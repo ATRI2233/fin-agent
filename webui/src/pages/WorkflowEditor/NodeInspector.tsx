@@ -25,7 +25,7 @@
  */
 
 import { useState } from 'react';
-import { Form, Typography, Input, Select, Button, Space } from 'antd';
+import { Form, Typography, Input, Select, Button, Space, Popconfirm } from 'antd';
 import type { Edge } from '@xyflow/react';
 
 import type { PaletteAgent } from './AgentPalettePanel';
@@ -81,6 +81,7 @@ export interface NodeInspectorProps {
   onDeleteNode: (id: string) => void;
   onDeleteBlock: (blockId: string) => void;
   onUngroupBlock: (blockId: string) => void;
+  onDeleteEdge: (edgeId: string) => void;
   onUpdateEdge: (edgeId: string, data: Partial<EdgePromptData>) => void;
   onCloseEdge: () => void;
   /** Real (non-builtin) agents — used by the debate panel for its
@@ -99,11 +100,12 @@ const PROMPT_TYPE_OPTIONS: Array<{ label: string; value: PromptType; icon: strin
 
 interface EdgePromptEditorProps {
   edge: WorkflowEdge;
+  onDeleteEdge: (edgeId: string) => void;
   onUpdateEdge: (edgeId: string, data: Partial<EdgePromptData>) => void;
   onClose: () => void;
 }
 
-function EdgePromptEditor({ edge, onUpdateEdge, onClose }: EdgePromptEditorProps) {
+function EdgePromptEditor({ edge, onDeleteEdge, onUpdateEdge, onClose }: EdgePromptEditorProps) {
   const [prompt, setPrompt] = useState(edge.data?.prompt ?? '');
   const [promptType, setPromptType] = useState<PromptType>(
     edge.data?.promptType ?? 'context',
@@ -143,9 +145,23 @@ function EdgePromptEditor({ edge, onUpdateEdge, onClose }: EdgePromptEditorProps
             style={{ fontSize: 12 }}
           />
         </Form.Item>
-        <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button size="small" onClick={onClose}>取消</Button>
-          <Button size="small" type="primary" onClick={handleSave}>保存</Button>
+        <Space style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Popconfirm
+            title="确认删除"
+            description="确定要删除此连接线吗？"
+            onConfirm={() => onDeleteEdge(edge.id)}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<span>✕</span>}>
+              删除连接
+            </Button>
+          </Popconfirm>
+          <Space>
+            <Button size="small" onClick={onClose}>取消</Button>
+            <Button size="small" type="primary" onClick={handleSave}>保存</Button>
+          </Space>
         </Space>
       </Form>
     </div>
@@ -159,6 +175,7 @@ export default function NodeInspector({
   selectedEdge,
   onUpdateNode,
   onDeleteNode,
+  onDeleteEdge,
   onDeleteBlock,
   onUngroupBlock,
   onUpdateEdge,
@@ -219,6 +236,7 @@ export default function NodeInspector({
     return (
       <EdgePromptEditor
         edge={selectedEdge}
+        onDeleteEdge={onDeleteEdge}
         onUpdateEdge={onUpdateEdge}
         onClose={onCloseEdge}
       />
