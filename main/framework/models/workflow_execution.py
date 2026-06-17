@@ -11,10 +11,10 @@ class WorkflowExecution(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     workflow_id = Column(String, ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False)
-    conversation_id = Column(String, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    conversation_id = Column(String, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True)
     status = Column(String, default="pending")
-    started_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    completed_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     results = Column(JSON, default=dict)
     errors = Column(JSON, default=list)
 
@@ -41,8 +41,8 @@ class ExecutionNode(Base):
     output = Column(JSON, default=dict)
     error = Column(String, nullable=True)
     retry_count = Column(Integer, default=0)
-    started_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    completed_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationship
     execution = relationship("WorkflowExecution")
@@ -50,5 +50,5 @@ class ExecutionNode(Base):
     __table_args__ = (
         Index("ix_execution_nodes_execution_id", "execution_id"),
         Index("ix_execution_nodes_status", "status"),
-        Index("ix_execution_nodes_session_id", "session_id"),
+        Index("ix_execution_nodes_session_id", "hapi_session_id"),
     )

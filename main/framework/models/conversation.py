@@ -16,8 +16,8 @@ class Conversation(Base):
     title = Column(String, default="New Conversation")
     session_id = Column("hapi_session_id", String, nullable=True)  # Agent session ID
     current_agent = Column(String, default="fin-orchestrator")
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
@@ -37,7 +37,7 @@ class Message(Base):
     workflow_id = Column(String, nullable=True)  # If from workflow execution
     execution_id = Column(String, nullable=True)  # If from workflow execution
     extra_data = Column(JSON, nullable=True)  # Extra data (tools used, etc.)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
