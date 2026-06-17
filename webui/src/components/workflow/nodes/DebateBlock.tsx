@@ -92,10 +92,11 @@ const AgentSlot: React.FC<AgentSlotProps> = ({
         id={`agent-${index}`}
         style={{
           background: agent.color,
-          border: '2px solid #1A1A1A',
-          width: 12,
-          height: 12,
-          top: -6,
+          border: '3px solid #1A1A1A',
+          width: 16,
+          height: 16,
+          top: -8,
+          borderRadius: '50%',
         }}
       />
 
@@ -195,10 +196,11 @@ const JudgeSlot: React.FC<JudgeSlotProps> = ({ agent, isWinner, onChange }) => {
         id="judge"
         style={{
           background: '#C4A882',
-          border: '2px solid #1A1A1A',
-          width: 12,
-          height: 12,
-          bottom: -6,
+          border: '3px solid #1A1A1A',
+          width: 16,
+          height: 16,
+          bottom: -8,
+          borderRadius: '50%',
         }}
       />
 
