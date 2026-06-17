@@ -10,13 +10,13 @@ $script:processes = @()
 function Stop-ChildProcesses {
     if (Test-Path $pidFile) {
         Get-Content $pidFile | ForEach-Object {
-            $pid = $_.Trim()
-            if ($pid -and $pid -match '^\d+$') {
+            $procId = $_.Trim()
+            if ($procId -and $procId -match '^\d+$') {
                 try {
-                    $proc = Get-Process -Id ([int]$pid) -ErrorAction SilentlyContinue
+                    $proc = Get-Process -Id ([int]$procId) -ErrorAction SilentlyContinue
                     if ($proc) {
-                        Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
-                        Write-Host "  Killed PID $pid ($($proc.ProcessName))" -ForegroundColor Yellow
+                        Stop-Process -Id ([int]$procId) -Force -ErrorAction SilentlyContinue
+                        Write-Host "  Killed PID $procId ($($proc.ProcessName))" -ForegroundColor Yellow
                     }
                 } catch { }
             }
@@ -157,7 +157,7 @@ Write-Host ""
 
 # ── Register Ctrl+C handler ────────────────────────────────
 $cleanupDone = $false
-[System.Console]::TreatControlCAsInput = $false
+try { [System.Console]::TreatControlCAsInput = $false } catch { }
 [Console]::add_CancelKeyPress({
     param($sender, $e)
     $e.Cancel = $true
@@ -173,6 +173,10 @@ $cleanupDone = $false
 # Keep window open
 try {
     Read-Host "Press Enter to exit"
+} catch {
+    # Non-interactive mode — wait for a key press differently
+    Write-Host "Press any key to exit..." -ForegroundColor Gray
+    $null = [System.Console]::ReadKey($true)
 } finally {
     if (-not $cleanupDone) {
         $cleanupDone = $true
