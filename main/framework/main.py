@@ -13,6 +13,7 @@ from main.framework.config import settings as settings
 from main.framework.controllers.agents import router as agents_router
 from main.framework.controllers.conversations import router as conversations_router
 from main.framework.controllers.dispatch import router as dispatch_router
+from main.framework.controllers.events import router as events_router
 from main.framework.controllers.executions import router as executions_router
 from main.framework.controllers.scheduler import router as scheduler_router
 from main.framework.controllers.sessions import router as sessions_router
@@ -82,6 +83,7 @@ app.include_router(workflows_router)
 app.include_router(triggers_router)
 app.include_router(system_router)
 app.include_router(conversations_router)
+app.include_router(events_router)
 app.include_router(sessions_router)
 app.include_router(executions_router)
 app.include_router(dispatch_router)
@@ -266,4 +268,5 @@ async def shutdown():
     from main.framework.core.workflow.session_cleanup import cleanup_on_shutdown
 
     cleanup_on_shutdown(container.backend)
+    await container.event_bus.shutdown()
     container.shutdown()
