@@ -188,7 +188,35 @@ class ServeBackend(AgentBackend):
         logger.info("Created session %s (agent=%s)", opencode_sid, agent)
         return opencode_sid
 
-    async def send_message(self, session_id: str, text: str) -> str:
+    async def send_message_no_wait(self, session_id: str, text: str) -> None:
+        """Send a message without waiting for the response.
+
+        Used for restoring session history — injects messages into the session
+        without blocking on the agent's reply.
+        """
+        await self.ensure_server()
+        http = await self._get_http()
+
+        payload: dict[str, Any] = {
+            "parts": [{"type": "text", "text": text}],
+        }
+
+        # Store user message in history
+        self._history.setdefault(session_id, []).append({
+            "role": "user",
+            "content": text,
+        })
+
+        try:
+            resp = await http.post(
+                f"/session/{session_id}/message",
+                json=payload,
+            )
+            resp.raise_for_status()
+        except Exception as e:
+            logger.warning("send_message_no_wait failed for %s: %s", session_id, e)
+
+    async def send_message(self, session_id: str, text: str, agent: str | None = None) -> str:
         """Send a message to a session and wait for the agent's response.
 
         This is the core method. It sends the message via HTTP POST and
@@ -198,8 +226,13 @@ class ServeBackend(AgentBackend):
         Args:
             session_id: The opencode session ID (ses_xxx)
             text: The message text to send
+            agent: Optional agent name to use for this message (e.g. sector-rotator).
+                  When provided, opencode serve switches the active agent for this message,
+                  enabling Tab-switch-like agent switching within the same session.
+                  When None, uses the session's default agent.
         """
-        agent = self._session_agents.get(session_id, "opencode")
+        default_agent = self._session_agents.get(session_id, "opencode")
+        active_agent = agent or default_agent
 
         await self.ensure_server()
         http = await self._get_http()
@@ -208,8 +241,10 @@ class ServeBackend(AgentBackend):
         payload: dict[str, Any] = {
             "parts": [{"type": "text", "text": text}],
         }
-        # Specify agent for routing
-        if agent and agent != "opencode":
+        # Include "agent" in the payload to switch the active agent for this message.
+        # This is how Tab-switch works in the opencode TUI — each message can carry
+        # an agent designation that overrides the session's default agent for that message.
+        if agent:
             payload["agent"] = agent
 
         # Store user message in history
@@ -354,6 +389,10 @@ class ServeBackend(AgentBackend):
                 if text:
                     text_parts.append(text)
         return "".join(text_parts)
+
+    def has_history(self, session_id: str) -> bool:
+        """Return True if we have local history for this session."""
+        return bool(self._history.get(session_id))
 
     def get_status(self) -> dict:
         """Return current backend status."""
