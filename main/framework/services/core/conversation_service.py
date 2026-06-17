@@ -23,8 +23,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from main.framework.models.conversation import Conversation, Message
-from main.framework.models.workflow_execution import WorkflowExecution
+from main.framework.models.conversation import Conversation
 from main.framework.repositories.conversation_repo import ConversationRepository
 from main.framework.repositories.workflow_repo import WorkflowRepository
 from main.framework.schemas.conversation import (
@@ -137,39 +136,21 @@ class ConversationService:
         return True
 
     def delete(self, conv_id: str, db: Session) -> None:
-        """Delete conversation and all related data (cascade).
+        """Delete conversation and all related data via cascade.
 
-        Cleanup order:
-        1. ExecutionNode records linked to executions of this conversation
-        2. WorkflowExecution records linked via messages
-        3. Messages
-        4. Conversation
+        The cascade is handled at two levels:
+        1. SQLAlchemy relationship cascade on Conversation.messages
+           (cascade="all, delete-orphan") → deletes Message rows
+        2. FK ondelete="CASCADE" on WorkflowExecution.conversation_id →
+           deletes WorkflowExecution rows, which cascade to ExecutionNode
         """
         repo = self._repo_for(db)
         if repo.get(conv_id) is None:
             raise NotFoundError(f"Conversation {conv_id} not found")
 
-        # Collect execution IDs from messages before deleting
-        execution_ids = [
-            m.execution_id for m in
-            db.query(Message.execution_id)
-              .filter(Message.conversation_id == conv_id,
-                      Message.execution_id.isnot(None))
-              .distinct().all()
-        ]
-
-        # 1. Delete ExecutionNode records for these executions
-        if execution_ids:
-            from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
-            db.query(ExecutionNode).filter(ExecutionNode.execution_id.in_(execution_ids)).delete(synchronize_session=False)
-            # 2. Delete WorkflowExecution records
-            db.query(WorkflowExecution).filter(WorkflowExecution.id.in_(execution_ids)).delete(synchronize_session=False)
-
-        # 3. Delete messages
-        db.query(Message).filter(Message.conversation_id == conv_id).delete()
-        # 4. Delete conversation
+        # Let SQLAlchemy relationship cascade delete messages
+        # (cascade="all, delete-orphan" on Conversation.messages)
         repo.delete(conv_id)
-
         db.commit()
 
     # ------------------------------------------------------------------

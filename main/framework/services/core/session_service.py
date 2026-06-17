@@ -55,6 +55,7 @@ class SessionService:
                 db.query(ExecutionNode)
                 .filter(ExecutionNode.session_id.isnot(None))
                 .filter(ExecutionNode.session_id != "")
+                .filter(ExecutionNode.status != "cleaned_up")
             )
             if conversation_id:
                 # Join with WorkflowExecution to filter by conversation
@@ -117,7 +118,12 @@ class SessionService:
         with self._exec_repo._session() as db:
             from main.framework.models.workflow_execution import ExecutionNode
 
-            node = db.query(ExecutionNode).filter(ExecutionNode.session_id == session_id).first()
+            node = (
+                db.query(ExecutionNode)
+                .filter(ExecutionNode.session_id == session_id)
+                .filter(ExecutionNode.status != "cleaned_up")
+                .first()
+            )
             if node:
                 return {
                     "session_id": session_id,
@@ -171,6 +177,7 @@ class SessionService:
 
             nodes = db.query(ExecutionNode).filter(ExecutionNode.session_id == session_id).all()
             for n in nodes:
+                n.session_id = None
                 n.status = "cleaned_up"
             db.commit()
 
@@ -227,6 +234,7 @@ class SessionService:
                             cleaned += 1
                             for n in nodes:
                                 if n.session_id == sid:
+                                    n.session_id = None
                                     n.status = "cleaned_up"
                         else:
                             failed += 1

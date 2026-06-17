@@ -125,7 +125,7 @@ class WorkflowService:
             self.edges = workflow.edges or []
 
             total_nodes = len(self.nodes)
-            await callback("running", f"Workflow started with {total_nodes} node(s), executing...", "")
+            await callback("running", "Workflow running...", "")
 
             # ---- Build execution plan ----
             execution_order = topological_sort(self.nodes, self.edges)
@@ -227,7 +227,24 @@ class WorkflowService:
             )
 
             if can_parallel and len(nodes_to_run) > 1:
-                await asyncio.gather(*[self._execute_wrapped(nid, db, _parallel=True) for nid in nodes_to_run])
+                # Split nodes into those whose predecessors are all satisfied (truly ready)
+                # and those still waiting. Only truly-ready nodes run in parallel.
+                truly_ready = [
+                    n for n in nodes_to_run
+                    if all(
+                        p in self._results or p in self._failed_nodes or p in self._skipped_nodes
+                        for p in predecessors.get(n, [])
+                    )
+                ]
+                not_ready = [n for n in nodes_to_run if n not in truly_ready]
+                if truly_ready:
+                    await asyncio.gather(*[self._execute_wrapped(n, db, _parallel=True) for n in truly_ready])
+                # Remaining nodes: wait for their predecessors, then run serially
+                for node_id in not_ready:
+                    preds = predecessors.get(node_id, [])
+                    if preds:
+                        await self._wait_for_predecessors(preds)
+                    await self._execute_wrapped(node_id, db)
             else:
                 for node_id in nodes_to_run:
                     preds = predecessors.get(node_id, [])
