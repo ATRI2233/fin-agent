@@ -135,10 +135,6 @@ fin-agent/
 │   │   │   └── hapi_bridge.py  # HAPI Hub 客户端
 │   │   ├── models/             # SQLAlchemy ORM
 │   │   └── repositories/       # 数据访问层
-│   └── data_maintenance/       # 数据维护模块 (独立)
-│       ├── api/                # 维护 API
-│       ├── core/               # 维护服务
-│       └── models/             # 维护数据库 (独立 SQLite)
 ├── webui/                      # 前端 (React + Vite)
 │   └── src/pages/
 │       ├── Dashboard.tsx       # 系统仪表盘

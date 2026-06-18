@@ -598,34 +598,6 @@ class Container:
 
         return self._get_or_create("skill_query_service", "SkillQueryService", _create)
 
-    def create_maintenance_query_service(self):
-        """@singleton — MaintenanceQueryService(maintenance_service).
-
-        Business-logic facade for the data-maintenance controller
-        (Wave 7).  Depends on a ``DataMaintenanceService`` core.  In
-        production, ``main.py`` startup registers a factory that
-        captures the freshly-initialised core; in tests, the conftest
-        pre-registers an instance under ``"maintenance_query_service"``
-        (property name) so this fallback path is bypassed.
-
-        The fallback below uses ``dispatcher=self.dispatcher`` so the
-        instance is fully constructible in any container context.
-        """
-
-        def _create():
-            from main.data_maintenance.services.data_maintenance import DataMaintenanceService
-            from main.data_maintenance.services.maintenance_query_service import (
-                MaintenanceQueryService,
-            )
-
-            return MaintenanceQueryService(
-                DataMaintenanceService(dispatcher=self.dispatcher, scheduler=None)
-            )
-
-        return self._get_or_create(
-            "maintenance_query_service", "MaintenanceQueryService", _create
-        )
-
     def create_conv_session_manager(self):
         """@singleton — ConvSessionManager(backend).
 

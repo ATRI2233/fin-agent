@@ -7,7 +7,6 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from main.data_maintenance.controllers.data_maintenance import router as data_maintenance_router
 from main.framework.api.problems import problem_response
 from main.framework.config import settings as settings
 from main.framework.controllers.agents import router as agents_router
@@ -87,7 +86,6 @@ app.include_router(events_router)
 app.include_router(sessions_router)
 app.include_router(executions_router)
 app.include_router(dispatch_router)
-app.include_router(data_maintenance_router)
 
 
 @app.exception_handler(HTTPException)
@@ -236,30 +234,10 @@ async def startup():
     scheduler.start()
     await scheduler.restore_jobs_from_db()
 
-    # Initialize data maintenance
-    from main.data_maintenance.services.data_maintenance import DataMaintenanceService
-    from main.data_maintenance.models.maintenance_db import init_maintenance_db
-    from main.data_maintenance.services.maintenance_query_service import (
-        MaintenanceQueryService,
-    )
+    # Initialize shared stocks table
+    from main.framework.shared import init_shared_db
 
-    init_maintenance_db()
-    maintenance_service = DataMaintenanceService(
-        dispatcher=container.dispatcher,
-        scheduler=scheduler._scheduler,
-    )
-    app.state.maintenance_service = maintenance_service
-
-    # Register the query-service factory so the controller's
-    # ``Depends(get_service(MaintenanceQueryService))`` resolves in DI.
-    # The factory captures the freshly-initialised ``DataMaintenanceService``
-    # so the controller can stay framework-agnostic.
-    container.register_factory(
-        MaintenanceQueryService,
-        lambda: MaintenanceQueryService(maintenance_service),
-    )
-
-    maintenance_service.sync_scheduled_tasks()
+    init_shared_db()
 
 
 @app.on_event("shutdown")

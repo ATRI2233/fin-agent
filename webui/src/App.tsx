@@ -18,6 +18,7 @@ import {
   MenuUnfoldOutlined,
   SendOutlined,
   DatabaseOutlined,
+  FolderOutlined,
 } from '@ant-design/icons';
 import './styles/theme.css';
 
@@ -38,8 +39,6 @@ const WorkflowEditor = React.lazy(() => import('./pages/WorkflowEditor'));
 const WorkflowSettings = React.lazy(() => import('./pages/WorkflowSettings'));
 const WorkflowMonitor = React.lazy(() => import('./pages/WorkflowMonitor'));
 const ChatPage = React.lazy(() => import('./pages/ChatPage'));
-const InfoPage = React.lazy(() => import('./pages/InfoPage'));
-const InfoSettingsPage = React.lazy(() => import('./pages/InfoSettingsPage'));
 
 const { Header, Sider, Content } = Layout;
 
@@ -85,7 +84,6 @@ const menuItems: MenuItem[] = [
       { key: '/config', icon: <FileTextOutlined />, label: <Link to="/config">Config</Link> },
       { key: '/rules', icon: <FileTextOutlined />, label: <Link to="/rules">Rules</Link> },
       { key: '/workflows', icon: <BranchesOutlined />, label: <Link to="/workflows">Workflows</Link> },
-      { key: '/info/settings', icon: <DatabaseOutlined />, label: <Link to="/info/settings">维护设置</Link> },
     ],
   },
 ];
@@ -95,7 +93,7 @@ const AppLayout: React.FC = () => {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
-  const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows', '/info/settings'];
+  const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows'];
   const openKeys = agentsPaths.includes(location.pathname) ? ['agents-group'] : [];
 
   const pageName = () => {
@@ -358,8 +356,6 @@ const AppLayout: React.FC = () => {
               <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
               <Route path="/workflows/settings" element={<WorkflowSettings />} />
               <Route path="/workflow/:executionId?" element={<WorkflowMonitor />} />
-              <Route path="/info" element={<InfoPage />} />
-              <Route path="/info/settings" element={<InfoSettingsPage />} />
             </Routes>
           </Suspense>
         </Content>
