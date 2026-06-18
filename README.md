@@ -6,24 +6,24 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    WebUI (React + Ant Design)                │
-│  Dashboard │ 信息中心 │ Chat │ Workflows │ Configuration    │
+│ WebUI (React + Ant Design) │
+│ Dashboard │ 信息中心 │ Chat │ Workflows │ Configuration │
 ├─────────────────────────────────────────────────────────────┤
-│                    Python Framework (FastAPI)                │
-│  ┌───────────┐ ┌──────────────┐ ┌────────────────────────┐  │
-│  │ API Layer │ │  DI Container │ │  AgentDispatcher       │  │
-│  │ 12 routers│ │  (Protocol)   │ │  (统一调度)             │  │
-│  └───────────┘ └──────────────┘ └────────────────────────┘  │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐ │
-│  │WorkflowEngine│ │  Scheduler   │ │ DataMaintenance      │ │
-│  │ (DAG 编排)    │ │  (Cron 定时)  │ │ (后台数据维护)        │ │
-│  └──────────────┘ └──────────────┘ └──────────────────────┘ │
+│ Python Framework (FastAPI) │
+│ ┌───────────┐ ┌──────────────┐ ┌────────────────────────┐ │
+│ │ API Layer │ │ DI Container │ │ AgentDispatcher │ │
+│ │ 12 routers│ │ (Protocol) │ │ (统一调度) │ │
+│ └───────────┘ └──────────────┘ └────────────────────────┘ │
+│ ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐ │
+│ │WorkflowEngine│ │ Scheduler │ │ DataMaintenance │ │
+│ │ (DAG 编排) │ │ (Cron 定时) │ │ (后台数据维护) │ │
+│ └──────────────┘ └──────────────┘ └──────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
-│                      MCP Servers                            │
-│  ASHARE │ FIN-AGENT │ FRED │ SEC-EDGAR │ RISK │ CN-MACRO │ LIB │
+│ MCP Servers │
+│ ASHARE │ FIN-AGENT │ FRED │ SEC-EDGAR │ RISK │ CN-MACRO │ LIB │
 ├─────────────────────────────────────────────────────────────┤
-│              Agent 矩阵 (tools 白名单隔离)                    │
-│  Macro-Scout │ Technical │ Fundamental │ Sentiment │ ...    │
+│ Agent 矩阵 (tools 白名单隔离) │
+│ Macro-Scout │ Technical │ Fundamental │ Sentiment │ ... │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -117,46 +117,46 @@ cd main && python -m framework.main
 ```
 fin-agent/
 ├── main/
-│   ├── framework/              # 核心框架
-│   │   ├── api/                # API 路由 (12 个模块)
-│   │   │   ├── agents.py       # Agent 管理
-│   │   │   ├── conversations.py# 对话系统
-│   │   │   ├── dispatch.py     # Agent 直接调度
-│   │   │   ├── executions.py   # 执行查询/重试
-│   │   │   ├── sessions.py     # Session 管理
-│   │   │   ├── triggers.py     # 工作流触发
-│   │   │   └── ...
-│   │   ├── core/               # 核心逻辑
-│   │   │   ├── protocols.py    # Protocol 抽象接口
-│   │   │   ├── container.py    # DI 容器
-│   │   │   ├── agent_dispatcher.py # 统一调度器
-│   │   │   ├── workflow_engine.py  # DAG 执行引擎
-│   │   │   ├── scheduler.py    # Cron 调度器
-│   │   │   └── hapi_bridge.py  # HAPI Hub 客户端
-│   │   ├── models/             # SQLAlchemy ORM
-│   │   └── repositories/       # 数据访问层
-├── webui/                      # 前端 (React + Vite)
-│   └── src/pages/
-│       ├── Dashboard.tsx       # 系统仪表盘
-│       ├── InfoPage.tsx        # 信息中心 (数据展示)
-│       ├── ChatPage.tsx        # 对话界面
-│       ├── WorkflowEditor.tsx  # 工作流 DAG 编辑器
-│       └── ...
+│ ├── framework/ # 核心框架
+│ │ ├── api/ # API 路由 (12 个模块)
+│ │ │ ├── agents.py # Agent 管理
+│ │ │ ├── conversations.py# 对话系统
+│ │ │ ├── dispatch.py # Agent 直接调度
+│ │ │ ├── executions.py # 执行查询/重试
+│ │ │ ├── sessions.py # Session 管理
+│ │ │ ├── triggers.py # 工作流触发
+│ │ │ └── ...
+│ │ ├── core/ # 核心逻辑
+│ │ │ ├── protocols.py # Protocol 抽象接口
+│ │ │ ├── container.py # DI 容器
+│ │ │ ├── agent_dispatcher.py # 统一调度器
+│ │ │ ├── workflow_engine.py # DAG 执行引擎
+│ │ │ ├── scheduler.py # Cron 调度器
+│ │ │ └── hapi_bridge.py # HAPI Hub 客户端
+│ │ ├── models/ # SQLAlchemy ORM
+│ │ └── repositories/ # 数据访问层
+├── webui/ # 前端 (React + Vite)
+│ └── src/pages/
+│ ├── Dashboard.tsx # 系统仪表盘
+│ ├── InfoPage.tsx # 信息中心 (数据展示)
+│ ├── ChatPage.tsx # 对话界面
+│ ├── WorkflowEditor.tsx # 工作流 DAG 编辑器
+│ └── ...
 ├── agents/
-│   ├── mcp/                    # MCP Server 实现
-│   │   ├── core/               # 核心金融分析 (Node.js)
-│   │   ├── ashare/             # A 股数据 (Python)
-│   │   ├── fred/               # 宏观数据 (Node.js)
-│   │   ├── risk/               # 风控计算 (Python)
-│   │   └── cn-macro/           # 中国宏观 (Python)
-│   └── lib/                    # 共享工具库 (Node.js)
+│ ├── mcp/ # MCP Server 实现
+│ │ ├── core/ # 核心金融分析 (Node.js)
+│ │ ├── ashare/ # A 股数据 (Python)
+│ │ ├── fred/ # 宏观数据 (Node.js)
+│ │ ├── risk/ # 风控计算 (Python)
+│ │ └── cn-macro/ # 中国宏观 (Python)
+│ └── lib/ # 共享工具库 (Node.js)
 ├── .opencode/
-│   ├── opencode.json           # 主配置 (Agent/MCP/Tools)
-│   └── agents/                 # Agent 系统提示词
+│ ├── opencode.json # 主配置 (Agent/MCP/Tools)
+│ └── agents/ # Agent 系统提示词
 ├── data/
-│   ├── finagent.db             # 业务数据库
-│   └── maintenance.db          # 维护数据库
-└── start.bat                   # 启动脚本
+│ ├── finagent.db # 业务数据库
+│ └── maintenance.db # 维护数据库
+└── start.bat # 启动脚本
 ```
 
 ## 技术栈

@@ -8,24 +8,24 @@
 ```
 fin-agent/
 ├── .opencode/
-│   ├── agents/              # 11 个 agent 定义
-│   └── skills/              # 4 个技能(market-briefing, stock-deep, position-watch, fin-review)
+│ ├── agents/ # 11 个 agent 定义
+│ └── skills/ # 4 个技能(market-briefing, stock-deep, position-watch, fin-review)
 ├── agents/
-│   ├── mcp/                 # MCP 服务
-│   │   ├── core/            # 核心 MCP (14 tools)
-│   │   ├── ashare/          # A股 MCP (10 tools)
-│   │   ├── fred/            # FRED MCP (3 tools)
-│   │   ├── risk/            # 风控 MCP (3 tools)
-│   │   ├── cn-macro/        # 中国宏观 MCP (7 tools)
-│   │   └── sec-edgar/       # SEC MCP (5 tools)
-│   ├── lib/                 # 纯逻辑 MCP (9 tools)
-│   │   └── dataHub.ts       # 统一数据访问层
-│   ├── hapi-hub/            # 会话管理
-│   └── opencode/            # OpenCode SDK
-├── data/                    # SQLite 数据库
-│   └── fin-agent.db
-├── main/                    # Python FastAPI (工作流引擎)
-└── webui/                   # React 前端
+│ ├── mcp/ # MCP 服务
+│ │ ├── core/ # 核心 MCP (14 tools)
+│ │ ├── ashare/ # A股 MCP (10 tools)
+│ │ ├── fred/ # FRED MCP (3 tools)
+│ │ ├── risk/ # 风控 MCP (3 tools)
+│ │ ├── cn-macro/ # 中国宏观 MCP (7 tools)
+│ │ └── sec-edgar/ # SEC MCP (5 tools)
+│ ├── lib/ # 纯逻辑 MCP (9 tools)
+│ │ └── dataHub.ts # 统一数据访问层
+│ ├── hapi-hub/ # 会话管理
+│ └── opencode/ # OpenCode SDK
+├── data/ # SQLite 数据库
+│ └── fin-agent.db
+├── main/ # Python FastAPI (工作流引擎)
+└── webui/ # React 前端
 ```
 
 ---

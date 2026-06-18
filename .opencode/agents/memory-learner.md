@@ -70,7 +70,7 @@ permission:
 {
   "action": "full_review|update_weights|extract_patterns|retire_rules",
   "lookback_days": 30,
-  "symbol": "AAPL"  // 可选，指定标的
+  "symbol": "AAPL" // 可选，指定标的
 }
 ```
 

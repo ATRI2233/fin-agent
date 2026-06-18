@@ -81,8 +81,8 @@ permission:
 ├── 第一层：US 还是 CN？
 │
 ├── US（字母代码，如 AAPL）
-│   ├── 个股 → fin-agent-mcp-server_news_sentiment(深度) + fin-agent-mcp-server_fear_greed_index(情绪)
-│   └── 大盘 → fin-agent-mcp-server_news_sentiment(深度) + fin-agent-mcp-server_fear_greed_index(情绪)
+│ ├── 个股 → fin-agent-mcp-server_news_sentiment(深度) + fin-agent-mcp-server_fear_greed_index(情绪)
+│ └── 大盘 → fin-agent-mcp-server_news_sentiment(深度) + fin-agent-mcp-server_fear_greed_index(情绪)
 │
 └── CN（数字代码，如 600036）
     ├── 个股 → ashare-mcp-server_ashare_news_sentiment(深度) + ashare-mcp-server_ashare_market_breadth(市场广度)
