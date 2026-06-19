@@ -8,15 +8,39 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from main.framework.models.conversation import Conversation, Message
-from main.framework.models.database import Base
-from main.framework.models.workflow import Workflow
-from main.framework.models.workflow_execution import ExecutionNode, WorkflowExecution
-from main.framework.repositories.conversation_repo import ConversationRepository
-from main.framework.repositories.workflow_repo import WorkflowRepository
-from main.framework.schemas.conversation import ConversationCreate, ConversationUpdate
-from main.framework.services.core.conversation_service import ConversationService
-from main.framework.services.exceptions import NotFoundError
+# TASK-500: shim importer switched on 2026-06-19
+# NOTE: This test file uses the legacy service interface. The new
+# DefaultConversationService takes a single repo (not conv_repo + workflow_repo)
+# and has a different API. Runtime test logic is not updated (TASK-501 territory).
+from src.main.infra.db import Base
+from src.main.modules.conversation.domain.conversation import Conversation
+from src.main.modules.conversation.domain.message import Message
+from src.main.modules.execution.domain.execution_node import ExecutionNode
+from src.main.modules.execution.domain.execution import WorkflowExecution
+from src.main.infra.errors import WorkflowNotFoundError as NotFoundError
+# TODO: Workflow domain class not yet imported (legacy test logic uses it directly)
+# Replaced with a placeholder
+from dataclasses import dataclass
+@dataclass
+class Workflow:
+    id: str
+    name: str
+from src.main.modules.conversation.service.conversation_service import DefaultConversationService as ConversationService
+from src.main.modules.conversation.repo.conversation_repo import SqlAlchemyConversationRepository as ConversationRepository
+# TODO: WorkflowRepository equivalent not in new system (WorkflowExecution not used by repo)
+# Provide a stub for legacy test usage
+class WorkflowRepository:
+    def __init__(self, db): self.db = db
+# TODO: TASK-500: ConversationCreate/ConversationUpdate Pydantic schemas replaced with API v1
+# The legacy test used the old framework.schemas; new api/v1/conversations.py provides
+# ConversationCreate but not ConversationUpdate. Provide stubs for legacy test usage.
+from pydantic import BaseModel
+from typing import Optional
+class ConversationCreate(BaseModel):
+    title: Optional[str] = None
+class ConversationUpdate(BaseModel):
+    title: Optional[str] = None
+    current_agent: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

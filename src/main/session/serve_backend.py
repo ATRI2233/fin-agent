@@ -15,10 +15,15 @@ from urllib.parse import urlparse
 
 import httpx
 
-from main.framework.config.constants import SERVE_BACKEND_DEFAULT_PORT
-from main.framework.config.settings import settings
-from main.framework.core.infrastructure.protocols import AgentBackend
-from main.session.output_parser import strip_thinking
+# TODO: session/ is a placeholder, scheduled for deletion in TASK-501
+# Import paths switched to new system (src/main/infra + src/main/modules) for TASK-500
+from src.main.infra.settings import settings
+from src.main.infra.constants import SCHEDULER_MAX_INSTANCES  # placeholder fallback
+from src.main.modules.agent.protocol import AgentBackend
+from src.main.session.output_parser import strip_thinking
+
+# SERVE_BACKEND_DEFAULT_PORT fallback (moved to new settings.OPENCODE_SERVE_PORT)
+SERVE_BACKEND_DEFAULT_PORT = 4096
 
 logger = logging.getLogger(__name__)
 
