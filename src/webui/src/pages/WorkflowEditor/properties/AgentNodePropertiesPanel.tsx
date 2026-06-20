@@ -27,7 +27,7 @@ import {
   MinusCircleOutlined,
 } from '@ant-design/icons';
 import type { Node } from '@xyflow/react';
-import { listTools } from '../../../api/tools';
+import { listTools } from '../../../api/mcp';
 
 /* ─── Domain types ─────────────────────────────────────────────────────── */
 

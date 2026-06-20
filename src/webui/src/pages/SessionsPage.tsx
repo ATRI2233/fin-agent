@@ -14,15 +14,6 @@ import {
 } from '@ant-design/icons';
 import { SESSION_STATUS_CONFIG } from '../utils/statusConfig';
 import type { ColumnsType } from 'antd/es/table';
-import { getSystemStatus } from '../api/system';
-import {
-  listSessions,
-  getSession,
-  deleteSession,
-  cleanupSessions,
-  type SessionInfo as ApiSessionInfo,
-  type SessionListResponse,
-} from '../api/sessions';
 import { formatTime, timeAgo, nowBeijing } from '../utils/time';
 
 const { Text } = Typography;

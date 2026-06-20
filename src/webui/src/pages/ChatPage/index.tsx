@@ -35,7 +35,6 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 
-import { listSessions } from '../../api/sessions';
 import type { SessionInfo } from '../../types/session';
 import { useAgents } from '../../hooks/useAgents';
 import { useWorkflows } from '../../hooks/useWorkflows';

@@ -15,11 +15,9 @@ import {
    CONSTANTS & API
    ═══════════════════════════════════════════════════════════════════ */
 
-import { getSystemStatus, getLogsStats, getCacheState } from '../api/system';
 import { listAgents, getAgentStats } from '../api/agents';
 import { getWorkflowStats } from '../api/workflows';
-import { listTools } from '../api/tools';
-import { listSkills } from '../api/skills';
+import { listTools } from '../api/mcp';
 
 /* ═══════════════════════════════════════════════════════════════════
    TYPES
@@ -28,7 +26,6 @@ import { listSkills } from '../api/skills';
 import type { SystemStatus, LogStats, CacheState } from '../types/system';
 import type { WorkflowStats } from '../types/workflow';
 import type { Agent, ToolItem } from '../types/agent';
-import type { Skill } from '../api/skills';
 import type { AgentStatsEntry } from '../api/agents';
 
 interface ServerGroup {

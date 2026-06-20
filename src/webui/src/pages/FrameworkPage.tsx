@@ -16,7 +16,6 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getSystemStatus } from '../api/system';
 import { listWorkflows, getWorkflowStats, triggerWorkflow } from '../api/workflows';
 import type { WorkflowMeta } from '../types/workflow';
 

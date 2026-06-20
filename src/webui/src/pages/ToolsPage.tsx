@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Typography, Table, Tag, Space, Switch, Alert, Spin, Card, Button } from 'antd';
 import { ReloadOutlined, ToolOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { listTools } from '../api/tools';
+import { listTools } from '../api/mcp';
 import type { ToolItem } from '../types/agent';
 
 const { Text } = Typography;
