@@ -38,11 +38,14 @@ import { ROUTES } from './contract'
  * set (backend default 0).
  * @returns A page of execution rows plus the total matching count.
  */
-export async function listExecutions(params?: {
-  workflow_id?: string
-  limit?: number
-  offset?: number
-}): Promise<ExecutionListResponse> {
+export async function listExecutions(
+  params?: {
+    workflow_id?: string
+    limit?: number
+    offset?: number
+  },
+  signal?: AbortSignal,
+): Promise<ExecutionListResponse> {
   const search = new URLSearchParams()
   if (params?.workflow_id !== undefined) {
     search.set('workflow_id', params.workflow_id)
@@ -59,7 +62,7 @@ export async function listExecutions(params?: {
     ? `${ROUTES.executions.list}?${query}`
     : ROUTES.executions.list
 
-  return apiGet<ExecutionListResponse>(url)
+  return apiGet<ExecutionListResponse>(url, signal)
 }
 
 /**
@@ -71,8 +74,11 @@ export async function listExecutions(params?: {
  * @param id Server-assigned execution UUID.
  * @returns The execution row. Throws on 404 (not found) and 500.
  */
-export async function getExecution(id: string): Promise<Execution> {
-  return apiGet<Execution>(ROUTES.executions.get(id))
+export async function getExecution(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Execution> {
+  return apiGet<Execution>(ROUTES.executions.get(id), signal)
 }
 
 /**
