@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react
 import { Layout, Menu, ConfigProvider, theme, Tooltip, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import { useUiStore } from './store/useUiStore';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   DashboardOutlined,
   RobotOutlined,
@@ -87,6 +88,21 @@ const menuItems: MenuItem[] = [
     ],
   },
 ];
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,        // 30 seconds considered fresh
+      retry: 2,                  // retry 2 times on failure
+      refetchOnWindowFocus: true,
+    },
+    mutations: {
+      onError: (error) => {
+        console.error('[Mutation Error]', error);
+      },
+    },
+  },
+});
 
 const AppLayout: React.FC = () => {
   const location = useLocation();
@@ -452,9 +468,11 @@ const App: React.FC = () => {
         },
       }}
     >
-      <Router>
-        <AppLayout />
-      </Router>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <AppLayout />
+        </Router>
+      </QueryClientProvider>
     </ConfigProvider>
   );
 };
