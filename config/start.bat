@@ -62,7 +62,7 @@ echo.
 
 :: [1/4] opencode serve
 echo [1/4] opencode serve ^(port 4096^)...
-set "OC_BIN=%PROJECT_ROOT%agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+set "OC_BIN=%PROJECT_ROOT%src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
 if exist "%OC_BIN%" (
     powershell -Command "$p = Start-Process -FilePath \"%OC_BIN%\" -ArgumentList \"serve --port 4096\" -WorkingDirectory \"%PROJECT_ROOT%\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
     echo   opencode serve started
@@ -72,15 +72,15 @@ if exist "%OC_BIN%" (
 
 :: [2/4] FastAPI
 echo [2/4] FastAPI Framework ^(port 8000^)...
-powershell -Command "$p = Start-Process -FilePath \"python\" -ArgumentList \"-m src.main\" -WorkingDirectory \"%PROJECT_ROOT%\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
+powershell -Command "$p = Start-Process -FilePath \"python\" -ArgumentList \"-m src.main.main\" -WorkingDirectory \"%PROJECT_ROOT%\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
 
 :: [3/4] WebUI Server
 echo [3/4] WebUI Server ^(port 9876^)...
-powershell -Command "$p = Start-Process -FilePath \"node\" -ArgumentList \"node_modules/tsx/dist/cli.mjs watch index.ts\" -WorkingDirectory \"%PROJECT_ROOT%webui\\server\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
+powershell -Command "$p = Start-Process -FilePath \"node\" -ArgumentList \"node_modules/tsx/dist/cli.mjs watch index.ts\" -WorkingDirectory \"%PROJECT_ROOT%src\webui\server\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
 
 :: [4/4] WebUI Frontend (Vite)
 echo [4/4] WebUI Frontend ^(port 5173^)...
-powershell -Command "$p = Start-Process -FilePath \"cmd\" -ArgumentList \"/c npm run dev\" -WorkingDirectory \"%PROJECT_ROOT%webui\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
+powershell -Command "$p = Start-Process -FilePath \"cmd\" -ArgumentList \"/c npm run dev\" -WorkingDirectory \"%PROJECT_ROOT%src\webui\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
 
 echo.
 echo ========================================

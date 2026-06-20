@@ -69,7 +69,7 @@ else { Write-Host " Not found" -ForegroundColor Red; exit 1 }
 
 # Check opencode binary
 Write-Host "[Check] opencode..." -NoNewline
-$ocBin = Join-Path $PROJECT_ROOT "agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+$ocBin = Join-Path $PROJECT_ROOT "src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
 if (Test-Path $ocBin) { Write-Host " OK" -ForegroundColor Green }
 else { Write-Host " Not found at $ocBin" -ForegroundColor Red }
 
@@ -77,7 +77,7 @@ Write-Host ""
 
 # Start opencode serve
 Write-Host "[1/4] opencode serve (port 4096)..." -ForegroundColor Yellow
-$ocBin = Join-Path $PROJECT_ROOT "agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+$ocBin = Join-Path $PROJECT_ROOT "src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
 if (Test-Path $ocBin) {
     $p = Start-Process -FilePath $ocBin -ArgumentList "serve", "--port", "4096" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
     $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
@@ -90,7 +90,7 @@ if (Test-Path $ocBin) {
 
 # Start FastAPI
 Write-Host "[2/4] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
-$p = Start-Process -FilePath "python" -ArgumentList "-m src.main" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
+$p = Start-Process -FilePath "python" -ArgumentList "-m src.main.main" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
 $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
 $script:processes += $p
 Start-Sleep -Seconds 2
@@ -98,7 +98,7 @@ Write-Host "  FastAPI started (PID $($p.Id))" -ForegroundColor Green
 
 # Start WebUI Server
 Write-Host "[3/4] WebUI Server (port 9876)..." -ForegroundColor Yellow
-$webuiServerDir = Join-Path $PROJECT_ROOT "webui\server"
+$webuiServerDir = Join-Path $PROJECT_ROOT "src\webui\server"
 $p = Start-Process -FilePath "node" -ArgumentList "node_modules/tsx/dist/cli.mjs watch index.ts" -WorkingDirectory $webuiServerDir -WindowStyle Hidden -PassThru
 $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
 $script:processes += $p
@@ -107,7 +107,7 @@ Write-Host "  WebUI Server started (PID $($p.Id))" -ForegroundColor Green
 
 # Start WebUI Frontend
 Write-Host "[4/4] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
-$webuiDir = Join-Path $PROJECT_ROOT "webui"
+$webuiDir = Join-Path $PROJECT_ROOT "src\webui"
 $p = Start-Process -FilePath "cmd" -ArgumentList "/c npm run dev" -WorkingDirectory $webuiDir -WindowStyle Hidden -PassThru
 $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
 $script:processes += $p
