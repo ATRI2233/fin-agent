@@ -19,7 +19,7 @@
  */
 
 import { API_V1_BASE } from '../config/env'
-import { apiDelete, apiGet, apiPost } from './client'
+import { apiDelete, apiGet, apiPost } from './http'
 import type {
   SessionInfo,
   SessionListResponse,

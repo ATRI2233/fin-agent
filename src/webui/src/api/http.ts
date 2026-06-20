@@ -3,9 +3,9 @@
  *
  * Every resource module in `webui/src/api/` builds on top of these helpers so
  * we get a single place to:
- * - inject `X-Request-ID` for distributed tracing,
- * - normalise non-2xx responses into {@link ApiError} carrying an RFC 7807
- * {@link ProblemDetail} body,
+ * - inject `X-Trace-Id` for distributed tracing,
+ * - normalise non-2xx responses into {@link ApiError} carrying an
+ * {@link ApiErrorBody} body,
  * - forward an optional `AbortSignal` for cancelable requests.
  *
  * Callers usually compose a path with {@link buildUrl} using one of the
@@ -15,14 +15,14 @@
  * @see ../config/env.ts for the configurable base URLs.
  */
 
-import { ApiError, type ProblemDetail } from "../types/api-error";
+import { ApiError, type ApiErrorBody } from "../types/api-error";
 import { API_V1_BASE } from "../config/env";
 
 /** Content-Type used for both requests and the JSON problem responses. */
 const JSON_CONTENT_TYPE = "application/json";
 
 /** Header used to propagate request identifiers across hops. */
-const REQUEST_ID_HEADER = "X-Request-ID";
+const TRACE_ID_HEADER = "X-Trace-Id";
 
 /** HTTP status code that indicates an empty body (RFC 7231 §6.3.5). */
 const HTTP_NO_CONTENT = 204;
@@ -58,38 +58,37 @@ function generateRequestId(): string {
 }
 
 /**
- * Read the response body, parse it as JSON when possible, and fall back to a
- * synthetic {@link ProblemDetail} for non-JSON or unparseable payloads.
+ * Read the response body, parse it as JSON when possible, and extract a
+ * {@link ApiErrorBody}. Falls back to a synthetic body when the payload is
+ * empty, unparseable, or doesn't match the backend envelope shape.
  */
-async function readProblem(response: Response, fallbackStatus: number): Promise<ProblemDetail> {
+async function readApiError(response: Response): Promise<ApiErrorBody> {
   const text = await response.text();
-  if (text.length === 0) {
-    return {
-      type: "about:blank",
-      title: response.statusText || "Request failed",
-      status: fallbackStatus,
-    };
-  }
+  const fallback: ApiErrorBody = {
+    code: -1,
+    message: response.statusText || "Request failed",
+    trace_id: "unknown",
+  };
+  if (text.length === 0) return fallback;
   try {
-    const parsed = JSON.parse(text) as Partial<ProblemDetail>;
+    const parsed = JSON.parse(text) as Partial<ApiErrorBody>;
     if (
       parsed &&
       typeof parsed === "object" &&
-      typeof parsed.type === "string" &&
-      typeof parsed.title === "string" &&
-      typeof parsed.status === "number"
+      typeof parsed.code === "number" &&
+      typeof parsed.message === "string"
     ) {
-      return parsed as ProblemDetail;
+      return {
+        code: parsed.code,
+        message: parsed.message,
+        data: parsed.data,
+        trace_id: typeof parsed.trace_id === "string" ? parsed.trace_id : "unknown",
+      };
     }
   } catch {
-    // Fall through to synthetic problem below.
+    // Fall through to fallback.
   }
-  return {
-    type: "about:blank",
-    title: response.statusText || "Request failed",
-    status: fallbackStatus,
-    detail: text.slice(0, 500),
-  };
+  return fallback;
 }
 
 /**
@@ -105,7 +104,7 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     Accept: JSON_CONTENT_TYPE,
-    "X-Request-ID": generateRequestId(),
+    "X-Trace-Id": generateRequestId(),
   };
 
   let payload: BodyInit | undefined;
@@ -123,19 +122,45 @@ async function request<T>(
   }
 
   const response = await fetch(url, init);
-  const requestId = response.headers.get(REQUEST_ID_HEADER) ?? undefined;
+  const traceId = response.headers.get(TRACE_ID_HEADER) ?? undefined;
 
   if (!response.ok) {
-    const problem = await readProblem(response, response.status);
-    throw new ApiError(problem, requestId);
+    const body = await readApiError(response);
+    throw new ApiError(response.status, body);
   }
 
   if (response.status === HTTP_NO_CONTENT) {
     return undefined as T;
   }
 
-  // 2xx with a body — parse and return.
-  return (await response.json()) as T;
+  // 2xx with a body — parse envelope and unwrap.
+  const rawJson = (await response.json()) as unknown;
+  // 信封格式: {code, data, trace_id} 或 {code, message, data, trace_id}
+  if (
+    rawJson &&
+    typeof rawJson === "object" &&
+    typeof (rawJson as Record<string, unknown>).code === "number" &&
+    "data" in (rawJson as Record<string, unknown>)
+  ) {
+    const envelope = rawJson as {
+      code: number;
+      data?: unknown;
+      message?: string;
+      trace_id?: string;
+    };
+    if (envelope.code === 0) {
+      return (envelope.data ?? undefined) as T;
+    }
+    // 业务/系统错误:抛 ApiError(协议层成功但业务失败)
+    throw new ApiError(response.status, {
+      code: envelope.code,
+      message: envelope.message ?? "Request failed",
+      data: envelope.data,
+      trace_id: envelope.trace_id ?? "unknown",
+    });
+  }
+  // 非信封格式(向后兼容):原样返回
+  return rawJson as T;
 }
 
 /**
@@ -191,15 +216,15 @@ export function apiDelete<T>(url: string, signal?: AbortSignal): Promise<T> {
 export async function apiGetText(url: string, signal?: AbortSignal): Promise<string> {
   const headers: Record<string, string> = {
     Accept: "text/plain",
-    "X-Request-ID": generateRequestId(),
+    "X-Trace-Id": generateRequestId(),
   };
   const init: RequestInit = { method: "GET", headers };
   if (signal) init.signal = signal;
 
   const response = await fetch(url, init);
   if (!response.ok) {
-    const problem = await readProblem(response, response.status);
-    throw new ApiError(problem, response.headers.get(REQUEST_ID_HEADER) ?? undefined);
+    const body = await readApiError(response);
+    throw new ApiError(response.status, body);
   }
   return response.text();
 }
@@ -211,15 +236,15 @@ export async function apiGetText(url: string, signal?: AbortSignal): Promise<str
 export async function apiPutText(url: string, body: string, signal?: AbortSignal): Promise<void> {
   const headers: Record<string, string> = {
     "Content-Type": "text/plain",
-    "X-Request-ID": generateRequestId(),
+    "X-Trace-Id": generateRequestId(),
   };
   const init: RequestInit = { method: "PUT", headers, body };
   if (signal) init.signal = signal;
 
   const response = await fetch(url, init);
   if (!response.ok) {
-    const problem = await readProblem(response, response.status);
-    throw new ApiError(problem, response.headers.get(REQUEST_ID_HEADER) ?? undefined);
+    const body = await readApiError(response);
+    throw new ApiError(response.status, body);
   }
 }
 

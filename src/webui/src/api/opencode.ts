@@ -34,7 +34,7 @@
  */
 
 import { OPENCODE_API_BASE } from '../config/env';
-import { apiGet, apiPost, apiPut, apiDelete, buildUrl } from './client';
+import { apiGet, apiPost, apiPut, apiDelete, buildUrl } from './http';
 
 /**
  * Issue a `GET` request to the OpenCode proxy.

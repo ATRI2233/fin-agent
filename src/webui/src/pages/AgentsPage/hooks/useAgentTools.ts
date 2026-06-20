@@ -11,7 +11,7 @@ import { useCallback } from 'react';
 import { useFetch } from '../../../hooks/useFetch';
 import { listTools } from '../../../api/tools';
 import { API_V1_BASE } from '../../../config/env';
-import { apiGet, buildUrl } from '../../../api/client';
+import { apiGet, buildUrl } from '../../../api/http';
 
 /**
  * Local tool descriptor used by the Edit modal's whitelist picker.

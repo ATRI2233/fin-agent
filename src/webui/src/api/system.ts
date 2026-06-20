@@ -18,7 +18,7 @@
  */
 
 import { API_V1_BASE } from '../config/env'
-import { apiGet } from './client'
+import { apiGet } from './http'
 import type { CacheState, LogStats, SystemStatus } from '../types/system'
 
 /**

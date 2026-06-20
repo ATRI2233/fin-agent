@@ -25,7 +25,7 @@
  */
 
 import { API_V1_BASE } from '../config/env';
-import { apiGet, apiPost, apiDelete, apiGetText, apiPutText, buildUrl } from './client';
+import { apiGet, apiPost, apiDelete, apiGetText, apiPutText, buildUrl } from './http';
 
 /**
  * Catalog entry returned by `/api/v1/skills`.

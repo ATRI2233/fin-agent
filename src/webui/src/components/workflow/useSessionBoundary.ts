@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Node, OnSelectionChangeFunc, useOnSelectionChange } from '@xyflow/react';
 
-import { apiPost, buildUrl } from '../../api/client';
+import { apiPost, buildUrl } from '../../api/http';
 import { API_V1_BASE } from '../../config/env';
 import { useMutation } from '../../hooks/useMutation';
 

@@ -3,7 +3,7 @@
  * All endpoints are under /api/v1/modules/portfolio
  */
 
-import { apiDelete, apiGet, apiPost, apiPut } from "../client";
+import { apiDelete, apiGet, apiPost, apiPut } from "../http";
 import type {
   Annotation,
   AnnotationCreate,

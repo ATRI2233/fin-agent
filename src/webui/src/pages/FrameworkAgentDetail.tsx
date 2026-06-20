@@ -32,7 +32,7 @@ export default function FrameworkAgentDetail() {
       setAgent(data as unknown as AgentDetail);
     } catch (err: unknown) {
       const msg = err instanceof ApiError
-        ? `HTTP ${err.problem.status}`
+        ? `HTTP ${err.status}`
         : err instanceof Error ? err.message : 'Failed to load agent';
       setError(msg);
       setAgent(null);

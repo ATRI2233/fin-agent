@@ -17,7 +17,7 @@
  */
 
 import { API_V1_BASE } from '../config/env'
-import { apiGet, apiPost, apiPut, apiDelete } from './client'
+import { apiGet, apiPost, apiPut, apiDelete } from './http'
 import type {
   Workflow,
   WorkflowMeta,

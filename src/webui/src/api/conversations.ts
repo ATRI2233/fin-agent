@@ -22,7 +22,7 @@
  */
 
 import { API_V1_BASE } from '../config/env'
-import { apiDelete, apiGet, apiPost, apiPut } from './client'
+import { apiDelete, apiGet, apiPost, apiPut } from './http'
 import type {
   Conversation,
   ConversationCreate,

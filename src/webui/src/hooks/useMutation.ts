@@ -1,7 +1,7 @@
 /**
  * `useMutation` — generic imperative mutator hook for `POST` / `PUT` /
  * `DELETE` operations built on top of the typed fetch helpers in
- * `../api/client.ts`.
+ * `../api/http.ts`.
  *
  * Unlike {@link useFetch}, this hook never auto-fires: callers trigger the
  * request by invoking `mutate(input)` (e.g. from a form `onFinish` or button
@@ -21,7 +21,7 @@
  * @example
  * ```tsx
  * import { useMutation } from "../hooks/useMutation";
- * import { apiPost, buildUrl } from "../api/client";
+ * import { apiPost, buildUrl } from "../api/http";
  * import { API_V1_BASE } from "../config/env";
  *
  * interface CreateAgentInput { name: string; prompt: string; }

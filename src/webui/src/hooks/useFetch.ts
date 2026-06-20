@@ -1,6 +1,6 @@
 /**
  * `useFetch` — generic data-fetching hook built on top of the typed fetch
- * helpers in `../api/client.ts` (e.g. `apiGet`, `apiPost`, …).
+ * helpers in `../api/http.ts` (e.g. `apiGet`, `apiPost`, …).
  *
  * It owns the request lifecycle so components can stay declarative:
  * - tracks `loading` / `error` / `data` state via `useState`,
@@ -11,13 +11,13 @@
  * or retry handlers.
  *
  * The hook is deliberately unaware of the HTTP verb — the caller wires the
- * fetcher. That keeps `useFetch` decoupled from `client.ts` and easy to
+ * fetcher. That keeps `useFetch` decoupled from `http.ts` and easy to
  * compose with `apiGet` / `apiPost` / `apiPut` / `apiDelete`.
  *
  * @example
  * ```tsx
  * import { useFetch } from "../hooks/useFetch";
- * import { apiGet, buildUrl } from "../api/client";
+ * import { apiGet, buildUrl } from "../api/http";
  * import { API_V1_BASE } from "../config/env";
  * import type { AgentSummary } from "../types/agent";
  *
@@ -55,7 +55,7 @@ export interface UseFetchResult<T> {
  *
  * @typeParam T - Shape of the resolved payload.
  * @param fetcher - Receives an `AbortSignal` to forward into the underlying
- * `fetch` call (see `../api/client.ts`).
+ * `fetch` call (see `../api/http.ts`).
  * @param deps - Dependency list mirroring `useEffect`'s contract; the fetcher
  * re-runs whenever the identity of any entry changes.
  */

@@ -14,7 +14,7 @@
  */
 
 import { API_V1_BASE } from '../config/env';
-import { apiGet, apiPut, apiDelete, apiGetText, apiPutText, buildUrl } from './client';
+import { apiGet, apiPut, apiDelete, apiGetText, apiPutText, buildUrl } from './http';
 import type { Agent, AgentDetail } from '../types/agent';
 
 /**
