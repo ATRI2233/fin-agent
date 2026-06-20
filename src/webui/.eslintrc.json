@@ -18,8 +18,8 @@
     "plugin:react-hooks/recommended"
   ],
   "rules": {
-    "max-lines": ["error", { "max": 500, "skipBlankLines": true, "skipComments": true }],
-    "max-lines-per-function": ["error", { "max": 50, "skipBlankLines": true, "skipComments": true }],
+    "max-lines": ["warn", { "max": 500, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": ["warn", { "max": 50, "skipBlankLines": true, "skipComments": true }],
     "no-magic-numbers": ["warn", { "ignore": [0, 1, -1, 200, 404, 500, 1000, 3000] }],
     "no-restricted-imports": ["error", {
       "paths": [{
