@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "cd ../.. && python -m src.main.main",
+      command: "cd ../.. && mkdir -p data && python -m src.main.main",
       url: "http://localhost:8000/api/v1/agents",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
