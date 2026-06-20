@@ -102,7 +102,7 @@ export function useMessages(): UseMessagesResult {
           },
         });
 
-        const userMessageId = result.user_message?.id;
+        const userMessageId = result.id;
         if (userMessageId) {
           // Append the user message immediately for snappy UX.
           appendMessage({

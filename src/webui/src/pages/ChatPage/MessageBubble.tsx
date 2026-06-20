@@ -38,6 +38,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message } from '../../domain/conversation';
 import { NODE_STATUS_CONFIG } from '../../utils/statusConfig';
+import type { NodeStatusKey } from '../../utils/statusConfig';
 import { formatTime } from '../../utils/time';
 
 const { Text } = Typography;
@@ -72,7 +73,7 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
 
   // Node statuses are no longer polled separately — with SSE, the message list
   // is refreshed on every workflow_status event and already contains the data.
-  const nodeStatuses = null;
+  const nodeStatuses: Array<{ status: NodeStatusKey; agent?: string; node_id: string; error?: string }> = [];
 
   // Compact inline row for workflow status / start — no avatar/bubble chrome.
   if (isWorkflowStatus || isWorkflowStart) {

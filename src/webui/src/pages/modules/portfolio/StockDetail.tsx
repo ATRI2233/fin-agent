@@ -166,8 +166,8 @@ export default function StockDetailPage() {
       const lines = values.csv.trim().split("\n");
       const records = lines
         .slice(1) // skip header
-        .map((line) => {
-          const parts = line.split(",").map((s) => s.trim());
+        .map((line: string) => {
+          const parts = line.split(",").map((s: string) => s.trim());
           // CSV format: date,open,high,low,close,volume
           return {
             trade_date: parts[0],
@@ -178,7 +178,7 @@ export default function StockDetailPage() {
             volume: parts[5] ? Number(parts[5]) : null,
           };
         })
-        .filter((r) => r.trade_date && r.close_price);
+        .filter((r: { trade_date: string; close_price: number }) => r.trade_date && r.close_price);
 
       const result = await importPricesMut.mutateAsync({ stockId: id, records });
       message.success(`已导入 ${result.imported} 条数据`);
