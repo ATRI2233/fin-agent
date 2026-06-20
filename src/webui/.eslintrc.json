@@ -26,7 +26,12 @@
         "name": "axios",
         "message": "Please use @/api/client for unified requests"
       }],
-      "patterns": ["axios/*"]
+      "patterns": [
+        {
+          "group": ["axios/*"],
+          "message": "Please use @/api/client for unified requests"
+        }
+      ]
     }],
     "no-restricted-syntax": ["error", {
       "selector": "CallExpression[callee.name='fetch']",
@@ -40,5 +45,20 @@
     "build/",
     "*.config.js",
     "*.config.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["src/pages/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "patterns": [
+            {
+              "group": ["**/api/*", "**/../api/*", "**/../../api/*", "**/../../../api/*"],
+              "message": "页面禁止直接 import api/, 必须通过 hooks/ 包装。"
+            }
+          ]
+        }]
+      }
+    }
   ]
 }
