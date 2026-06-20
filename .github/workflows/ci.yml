@@ -57,3 +57,23 @@ jobs:
 
       - name: Pytest
         run: pytest -x --tb=short
+
+  e2e-test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright
+        run: cd project/src/webui && npm ci && npx playwright install --with-deps chromium
+      - name: Run E2E tests
+        run: cd project/src/webui && npx playwright test
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: project/src/webui/playwright-report/
