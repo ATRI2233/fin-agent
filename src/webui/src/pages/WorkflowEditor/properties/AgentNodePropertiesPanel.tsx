@@ -27,7 +27,7 @@ import {
   MinusCircleOutlined,
 } from '@ant-design/icons';
 import type { Node } from '@xyflow/react';
-import { listTools } from '../../../api/mcp';
+import { useTools } from '../../../hooks/useMcp';
 
 /* ─── Domain types ─────────────────────────────────────────────────────── */
 
@@ -57,13 +57,8 @@ export default function AgentNodePropertiesPanel({
   onDeleteNode,
 }: AgentNodePropertiesPanelProps) {
   const [paramRows, setParamRows] = useState<Array<{ key: string; value: string }>>([]);
-  const [availableTools, setAvailableTools] = useState<string[]>([]);
-
-  useEffect(() => {
-    listTools().then((tools) => {
-      setAvailableTools(tools.map((t) => t.name));
-    }).catch(() => {});
-  }, []);
+  const { data: toolsData } = useTools();
+  const availableTools = (toolsData ?? []).map((t) => t.name);
 
   // Re-seed the local row mirror when the selected node or its parameters
   // object change. Lets the user edit empty-key rows without wiping them

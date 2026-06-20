@@ -1,6 +1,6 @@
 /** Portfolio module — main holdings overview page */
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   Table,
@@ -31,12 +31,12 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import {
-  createHolding,
-  deleteHolding,
-  getOverview,
-  listStocks,
-  updateHolding,
-} from "../../api/modules/portfolio";
+  useCreateHolding,
+  useDeleteHolding,
+  useOverview,
+  useStocks,
+  useUpdateHolding,
+} from "../../hooks/usePortfolio";
 import type {
   Holding,
   HoldingCreate,
@@ -74,43 +74,21 @@ function PnlTag({ amount, percent }: { amount: number; percent: number }) {
 
 export default function PortfolioIndexPage() {
   const navigate = useNavigate();
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // Data hooks
+  const { data: overview, isLoading, refetch } = useOverview();
+  const [stockSearch, setStockSearch] = useState("");
+  const { data: stocks = [] } = useStocks(stockSearch);
+
+  // Mutations
+  const createMut = useCreateHolding();
+  const updateMut = useUpdateHolding();
+  const deleteMut = useDeleteHolding();
 
   // Create/edit modal
   const [modalVisible, setModalVisible] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
   const [form] = Form.useForm();
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [stockSearch, setStockSearch] = useState("");
-
-  const fetchOverview = useCallback(async () => {
-    try {
-      const data = await getOverview();
-      setOverview(data);
-    } catch (e) {
-      console.error("Failed to fetch overview", e);
-      message.error("加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
-
-  const searchStocks = useCallback(async (q: string) => {
-    setStockSearch(q);
-    try {
-      const data = await listStocks(q);
-      setStocks(data);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    searchStocks("");
-  }, [searchStocks]);
 
   const openCreate = () => {
     setEditingHolding(null);
@@ -133,14 +111,17 @@ export default function PortfolioIndexPage() {
     try {
       const values = await form.validateFields();
       if (editingHolding) {
-        await updateHolding(editingHolding.id, values as Partial<HoldingUpdate>);
+        await updateMut.mutateAsync({
+          holdingId: editingHolding.id,
+          data: values as Partial<HoldingUpdate>,
+        });
         message.success("已更新");
       } else {
-        await createHolding(values as HoldingCreate);
+        await createMut.mutateAsync(values as HoldingCreate);
         message.success("已添加");
       }
       setModalVisible(false);
-      fetchOverview();
+      // No need to refetch overview — useCreateHolding/useUpdateHolding invalidate the keys
     } catch (e: any) {
       if (e.errorFields) return;
       message.error("保存失败");
@@ -149,9 +130,8 @@ export default function PortfolioIndexPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      await deleteHolding(id);
+      await deleteMut.mutateAsync(id);
       message.success("已删除");
-      fetchOverview();
     } catch {
       message.error("删除失败");
     }
@@ -227,7 +207,7 @@ export default function PortfolioIndexPage() {
     },
   ];
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", paddingTop: 100 }}>
         <Spin size="large" />
@@ -256,7 +236,7 @@ export default function PortfolioIndexPage() {
           <p className="page-hero-subtitle">当前持仓、市值与盈亏统计</p>
         </div>
         <Space size={12}>
-          <Button icon={<ReloadOutlined />} onClick={fetchOverview} size="large" />
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} size="large" />
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} size="large">
             添加持仓
           </Button>
@@ -361,8 +341,8 @@ export default function PortfolioIndexPage() {
                 showSearch
                 placeholder="搜索股票代码或名称"
                 filterOption={false}
-                onSearch={searchStocks}
-                onFocus={() => searchStocks("")}
+                onSearch={(v: string) => setStockSearch(v)}
+                onFocus={() => setStockSearch("")}
               >
                 {stocks.map((s) => (
                   <Select.Option key={s.id} value={s.id}>

@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useAgents as useFrameworkAgents } from '../../../hooks/useAgents';
-import { getAgentToolsWhitelist } from '../../../api/agents';
+import { fetchAllowedTools } from '../../../hooks/useMcp';
 import type { Agent } from '../../../domain/agent';
 
 /**
@@ -43,7 +43,7 @@ export function useAgentsPage(): UseAgentsResult {
     const counts: Record<string, number> = {};
     for (const agent of list) {
       try {
-        const whitelist = await getAgentToolsWhitelist(agent.name);
+        const whitelist = await fetchAllowedTools(agent.name);
         counts[agent.name] = whitelist.length;
       } catch {
         // No whitelist configured — leave undefined for "..." placeholder.

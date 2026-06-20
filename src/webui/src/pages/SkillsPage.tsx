@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Typography,
   Button,
@@ -26,7 +26,16 @@ import {
   FolderOutlined,
 } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
-import { opencodeDelete, opencodeGet, opencodePost, opencodePut } from '../api/opencode';
+import {
+  useOpencodeConfigScope,
+  useOpencodeSkills,
+  useOpencodeSkillContent,
+  useUpdateOpencodeSkillContent,
+  useDeleteOpencodeSkill,
+  useMoveOpencodeSkill,
+  useToggleOpencodeSkill,
+  useSetOpencodeConfigScope,
+} from '../hooks/useOpencode';
 
 const { Text, Paragraph } = Typography;
 
@@ -46,118 +55,155 @@ interface SkillContent {
 }
 
 export default function SkillsPage() {
-  const [skills, setSkills] = useState<SkillMeta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>('global');
 
   const [viewVisible, setViewVisible] = useState(false);
   const [viewContent, setViewContent] = useState<SkillContent | null>(null);
-  const [viewLoading, setViewLoading] = useState(false);
+  const [viewName, setViewName] = useState<string | undefined>(undefined);
 
   const [editVisible, setEditVisible] = useState(false);
   const [editContent, setEditContent] = useState<SkillContent | null>(null);
-  const [editLoading, setEditLoading] = useState(false);
+  const [editName, setEditName] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
+  // Fetch config scope on mount to seed `scope` state
+  const { data: scopeData } = useOpencodeConfigScope();
   useEffect(() => {
-    opencodeGet<{ skills: Scope }>('/config/scope')
-      .then((data) => {
-        if (data.skills) setScope(data.skills);
-      })
-      .catch(() => {});
-  }, []);
-
-  const fetchSkills = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await opencodeGet<{ skills?: SkillMeta[] }>(`/skills?scope=${scope}`);
-      setSkills(data.skills ?? []);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '加载技能失败';
-      setError(msg);
-      setSkills([]);
-    } finally {
-      setLoading(false);
+    if (scopeData?.skills && (scopeData.skills === 'global' || scopeData.skills === 'project')) {
+      setScope(scopeData.skills);
     }
-  }, [scope]);
+  }, [scopeData]);
 
-  useEffect(() => { fetchSkills(); }, [fetchSkills]);
+  // Fetch skills list for the current scope
+  const {
+    data: skillsData,
+    isLoading: skillsLoading,
+    error: skillsError,
+    refetch: refetchSkills,
+  } = useOpencodeSkills<SkillMeta>(scope);
+  const skills = skillsData?.skills ?? [];
 
-  const handleScopeChange = async (newScope: Scope) => {
+  // View modal content fetch
+  const {
+    data: viewData,
+    isLoading: viewLoading,
+    refetch: refetchView,
+  } = useOpencodeSkillContent<SkillContent>(viewName, scope);
+  useEffect(() => {
+    if (viewData && viewVisible) {
+      setViewContent(viewData);
+    }
+  }, [viewData, viewVisible]);
+
+  // Edit modal content fetch
+  const {
+    data: editData,
+    isLoading: editLoading,
+    refetch: refetchEdit,
+  } = useOpencodeSkillContent<SkillContent>(editName, scope);
+  useEffect(() => {
+    if (editData && editVisible) {
+      setEditContent(editData);
+    }
+  }, [editData, editVisible]);
+
+  // Mutations
+  const setScopeMutation = useSetOpencodeConfigScope();
+  const updateContentMutation = useUpdateOpencodeSkillContent();
+  const deleteSkillMutation = useDeleteOpencodeSkill();
+  const moveSkillMutation = useMoveOpencodeSkill();
+  const toggleSkillMutation = useToggleOpencodeSkill();
+
+  const handleScopeChange = (newScope: Scope) => {
     setScope(newScope);
-    try {
-      await opencodePut<void>('/config/scope', { skills: newScope });
-    } catch {}
+    setScopeMutation.mutate({ skills: newScope });
   };
 
-  const handleView = async (name: string) => {
+  const handleView = (name: string) => {
     setViewVisible(true);
-    setViewLoading(true);
     setViewContent(null);
-    try {
-      const data = await opencodeGet<SkillContent>(`/skills/${name}/content?scope=${scope}`);
-      setViewContent(data);
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '加载失败');
-      setViewVisible(false);
-    } finally { setViewLoading(false); }
+    setViewName(name);
+    refetchView();
   };
 
-  const handleEdit = async (name: string) => {
+  const handleEdit = (name: string) => {
     setEditVisible(true);
-    setEditLoading(true);
     setEditContent(null);
-    try {
-      const data = await opencodeGet<SkillContent>(`/skills/${name}/content?scope=${scope}`);
-      setEditContent(data);
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '加载失败');
-      setEditVisible(false);
-    } finally { setEditLoading(false); }
+    setEditName(name);
+    refetchEdit();
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!editContent) return;
     setSaving(true);
-    try {
-      await opencodePut<void>(`/skills/${editContent.name}/content?scope=${scope}`, {
-        content: editContent.content,
-      });
-      message.success('技能已保存');
-      setEditVisible(false);
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '保存失败');
-    } finally { setSaving(false); }
+    updateContentMutation.mutate(
+      { name: editContent.name, scope, content: editContent.content },
+      {
+        onSuccess: () => {
+          message.success('技能已保存');
+          setEditVisible(false);
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '保存失败');
+        },
+        onSettled: () => setSaving(false),
+      },
+    );
   };
 
-  const handleDelete = async (name: string) => {
-    try {
-      await opencodeDelete<void>(`/skills/${name}?scope=${scope}`);
-      message.success(`技能 ${name} 已删除`);
-      fetchSkills();
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleDelete = (name: string) => {
+    deleteSkillMutation.mutate(
+      { name, scope },
+      {
+        onSuccess: () => {
+          message.success(`技能 ${name} 已删除`);
+          refetchSkills();
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '操作失败');
+        },
+      },
+    );
   };
 
-  const handleMove = async (name: string) => {
-    try {
-      const data = await opencodePost<{ to: Scope }>(`/skills/${name}/move`, { from: scope });
-      message.success(`已移至 ${data.to}`);
-      fetchSkills();
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleMove = (name: string) => {
+    moveSkillMutation.mutate(
+      { name, from: scope },
+      {
+        onSuccess: (data) => {
+          message.success(`已移至 ${data.to}`);
+          refetchSkills();
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '操作失败');
+        },
+      },
+    );
   };
 
-  const handleToggle = async (name: string) => {
-    try {
-      const data = await opencodePost<{ enabled: boolean }>(`/skills/${name}/toggle?scope=${scope}`, {});
-      setSkills((prev) => prev.map((s) => (s.name === name ? { ...s, enabled: data.enabled } : s)));
-      message.success(`${name} ${data.enabled ? '已启用' : '已禁用'}`);
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleToggle = (name: string) => {
+    toggleSkillMutation.mutate(
+      { name, scope },
+      {
+        onSuccess: (data) => {
+          message.success(`${name} ${data.enabled ? '已启用' : '已禁用'}`);
+          refetchSkills();
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '操作失败');
+        },
+      },
+    );
   };
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spin size="large" /></div>;
-  if (error) return <Alert type="error" message="加载技能失败" description={error} showIcon closable onClose={() => setError(null)} />;
+  const errorMessage = skillsError
+    ? skillsError instanceof Error
+      ? skillsError.message
+      : '加载技能失败'
+    : null;
+
+  if (skillsLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spin size="large" /></div>;
+  if (errorMessage) return <Alert type="error" message="加载技能失败" description={errorMessage} showIcon closable />;
 
   return (
     <div className="page-container fade-in">
@@ -172,7 +218,7 @@ export default function SkillsPage() {
             { label: <Space><GlobalOutlined />全局</Space>, value: 'global' },
             { label: <Space><FolderOutlined />项目</Space>, value: 'project' },
           ]} />
-          <Button icon={<ReloadOutlined />} onClick={fetchSkills} loading={loading} size="large">刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => refetchSkills()} loading={skillsLoading} size="large">刷新</Button>
         </Space>
       </div>
 
@@ -211,7 +257,7 @@ export default function SkillsPage() {
         </Row>
       )}
 
-      <Modal title={viewContent ? `查看: ${viewContent.name}` : '查看技能'} open={viewVisible} onCancel={() => setViewVisible(false)} footer={null} width={800} destroyOnClose>
+      <Modal title={viewContent ? `查看: ${viewContent.name}` : '查看技能'} open={viewVisible} onCancel={() => { setViewVisible(false); setViewName(undefined); }} footer={null} width={800} destroyOnClose>
         {viewLoading ? <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin size="large" /></div> : viewContent ? (
           <div>
             <div style={{ marginBottom: 20 }}><Text strong style={{ fontSize: 15 }}>描述: </Text><Text style={{ fontSize: 15 }}>{viewContent.description || '暂无描述'}</Text></div>
@@ -222,7 +268,7 @@ export default function SkillsPage() {
         ) : null}
       </Modal>
 
-      <Modal title={editContent ? `编辑: ${editContent.name}` : '编辑技能'} open={editVisible} onCancel={() => setEditVisible(false)} footer={<Space><Button onClick={() => setEditVisible(false)}>取消</Button><Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving}>保存</Button></Space>} width={800} destroyOnClose>
+      <Modal title={editContent ? `编辑: ${editContent.name}` : '编辑技能'} open={editVisible} onCancel={() => { setEditVisible(false); setEditName(undefined); }} footer={<Space><Button onClick={() => { setEditVisible(false); setEditName(undefined); }}>取消</Button><Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving}>保存</Button></Space>} width={800} destroyOnClose>
         {editLoading ? <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin size="large" /></div> : editContent ? (
           <div>
             <div style={{ marginBottom: 20 }}><Text strong style={{ fontSize: 15 }}>描述: </Text><Text style={{ fontSize: 15 }}>{editContent.description || '暂无描述'}</Text></div>

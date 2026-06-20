@@ -35,7 +35,4 @@ export const ROUTES = {
     delete:  (id: string) => `/api/v1/workflows/${encodeURIComponent(id)}`,
     trigger: (id: string) => `/api/v1/workflows/${encodeURIComponent(id)}/trigger`,
   },
-  system: {
-    dbHealth: "/system/db_health",
-  },
 } as const;

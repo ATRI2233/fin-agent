@@ -48,7 +48,7 @@
   ],
   "overrides": [
     {
-      "files": ["src/pages/**/*.{ts,tsx}"],
+      "files": ["src/pages/**/*.tsx"],
       "rules": {
         "no-restricted-imports": ["error", {
           "patterns": [

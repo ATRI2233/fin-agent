@@ -31,3 +31,5 @@ export function useAllowedTools(name: string | undefined) {
     enabled: !!name,
   });
 }
+
+export { listAllowedTools as fetchAllowedTools } from "../api/mcp";

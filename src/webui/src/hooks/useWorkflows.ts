@@ -44,6 +44,9 @@ import type {
 import { useFetch } from './useFetch';
 import { useMutation } from './useMutation';
 
+/** Re-export of the `updateWorkflow` payload type for convenience. */
+export type UpdateWorkflowPayload = Parameters<typeof updateWorkflow>[1];
+
 /* ─── Read hooks (3) ───────────────────────────────────────────────── */
 
 /**
@@ -170,4 +173,15 @@ export function useScheduledWorkflows() {
     fetcher,
     [],
   );
+}
+
+/* ─── Imperative fetcher (for callbacks) ───────────────────────────── */
+
+/**
+ * One-shot fetcher for cases where `useWorkflow` cannot be used
+ * (e.g. imperative lookups inside event handlers or callbacks).
+ * Mirrors the API of `getWorkflow` from `api/workflows.ts`.
+ */
+export async function fetchWorkflow(id: string) {
+  return getWorkflow(id);
 }

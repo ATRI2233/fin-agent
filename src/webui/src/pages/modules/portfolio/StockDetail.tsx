@@ -1,6 +1,6 @@
 /** Stock detail page — K-line chart + trade annotations */
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   Spin,
@@ -40,13 +40,12 @@ import {
   ReferenceLine,
 } from "recharts";
 import {
-  createAnnotation,
-  createStock,
-  deleteAnnotation,
-  getStockDetail,
-  importPrices,
-  listStocks,
-} from "../../api/modules/portfolio";
+  useStockDetail,
+  useCreateAnnotation,
+  useDeleteAnnotation,
+  useImportPrices,
+  useCreateStock,
+} from "../../hooks/usePortfolio";
 import type {
   ActionType,
   Annotation,
@@ -117,13 +116,16 @@ export default function StockDetailPage() {
   const navigate = useNavigate();
   const id = Number(stockId);
 
-  const [detail, setDetail] = useState<StockDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Data hooks
+  const { data: detail, isLoading, refetch } = useStockDetail(id);
+  const createAnnotationMut = useCreateAnnotation();
+  const deleteAnnotationMut = useDeleteAnnotation();
+  const importPricesMut = useImportPrices();
+  const createStockMut = useCreateStock();
 
   // Annotation modal
   const [annoModalVisible, setAnnoModalVisible] = useState(false);
   const [annoForm] = Form.useForm();
-  const [annoLoading, setAnnoLoading] = useState(false);
 
   // Import price modal
   const [importModalVisible, setImportModalVisible] = useState(false);
@@ -133,48 +135,26 @@ export default function StockDetailPage() {
   const [stockModalVisible, setStockModalVisible] = useState(false);
   const [stockForm] = Form.useForm();
 
-  const fetchDetail = useCallback(async () => {
-    try {
-      const data = await getStockDetail(id);
-      setDetail(data);
-    } catch (e) {
-      console.error(e);
-      message.error("加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchDetail();
-  }, [fetchDetail]);
-
   const handleAddAnnotation = async () => {
-    setAnnoLoading(true);
     try {
       const values = await annoForm.validateFields();
-      await createAnnotation({
+      await createAnnotationMut.mutateAsync({
         ...values,
         trade_date: values.trade_date.format("YYYY-MM-DD"),
       });
       message.success("标注已添加");
       setAnnoModalVisible(false);
       annoForm.resetFields();
-      fetchDetail();
     } catch (e: any) {
       if (e.errorFields) return;
       message.error("添加失败");
-    } finally {
-      setAnnoLoading(false);
     }
   };
 
   const handleDeleteAnnotation = async (annoId: number) => {
     try {
-      await deleteAnnotation(annoId);
+      await deleteAnnotationMut.mutateAsync(annoId);
       message.success("已删除");
-      fetchDetail();
     } catch {
       message.error("删除失败");
     }
@@ -200,11 +180,10 @@ export default function StockDetailPage() {
         })
         .filter((r) => r.trade_date && r.close_price);
 
-      const result = await importPrices(id, records);
+      const result = await importPricesMut.mutateAsync({ stockId: id, records });
       message.success(`已导入 ${result.imported} 条数据`);
       setImportModalVisible(false);
       importForm.resetFields();
-      fetchDetail();
     } catch (e: any) {
       if (e.errorFields) return;
       message.error("导入失败");
@@ -214,7 +193,7 @@ export default function StockDetailPage() {
   const handleCreateStock = async () => {
     try {
       const values = await stockForm.validateFields();
-      const stock = await createStock(values);
+      const stock = await createStockMut.mutateAsync(values);
       message.success(`股票 ${stock.symbol} 已创建`);
       setStockModalVisible(false);
       stockForm.resetFields();
@@ -228,7 +207,7 @@ export default function StockDetailPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", paddingTop: 100 }}>
         <Spin size="large" />
@@ -382,7 +361,7 @@ export default function StockDetailPage() {
           </p>
         </div>
         <Space size={12}>
-          <Button icon={<ReloadOutlined />} onClick={fetchDetail} size="large">
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} size="large">
             刷新
           </Button>
           <Button icon={<PlusOutlined />} onClick={() => setImportModalVisible(true)} size="large">
@@ -573,7 +552,7 @@ export default function StockDetailPage() {
         open={annoModalVisible}
         onCancel={() => setAnnoModalVisible(false)}
         onOk={handleAddAnnotation}
-        loading={annoLoading}
+        loading={createAnnotationMut.isPending}
         width={420}
         destroyOnClose
       >

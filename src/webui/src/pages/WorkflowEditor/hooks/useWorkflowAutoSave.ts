@@ -22,7 +22,7 @@ import { useEffect, useRef } from 'react';
 
 import { useUpdateWorkflow } from '../../../hooks/useWorkflows';
 import { useWorkflowContext } from '../WorkflowContext';
-import type { UpdateWorkflowPayload } from '../../../api/workflows';
+import type { UpdateWorkflowPayload } from '../../../hooks/useWorkflows';
 
 /** Options accepted by {@link useWorkflowAutoSave}. */
 export interface UseWorkflowAutoSaveOptions {

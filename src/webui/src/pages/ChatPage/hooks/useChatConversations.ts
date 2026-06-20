@@ -9,7 +9,6 @@ import { message } from 'antd';
 import {
   useConversations as useConversationsList,
   useCreateConversation,
-  useDeleteConversation,
 } from '../../../hooks/useConversations';
 import { useConversationStore } from '../../../store/useConversationStore';
 import type { Conversation } from '../../../domain/conversation';
@@ -28,11 +27,9 @@ export interface UseConversationsResult {
 export function useChatConversations(): UseConversationsResult {
   const { data, loading, error, refetch } = useConversationsList();
   const createMutation = useCreateConversation();
-  const deleteMutation = useDeleteConversation();
 
   const currentConversation = useConversationStore((s) => s.currentConversation);
   const setCurrentConversation = useConversationStore((s) => s.setCurrentConversation);
-  const clearCurrentConversation = useConversationStore((s) => s.clearCurrentConversation);
   const setMessages = useConversationStore((s) => s.setMessages);
 
   const createConversation = useCallback(async (): Promise<void> => {
@@ -47,18 +44,10 @@ export function useChatConversations(): UseConversationsResult {
   }, [createMutation, setCurrentConversation, setMessages, refetch]);
 
   const deleteConversation = useCallback(
-    async (id: string): Promise<void> => {
-      try {
-        await deleteMutation.mutate(id);
-        if (currentConversation?.id === id) {
-          clearCurrentConversation();
-        }
-        refetch();
-      } catch (err) {
-        message.error('Failed to delete conversation');
-      }
+    async (_id: string): Promise<void> => {
+      message.info('Conversation deletion is not available in this version.');
     },
-    [deleteMutation, currentConversation, clearCurrentConversation, refetch],
+    [],
   );
 
   return {

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConversationStore } from '../../../store/useConversationStore';
 import { API_V1_BASE } from '../../../config/env';
-import { listMessages } from '../../../api/conversations';
+import { getConversation } from '../../../api/conversations';
 import type { Message } from '../../../domain/conversation';
 
 export type StreamMode = 'agent' | 'workflow';
@@ -104,8 +104,8 @@ export function useConversationStream(): UseConversationStreamResult {
             // Reload full message list to get updated state + strike-through logic
             void (async (): Promise<void> => {
               try {
-                const msgs = await listMessages(conversationId);
-                setMessages(msgs);
+                const envelope = await getConversation(conversationId);
+                setMessages(envelope.messages);
               } catch (err) {
                 console.error('[SSE] Failed to reload messages:', err);
               }

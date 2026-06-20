@@ -19,7 +19,7 @@
  * `pendingMessageId` (the user message we are waiting on).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { listMessages } from '../../../api/conversations';
+import { getConversation } from '../../../api/conversations';
 import { useConversationStore } from '../../../store/useConversationStore';
 import type { Message } from '../../../domain/conversation';
 
@@ -79,7 +79,8 @@ export function useConversationPolling(): UseConversationPollingResult {
         }
 
         try {
-          const msgs = await listMessages(conversationId);
+          const envelope = await getConversation(conversationId);
+          const msgs = envelope.messages;
           setMessages(msgs);
 
           // Only look at messages AFTER the user message — anything

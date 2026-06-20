@@ -32,7 +32,3 @@ def build_v1_app(parent: FastAPI, settings: Settings) -> FastAPI:
     # legacy 降级放 trace 之后,这样降级响应能透传 X-Trace-Id header
     parent.add_middleware(LegacyEnvelopeMiddleware)
     return parent
-
-
-# 兼容历史导入: ``from src.main.api.v1 import router``
-from src.main.api.v1.system import router  # noqa: E402,F401

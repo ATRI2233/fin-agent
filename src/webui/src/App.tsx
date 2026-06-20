@@ -25,7 +25,6 @@ import './styles/theme.css';
 
 /* ─── Lazy-loaded page chunks ───────────────────────────────────────── */
 const FrameworkPage = React.lazy(() => import('./pages/FrameworkPage'));
-const SessionsPage = React.lazy(() => import('./pages/SessionsPage'));
 const AgentsPage = React.lazy(() => import('./pages/AgentsPage'));
 const SkillsPage = React.lazy(() => import('./pages/SkillsPage'));
 const MCPServersPage = React.lazy(() => import('./pages/MCPServersPage'));
@@ -55,11 +54,6 @@ const menuItems: MenuItem[] = [
     key: '/framework',
     icon: <BranchesOutlined />,
     label: <Link to="/framework">Framework</Link>,
-  },
-  {
-    key: '/sessions',
-    icon: <CloudServerOutlined />,
-    label: <Link to="/sessions">Sessions</Link>,
   },
   {
     key: '/chat',
@@ -116,7 +110,6 @@ const AppLayout: React.FC = () => {
     const path = location.pathname;
     if (path === '/') return 'Dashboard';
     if (path === '/framework') return 'Framework';
-    if (path === '/sessions') return 'Sessions';
     if (path === '/chat') return 'Chat';
     if (path === '/agents') return 'Agents';
     if (path === '/skills') return 'Skills';
@@ -357,7 +350,6 @@ const AppLayout: React.FC = () => {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/framework" element={<FrameworkPage />} />
-              <Route path="/sessions" element={<SessionsPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/skills" element={<SkillsPage />} />

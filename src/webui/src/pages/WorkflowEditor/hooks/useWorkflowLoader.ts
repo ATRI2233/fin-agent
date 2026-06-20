@@ -27,8 +27,7 @@
 
 import { useCallback } from 'react';
 
-import { useWorkflow, useTriggerWorkflow } from '../../../hooks/useWorkflows';
-import { getWorkflow } from '../../../api/workflows';
+import { useWorkflow, useTriggerWorkflow, fetchWorkflow } from '../../../hooks/useWorkflows';
 import type { WorkflowNode, WorkflowEdge } from '../../../domain/workflow';
 
 /* ─── Return types ──────────────────────────────────────────────────── */
@@ -67,7 +66,7 @@ export function useWorkflowLoader(workflowId: string | null) {
   const importBlock = useCallback(
     async (blockId: string, blockName: string): Promise<ImportBlockResult | null> => {
       try {
-        const source = await getWorkflow(blockId);
+        const source = await fetchWorkflow(blockId);
         const sourceNodes = source.nodes ?? [];
         const sourceEdges = source.edges ?? [];
 

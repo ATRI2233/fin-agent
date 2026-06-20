@@ -12,7 +12,7 @@
  * Conventions:
  * - Read hooks return `{ data, loading, error, refetch }` and re-run when
  * any of their argument dependencies change.
- * - Read hooks that take a nullable id (`useConversation`, `useMessages`)
+ * - Read hooks that take a nullable id (`useConversation`)
  * short-circuit when the id is `null` — the fetcher returns a
  * never-resolving promise so `loading` stays `true`; callers should
  * gate on the id before consuming `data`.
@@ -25,28 +25,23 @@ import { useCallback } from 'react';
 import {
   createConversation,
   createMessage,
-  deleteConversation,
   getConversation,
   listConversations,
-  listMessages,
-  updateConversation,
 } from '../api/conversations';
 import type {
   Conversation,
   ConversationCreate,
-  ConversationUpdate,
-  Message,
   MessageCreate,
   MessageResponse,
 } from '../domain/conversation';
 import { useFetch } from './useFetch';
 import { useMutation } from './useMutation';
 
-/* ─── Read hooks (3) ───────────────────────────────────────────────── */
+/* ─── Read hooks (2) ───────────────────────────────────────────────── */
 
 /**
  * List every conversation in the system (summary view, newest first).
- * Auto-refreshes on mount only; pair with `refetch` after create / delete
+ * Auto-refreshes on mount only; pair with `refetch` after create
  * to keep the sidebar in sync.
  */
 export function useConversations() {
@@ -58,7 +53,7 @@ export function useConversations() {
 }
 
 /**
- * Fetch a single conversation by id.
+ * Fetch a single conversation by id (includes its messages envelope).
  *
  * Short-circuits when `id` is `null` (e.g. nothing is selected): the
  * fetcher returns a never-resolving promise so `loading` stays `true`,
@@ -78,26 +73,7 @@ export function useConversation(id: string | null) {
   return useFetch<Conversation>(fetcher, [id]);
 }
 
-/**
- * List every message in a conversation, oldest-first (chronological).
- *
- * Short-circuits when `conversationId` is `null` — same convention as
- * {@link useConversation}.
- *
- * @param conversationId Owning conversation UUID, or `null` to skip.
- */
-export function useMessages(conversationId: string | null) {
-  const fetcher = useCallback(
-    (_signal: AbortSignal) => {
-      if (!conversationId) return Promise.resolve([] as Message[]);
-      return listMessages(conversationId);
-    },
-    [conversationId],
-  );
-  return useFetch<Message[]>(fetcher, [conversationId]);
-}
-
-/* ─── Write hooks (4) ──────────────────────────────────────────────── */
+/* ─── Write hooks (2) ──────────────────────────────────────────────── */
 
 /**
  * Create a new empty conversation.
@@ -109,29 +85,6 @@ export function useCreateConversation() {
   return useMutation<ConversationCreate, Conversation>(
     (data) => createConversation(data),
   );
-}
-
-/**
- * Partial update of a conversation (title and/or `current_agent`).
- *
- * Backend bumps `updated_at` automatically and returns the minimal
- * `{ success: true }` envelope. Call `refetch` on the corresponding
- * read hook afterwards to see the new state.
- */
-export function useUpdateConversation() {
-  return useMutation<
-    { id: string; data: ConversationUpdate },
-    { success: boolean }
-  >(({ id, data }) => updateConversation(id, data));
-}
-
-/**
- * Delete a conversation (backend returns 204 No Content). Pass the id
- * directly to `mutate(id)`. Associated session state is cleaned up
- * server-side.
- */
-export function useDeleteConversation() {
-  return useMutation<string, void>((id) => deleteConversation(id));
 }
 
 /**

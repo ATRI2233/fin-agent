@@ -23,12 +23,11 @@
 
 import { useCallback } from 'react';
 
-import { getAgent, getAgentStats, listAgents } from '../api/agents';
-import type { AgentStatsEntry } from '../api/agents';
+import { getAgent, listAgents } from '../api/agents';
 import type { Agent, AgentDetail } from '../domain/agent';
 import { useFetch } from './useFetch';
 
-/* ─── Read hooks (3) ───────────────────────────────────────────────── */
+/* ─── Read hooks (2) ───────────────────────────────────────────────── */
 
 /**
  * List every registered agent (summary view).
@@ -41,19 +40,6 @@ export function useAgents() {
     [],
   );
   return useFetch<Agent[]>(fetcher, []);
-}
-
-/**
- * Fetch execution telemetry for all agents in a single round-trip
- * (`GET /api/v1/agents/stats`). The result is a name-keyed map — see
- * {@link AgentStatsEntry} for the per-agent payload shape.
- */
-export function useAgentStats() {
-  const fetcher = useCallback(
-    (_signal: AbortSignal) => getAgentStats(),
-    [],
-  );
-  return useFetch<AgentStatsEntry[]>(fetcher, []);
 }
 
 /**

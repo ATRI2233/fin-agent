@@ -5,19 +5,17 @@
  * the visual surface is identical pre- and post-split. The columns
  * are pure render functions over an `AgentMeta` row — the only state
  * they consume is passed via the `ColumnsContext` parameter (model map
- * + whitelist counts) and the row action callbacks (`onView`,
- * `onEdit`, `onDelete`).
+ * + whitelist counts).
  *
- * @see ./hooks/useAgents for the row shape.
+ * Note: P2-T2 removed CRUD modals (Create / View / Edit / Delete /
+ * BatchModel). The Actions column has been removed and the callbacks
+ * are no longer wired up; the page is now read-only.
+ *
+ * @see ./hooks/useAgentsPage for the row shape.
  */
 
-import { Button, Popconfirm, Space, Tag, Typography } from 'antd';
-import {
-  DeleteOutlined,
-  EditOutlined,
-  EyeOutlined,
-  ToolOutlined,
-} from '@ant-design/icons';
+import { Space, Tag, Typography } from 'antd';
+import { ToolOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
 import type { AgentMeta } from './hooks/useAgentsPage';
@@ -39,21 +37,13 @@ export interface ColumnsContext {
   agentWhitelistCounts: Record<string, number>;
 }
 
-export interface ColumnCallbacks {
-  onView: (name: string) => void;
-  onEdit: (name: string) => void;
-  onDelete: (name: string) => void;
-}
-
 /**
  * Build the table column array.
  *
  * @param ctx - Per-row state the columns need to render.
- * @param cb - Row action handlers (view / edit / delete).
  */
 export function buildAgentColumns(
   ctx: ColumnsContext,
-  cb: ColumnCallbacks,
 ): ColumnsType<AgentMeta> {
   return [
     {
@@ -146,34 +136,6 @@ export function buildAgentColumns(
           record.filePath.includes('builtin'));
         return value === 'builtin' ? isBuiltin : !isBuiltin;
       },
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 150,
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            onClick={() => cb.onView(record.name)}
-            style={{ color: '#B0B0B0' }}
-          />
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => cb.onEdit(record.name)}
-            style={{ color: '#B0B0B0' }}
-          />
-          <Popconfirm
-            title="Delete agent?"
-            description={`Delete "${record.name}"?`}
-            onConfirm={() => cb.onDelete(record.name)}
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
     },
   ];
 }
