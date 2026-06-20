@@ -87,6 +87,13 @@ def build_registry(settings: Settings) -> Registry:
     reg.register_singleton(AgentDispatcher, lambda r: DefaultAgentDispatcher(
         backend=r.resolve(AgentBackend), settings=settings))
     reg.register_singleton(SessionManager, lambda r: InMemorySessionManager())
+    from src.main.modules.agent.repo.agent_definition_repo import (
+        FileSystemAgentDefinitionRepository,
+    )
+    reg.register_singleton(
+        FileSystemAgentDefinitionRepository,
+        lambda r: FileSystemAgentDefinitionRepository(settings),
+    )
 
     # ── execution ──
     reg.register_singleton(ExecutionRecorder, lambda r: SqlAlchemyExecutionRecorder(
