@@ -109,6 +109,20 @@ export interface WorkflowMeta extends Pick<Workflow, 'id' | 'name' | 'status' | 
 /* ─── Aggregate shapes ──────────────────────────────────────────────── */
 
 /**
+ * Payload for `PATCH /api/v1/workflows/{id}`. All fields are optional;
+ * omitted fields are left unchanged by the backend
+ * (`exclude_none=True`).
+ */
+export interface UpdateWorkflowPayload {
+  name?: string
+  description?: string
+  nodes?: Workflow['nodes']
+  edges?: Workflow['edges']
+  trigger_type?: Workflow['trigger_type']
+  config?: Workflow['config']
+}
+
+/**
  * Aggregated execution statistics returned by `GET /api/v1/workflows/stats`.
  * Note: `successRate` is camelCase because the backend returns it that way
  * (see `WorkflowQueryService.get_workflow_stats`). `total` is optional at

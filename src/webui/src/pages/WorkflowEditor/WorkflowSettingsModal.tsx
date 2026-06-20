@@ -33,8 +33,6 @@ import { SaveOutlined } from '@ant-design/icons';
 import { CronEditor } from '../../components/CronEditor';
 import {
   useUpdateWorkflow,
-  useScheduleWorkflow,
-  useUnscheduleWorkflow,
 } from '../../hooks/useWorkflows';
 import type { WorkflowTriggerType } from '../../domain/workflow';
 
@@ -70,8 +68,6 @@ export default function WorkflowSettingsModal({
   const [cronExpression, setCronExpression] = useState(initialCronExpression);
 
   const updateMut = useUpdateWorkflow();
-  const scheduleMut = useScheduleWorkflow();
-  const unscheduleMut = useUnscheduleWorkflow();
 
   // Re-seed the form whenever the modal is re-opened. Without this the
   // previous edit's local state leaks into the next open.
@@ -107,13 +103,6 @@ export default function WorkflowSettingsModal({
         },
       });
 
-      // Keep APScheduler in sync with the cron toggle.
-      if (nextType === 'schedule' && nextCron) {
-        await scheduleMut.mutate({ id: workflowId, cron: nextCron });
-      } else if (initialTriggerType === 'schedule') {
-        await unscheduleMut.mutate(workflowId);
-      }
-
       message.success('设置已保存');
       onSaved({ name, triggerType: nextType, cronExpression: nextCron, commandString });
       onClose();
@@ -122,8 +111,7 @@ export default function WorkflowSettingsModal({
     }
   };
 
-  const saving =
-    updateMut.loading || scheduleMut.loading || unscheduleMut.loading;
+  const saving = updateMut.loading;
 
   return (
     <Modal

@@ -34,7 +34,7 @@ export function useChatConversations(): UseConversationsResult {
 
   const createConversation = useCallback(async (): Promise<void> => {
     try {
-      const conv = await createMutation.mutate({ title: 'New Conversation' });
+      const conv = await createMutation.mutate({ agent_name: 'fin-orchestrator', title: 'New Conversation' });
       setCurrentConversation(conv);
       setMessages([]);
       refetch();

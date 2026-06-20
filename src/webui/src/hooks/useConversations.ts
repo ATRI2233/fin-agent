@@ -31,8 +31,8 @@ import {
 import type {
   Conversation,
   ConversationCreate,
+  Message,
   MessageCreate,
-  MessageResponse,
 } from '../domain/conversation';
 import { useFetch } from './useFetch';
 import { useMutation } from './useMutation';
@@ -65,12 +65,12 @@ export function useConversations() {
 export function useConversation(id: string | null) {
   const fetcher = useCallback(
     (_signal: AbortSignal) => {
-      if (!id) return Promise.resolve(null as unknown as Conversation);
+      if (!id) return Promise.resolve(null as unknown as { conversation: Conversation; messages: Message[] });
       return getConversation(id);
     },
     [id],
   );
-  return useFetch<Conversation>(fetcher, [id]);
+  return useFetch<{ conversation: Conversation; messages: Message[] }>(fetcher, [id]);
 }
 
 /* ─── Write hooks (2) ──────────────────────────────────────────────── */
@@ -82,7 +82,7 @@ export function useConversation(id: string | null) {
  * 'fin-orchestrator'; the client only chooses a title.
  */
 export function useCreateConversation() {
-  return useMutation<ConversationCreate, Conversation>(
+  return useMutation<{ agent_name: string; title?: string }, Conversation>(
     (data) => createConversation(data),
   );
 }
@@ -103,6 +103,6 @@ export function useCreateConversation() {
 export function useCreateMessage() {
   return useMutation<
     { conversationId: string; data: MessageCreate },
-    MessageResponse
+    Message
   >(({ conversationId, data }) => createMessage(conversationId, data));
 }

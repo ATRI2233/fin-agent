@@ -1,4 +1,4 @@
-import { Typography, Card, Row, Col, Button, Space, Table, Tag, Spin, message, Tooltip, Progress, Statistic } from 'antd';
+import { Typography, Card, Button, Space, Table, Tag, Spin, message, Tooltip } from 'antd';
 import {
   PlayCircleOutlined,
   PlusOutlined,
@@ -12,10 +12,9 @@ import {
   HistoryOutlined,
   EyeOutlined,
   SyncOutlined,
-  TrophyOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useWorkflows, useWorkflowStats, useTriggerWorkflow } from '../hooks/useWorkflows';
+import { useWorkflows, useTriggerWorkflow } from '../hooks/useWorkflows';
 import type { WorkflowMeta } from '../domain/workflow';
 
 const { Text } = Typography;
@@ -41,10 +40,9 @@ export default function FrameworkPage() {
 
   // All data via hooks — no manual fetch / state management.
   const { data: workflowsData, loading: wfLoading, refetch: refetchWorkflows } = useWorkflows();
-  const { data: stats, loading: statsLoading } = useWorkflowStats();
   const triggerMutation = useTriggerWorkflow();
 
-  const loading = wfLoading || statsLoading;
+  const loading = wfLoading;
   const workflows: WorkflowMeta[] = workflowsData ?? [];
 
   const handleTrigger = async (id: string) => {
@@ -67,11 +65,6 @@ export default function FrameworkPage() {
       </div>
     </div>
   );
-
-  const runningCount = stats?.running ?? 0;
-  const completedCount = stats?.completed ?? 0;
-  const failedCount = stats?.failed ?? 0;
-  const successRate = stats?.successRate ?? null;
 
   const columns = [
     {
@@ -100,25 +93,6 @@ export default function FrameworkPage() {
       render: (count: number) => (
         <span style={{ color: '#B0B0B0', fontSize: 15 }}>{count}</span>
       ),
-    },
-    {
-      title: '成功率',
-      key: 'successRate',
-      width: 120,
-      render: () => {
-        if (successRate === null) {
-          return <span style={{ color: '#787878', fontSize: 14 }}>N/A</span>;
-        }
-        return (
-          <span style={{
-            color: successRate >= 80 ? '#5A9E7B' : successRate >= 60 ? '#D4A85A' : '#D47070',
-            fontSize: 15,
-            fontWeight: 500,
-          }}>
-            {successRate}%
-          </span>
-        );
-      },
     },
     {
       title: '操作',
@@ -186,50 +160,6 @@ export default function FrameworkPage() {
           />
         </Space>
       </div>
-
-      {/* Big Stats Row — horizontal, no small cards */}
-      <Row gutter={[24, 24]} style={{ marginBottom: 40 }}>
-        <Col xs={12} sm={6}>
-          <Card className="card-spacious fade-in fade-in-1">
-            <span className="stat-label">运行中</span>
-            <div className="stat-number" style={{ marginTop: 8 }}>{runningCount}</div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="card-spacious fade-in fade-in-2">
-            <span className="stat-label">已完成</span>
-            <div className="stat-number" style={{ marginTop: 8, color: '#5A9E7B' }}>{completedCount}</div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="card-spacious fade-in fade-in-3">
-            <span className="stat-label">失败</span>
-            <div className="stat-number" style={{ marginTop: 8, color: '#D47070' }}>{failedCount}</div>
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card className="card-spacious fade-in fade-in-4">
-            <span className="stat-label">成功率</span>
-            {successRate !== null ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
-                <Progress
-                  type="circle"
-                  percent={successRate}
-                  size={56}
-                  strokeColor={successRate >= 80 ? '#5A9E7B' : successRate >= 60 ? '#D4A85A' : '#D47070'}
-                  trailColor="#2A2A2A"
-                  format={(pct) => <span style={{ color: '#F0F0F0', fontSize: 14, fontWeight: 600 }}>{pct}%</span>}
-                />
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <TrophyOutlined style={{ fontSize: 24, color: '#787878' }} />
-                <Statistic value="--" valueStyle={{ fontSize: 24, color: '#787878' }} />
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
 
       {/* Workflow Table */}
       <Card

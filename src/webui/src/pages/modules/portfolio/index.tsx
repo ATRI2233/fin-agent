@@ -36,14 +36,14 @@ import {
   useOverview,
   useStocks,
   useUpdateHolding,
-} from "../../hooks/usePortfolio";
+} from "../../../hooks/usePortfolio";
 import type {
   Holding,
   HoldingCreate,
   HoldingUpdate,
   Overview,
   Stock,
-} from "../../domain/modules/portfolio";
+} from "../../../domain/modules/portfolio";
 
 const { Text } = Typography;
 

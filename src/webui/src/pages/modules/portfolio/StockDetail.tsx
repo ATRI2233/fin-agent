@@ -45,14 +45,14 @@ import {
   useDeleteAnnotation,
   useImportPrices,
   useCreateStock,
-} from "../../hooks/usePortfolio";
+} from "../../../hooks/usePortfolio";
 import type {
   ActionType,
   Annotation,
   KlineData,
   PriceHistoryRecord,
   StockDetail,
-} from "../../domain/modules/portfolio";
+} from "../../../domain/modules/portfolio";
 
 const { Text } = Typography;
 

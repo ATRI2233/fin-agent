@@ -16,6 +16,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from './http'
 import type {
   Workflow,
   WorkflowMeta,
+  UpdateWorkflowPayload,
 } from '../domain/workflow'
 
 /* ─── Payload types ───────────────────────────────────────────────── */
@@ -29,14 +30,7 @@ export interface CreateWorkflowPayload {
   config?: Workflow['config']
 }
 
-export interface UpdateWorkflowPayload {
-  name?: string
-  description?: string
-  nodes?: Workflow['nodes']
-  edges?: Workflow['edges']
-  trigger_type?: Workflow['trigger_type']
-  config?: Workflow['config']
-}
+export type { UpdateWorkflowPayload }
 
 export interface TriggerParams {
   [key: string]: unknown
