@@ -60,10 +60,7 @@ export async function getSeriesData(options: FREDSeriesOptions) {
     // Try to get series metadata (but don't fail if it's not available)
     let seriesInfo: any = null;
     try {
-      const infoResponse = await getSeriesInfo(series_id);
-      if (infoResponse.content && infoResponse.content[0]) {
-        seriesInfo = JSON.parse(infoResponse.content[0].text);
-      }
+      seriesInfo = await getSeriesInfo(series_id);
     } catch (error) {
       console.error(`Could not fetch series info for ${series_id}:`, error);
     }
