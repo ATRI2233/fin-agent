@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Typography, Table, Tag, Space, Switch, Alert, Spin, Card, Button } from 'antd';
+import { Typography, Table, Tag, Space, Switch, Alert, Card, Button } from 'antd';
 import { ReloadOutlined, ToolOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { listTools } from '../api/mcp';
+import { useTools } from '../hooks/useMcp';
 import type { ToolItem } from '../types/agent';
 
 const { Text } = Typography;
@@ -12,28 +11,15 @@ interface ToolRow extends ToolItem {
 }
 
 export default function ToolsPage() {
-  const [tools, setTools] = useState<ToolRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error, refetch } = useTools();
 
-  const fetchTools = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listTools();
-      const rows: ToolRow[] = data.map((t) => ({
-        ...t,
-        key: t.server ? `${t.server}_${t.name}` : t.name,
-      }));
-      setTools(rows);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '加载工具失败');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const tools: ToolRow[] = (data ?? []).map((t) => ({
+    ...t,
+    key: t.server ? `${t.server}_${t.name}` : t.name,
+  }));
 
-  useEffect(() => { fetchTools(); }, [fetchTools]);
+  const loading = isLoading;
+  const errorMessage = error instanceof Error ? error.message : '加载工具失败';
 
   const sourceColorMap: Record<string, string> = { builtin: 'green', mcp: 'purple', custom: 'orange' };
 
@@ -54,9 +40,9 @@ export default function ToolsPage() {
           <h1 className="page-hero-title">工具</h1>
           <p className="page-hero-subtitle">查看所有可用工具（builtin + MCP + custom）</p>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={fetchTools} loading={loading} size="large">刷新</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={loading} size="large">刷新</Button>
       </div>
-      {error && <Alert type="error" message="加载工具失败" description={error} showIcon closable onClose={() => setError(null)} style={{ marginBottom: 24 }} />}
+      {error && <Alert type="error" message="加载工具失败" description={errorMessage} showIcon closable style={{ marginBottom: 24 }} />}
       <Card className="card-spacious fade-in fade-in-2">
         <Table<ToolRow> columns={columns} dataSource={tools} rowKey="key" loading={loading} pagination={{ pageSize: 15 }} size="middle" />
       </Card>

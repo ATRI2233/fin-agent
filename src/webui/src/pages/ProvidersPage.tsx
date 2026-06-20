@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Alert, Spin, message, Popconfirm, Select, Card, Radio } from 'antd';
 import { ReloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined, CheckCircleFilled } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { opencodeGet, opencodePut, opencodeDelete } from '../api/opencode';
+import { useOpencodeProviders, useUpsertOpencodeProvider, useSetOpencodeActiveProvider, useDeleteOpencodeProvider } from '../hooks/useOpencode';
 
 const { Title, Text } = Typography;
 
@@ -12,9 +12,20 @@ interface ProviderRow extends ProviderConfig { key: string; }
 interface Provider { providers?: Record<string, ProviderConfig>; active?: { provider: string; model: string } }
 
 export default function ProvidersPage() {
-  const [providers, setProviders] = useState<ProviderRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error: queryError, refetch } = useOpencodeProviders();
+  const upsert = useUpsertOpencodeProvider();
+  const setActive = useSetOpencodeActiveProvider();
+  const del = useDeleteOpencodeProvider();
+
+  const loading = isLoading;
+  const error = queryError instanceof Error ? queryError.message : null;
+
+  const providers = useMemo<ProviderRow[]>(() => {
+    if (!data) return [];
+    const providerData = data as Provider;
+    const provMap: Record<string, ProviderConfig> = providerData.providers ?? (data as unknown as Record<string, ProviderConfig>);
+    return Object.entries(provMap).map(([k, c]) => ({ ...c, key: k }));
+  }, [data]);
 
   const [activeProvider, setActiveProvider] = useState('');
   const [activeModel, setActiveModel] = useState('');
@@ -28,34 +39,31 @@ export default function ProvidersPage() {
   const [addSaving, setAddSaving] = useState(false);
   const [addForm] = Form.useForm();
 
-  const fetchProviders = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await opencodeGet<Provider>('/providers');
-      const provMap: Record<string, ProviderConfig> = data.providers || (data as unknown as Record<string, ProviderConfig>);
-      setProviders(Object.entries(provMap).map(([k, c]) => ({ ...(c as ProviderConfig), key: k })));
-      if (data.active) {
-        setActiveProvider(data.active.provider || '');
-        setActiveModel(data.active.model || '');
+  // Sync activeProvider/activeModel from server data on initial load only
+  useEffect(() => {
+    if (data && !activeProvider && !activeModel) {
+      const providerData = data as Provider;
+      if (providerData.active) {
+        setActiveProvider(providerData.active.provider || '');
+        setActiveModel(providerData.active.model || '');
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '加载失败');
-      setProviders([]);
-    } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchProviders(); }, [fetchProviders]);
-
-  const handleSetActive = async (provider: string, model: string) => {
-    try {
-      await opencodePut('/providers/active', { provider, model });
-      setActiveProvider(provider);
-      setActiveModel(model);
-      message.success(`已切换到 ${provider}${model ? ` / ${model}` : ''}`);
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : '切换失败');
     }
+  }, [data, activeProvider, activeModel]);
+
+  const handleSetActive = (provider: string, model: string) => {
+    setActive.mutate(
+      { provider, model },
+      {
+        onSuccess: () => {
+          setActiveProvider(provider);
+          setActiveModel(model);
+          message.success(`已切换到 ${provider}${model ? ` / ${model}` : ''}`);
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '切换失败');
+        },
+      }
+    );
   };
 
   const handleEdit = (r: ProviderRow) => {
@@ -69,38 +77,82 @@ export default function ProvidersPage() {
     try {
       const v = await form.validateFields();
       setSaving(true);
-      await opencodePut(`/providers/${editTarget.key}`, { name: v.name, npm: v.npm, options: { apiKey: v.apiKey, baseURL: v.baseURL, setCacheKey: true }, models: editTarget.models });
-      message.success(`${editTarget.key} 已更新`);
-      setEditVisible(false); setEditTarget(null); form.resetFields(); fetchProviders();
+      upsert.mutate(
+        {
+          key: editTarget.key,
+          body: {
+            name: v.name,
+            npm: v.npm,
+            options: { apiKey: v.apiKey, baseURL: v.baseURL, setCacheKey: true },
+            models: editTarget.models,
+          },
+        },
+        {
+          onSuccess: () => {
+            message.success(`${editTarget.key} 已更新`);
+            setEditVisible(false);
+            setEditTarget(null);
+            form.resetFields();
+          },
+          onError: (err: unknown) => {
+            message.error(err instanceof Error ? err.message : '保存失败');
+          },
+        }
+      );
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : '保存失败');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = async (name: string) => {
-    try {
-      await opencodeDelete(`/providers/${name}`);
-      if (activeProvider === name) {
-        setActiveProvider('');
-        setActiveModel('');
-      }
-      message.success(`${name} 已删除`);
-      fetchProviders();
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleDelete = (name: string) => {
+    del.mutate(name, {
+      onSuccess: () => {
+        if (activeProvider === name) {
+          setActiveProvider('');
+          setActiveModel('');
+        }
+        message.success(`${name} 已删除`);
+      },
+      onError: (err: unknown) => {
+        message.error(err instanceof Error ? err.message : '操作失败');
+      },
+    });
   };
 
   const handleAddSave = async () => {
     try {
       const v = await addForm.validateFields();
       setAddSaving(true);
-      await opencodePut(`/providers/${v.key}`, { name: v.name, npm: v.npm, options: { apiKey: v.apiKey || '', baseURL: v.baseURL || '', setCacheKey: true }, models: {} });
-      message.success('提供商已创建');
-      setAddVisible(false); addForm.resetFields(); fetchProviders();
+      upsert.mutate(
+        {
+          key: v.key,
+          body: {
+            name: v.name,
+            npm: v.npm,
+            options: { apiKey: v.apiKey || '', baseURL: v.baseURL || '', setCacheKey: true },
+            models: {},
+          },
+        },
+        {
+          onSuccess: () => {
+            message.success('提供商已创建');
+            setAddVisible(false);
+            addForm.resetFields();
+          },
+          onError: (err: unknown) => {
+            message.error(err instanceof Error ? err.message : '创建失败');
+          },
+        }
+      );
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : '创建失败');
-    } finally { setAddSaving(false); }
+    } finally {
+      setAddSaving(false);
+    }
   };
 
   // Get models for the currently active provider
@@ -157,7 +209,7 @@ export default function ProvidersPage() {
         </div>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddVisible(true)}>添加提供商</Button>
-          <Button icon={<ReloadOutlined />} onClick={fetchProviders} loading={loading}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={loading}>刷新</Button>
         </Space>
       </div>
 
@@ -197,7 +249,7 @@ export default function ProvidersPage() {
         </div>
       </Card>
 
-      {error && <Alert type="error" message="加载提供商失败" description={error} showIcon closable onClose={() => setError(null)} style={{ marginBottom: 16 }} />}
+      {error && <Alert type="error" message="加载提供商失败" description={error} showIcon style={{ marginBottom: 16 }} />}
       <Table<ProviderRow> columns={columns} dataSource={providers} rowKey="key" loading={loading} pagination={{ pageSize: 10 }} />
       <Modal title={editTarget ? `编辑: ${editTarget.key}` : '编辑提供商'} open={editVisible} onCancel={() => { setEditVisible(false); setEditTarget(null); form.resetFields(); }} footer={<Space><Button onClick={() => setEditVisible(false)}>取消</Button><Button type="primary" icon={<EditOutlined />} onClick={handleSave} loading={saving}>保存</Button></Space>} width={600} destroyOnClose>
         {editTarget && (

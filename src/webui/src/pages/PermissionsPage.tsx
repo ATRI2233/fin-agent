@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Select, Card, Alert, Spin, message, Popconfirm } from 'antd';
 import { ReloadOutlined, EditOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, SafetyOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { opencodeGet, opencodePut } from '../api/opencode';
+import { useOpencodePermissions, useUpdateOpencodePermissions } from '../hooks/useOpencode';
 
 const { Title, Text } = Typography;
 
@@ -20,36 +20,40 @@ interface PermissionsConfig {
 
 export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<PermissionsConfig>({ rules: [], defaultAction: 'allow' });
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   const [editVisible, setEditVisible] = useState(false);
   const [editIndex, setEditIndex] = useState<number>(-1);
   const [form] = Form.useForm();
   const [defaultAction, setDefaultAction] = useState<'allow' | 'deny'>('allow');
 
-  const fetchPermissions = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await opencodeGet<PermissionsConfig>('/permissions');
-      setPermissions(data);
-      setDefaultAction(data.defaultAction);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
-    } finally { setLoading(false); }
-  }, []);
+  const { data, isLoading, error: queryError, refetch } = useOpencodePermissions();
+  const updatePerms = useUpdateOpencodePermissions();
 
-  useEffect(() => { fetchPermissions(); }, [fetchPermissions]);
+  useEffect(() => {
+    if (data && !hydrated) {
+      setPermissions({ rules: data.rules as PermissionRule[], defaultAction: data.defaultAction as 'allow' | 'deny' });
+      setDefaultAction(data.defaultAction as 'allow' | 'deny');
+      setHydrated(true);
+    }
+  }, [data, hydrated]);
 
-  const handleSaveAll = async () => {
+  const handleSaveAll = () => {
     setSaving(true);
-    try {
-      await opencodePut('/permissions', { rules: permissions.rules, defaultAction });
-      message.success('权限已保存');
-      fetchPermissions();
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '保存失败'); } finally { setSaving(false); }
+    updatePerms.mutate(
+      { rules: permissions.rules as unknown[], defaultAction },
+      {
+        onSuccess: () => {
+          message.success('权限已保存');
+          setSaving(false);
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '保存失败');
+          setSaving(false);
+        },
+      }
+    );
   };
 
   const handleAdd = () => {
@@ -96,7 +100,7 @@ export default function PermissionsPage() {
     )},
   ];
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spin size="large" /></div>;
+  if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spin size="large" /></div>;
 
   return (
     <div className="fade-in">
@@ -106,12 +110,12 @@ export default function PermissionsPage() {
           <Text type="secondary">管理代理的工具访问权限</Text>
         </div>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchPermissions} loading={loading}>刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isLoading}>刷新</Button>
           <Button icon={<PlusOutlined />} type="primary" onClick={handleAdd}>添加规则</Button>
-          <Button icon={<SaveOutlined />} type="primary" onClick={handleSaveAll} loading={saving}>全部保存</Button>
+          <Button icon={<SaveOutlined />} type="primary" onClick={handleSaveAll} loading={saving || updatePerms.isPending}>全部保存</Button>
         </Space>
       </div>
-      {error && <Alert type="error" message="加载权限失败" description={error} showIcon closable onClose={() => setError(null)} style={{ marginBottom: 16 }} />}
+      {queryError && <Alert type="error" message="加载权限失败" description={queryError instanceof Error ? queryError.message : 'Failed to load'} showIcon closable style={{ marginBottom: 16 }} />}
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Text strong>默认动作：</Text>

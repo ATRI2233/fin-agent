@@ -1,11 +1,19 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Typography, Table, Button, Tag, Space, Modal, Switch, Form, Input, Select,
   Alert, Segmented, Popconfirm, message, Card,
 } from 'antd';
 import { ReloadOutlined, EditOutlined, DeleteOutlined, SwapOutlined, GlobalOutlined, FolderOutlined, CloudServerOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { opencodeGet, opencodePost, opencodePut, opencodeDelete } from '../api/opencode';
+import {
+  useOpencodeConfigScope,
+  useOpencodeMcpServers,
+  useSetOpencodeConfigScope,
+  useToggleOpencodeMcpServer,
+  useMoveOpencodeMcpServer,
+  useUpsertOpencodeMcpServer,
+  useDeleteOpencodeMcpServer,
+} from '../hooks/useOpencode';
 
 const { Text } = Typography;
 
@@ -25,9 +33,6 @@ interface McpServerRow extends McpServerConfig {
 }
 
 export default function MCPServersPage() {
-  const [servers, setServers] = useState<McpServerRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>('global');
 
   const [editVisible, setEditVisible] = useState(false);
@@ -35,51 +40,74 @@ export default function MCPServersPage() {
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
+  const scopeQuery = useOpencodeConfigScope();
+  const mcpServers = useOpencodeMcpServers<McpServerConfig>(scope);
+  const setScopeMutation = useSetOpencodeConfigScope();
+  const toggleMutation = useToggleOpencodeMcpServer();
+  const moveMutation = useMoveOpencodeMcpServer();
+  const upsertMutation = useUpsertOpencodeMcpServer();
+  const deleteMutation = useDeleteOpencodeMcpServer();
+
   useEffect(() => {
-    opencodeGet<{ mcp?: Scope }>('/config/scope').then((d) => { if (d.mcp) setScope(d.mcp); }).catch(() => {});
-  }, []);
+    if (scopeQuery.data?.mcp && scope === 'global') {
+      setScope(scopeQuery.data.mcp as Scope);
+    }
+  }, [scopeQuery.data?.mcp, scope]);
 
-  const fetchServers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await opencodeGet<Record<string, McpServerConfig>>(`/mcp?scope=${scope}`);
-      setServers(Object.entries(data).map(([name, cfg]) => ({ ...cfg, name })));
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '加载失败');
-      setServers([]);
-    } finally { setLoading(false); }
-  }, [scope]);
+  const servers: McpServerRow[] = mcpServers.data
+    ? Object.entries(mcpServers.data).map(([name, cfg]) => ({ ...cfg, name }))
+    : [];
+  const loading = mcpServers.isLoading;
+  const error = mcpServers.error?.message ?? null;
 
-  useEffect(() => { fetchServers(); }, [fetchServers]);
-
-  const handleScopeChange = async (s: Scope) => {
+  const handleScopeChange = (s: Scope) => {
     setScope(s);
-    try { await opencodePut<void>('/config/scope', { mcp: s }); } catch {}
+    setScopeMutation.mutate(
+      { mcp: s },
+      { onError: () => message.error('作用域切换失败') },
+    );
   };
 
-  const handleToggle = async (name: string) => {
-    try {
-      const data = await opencodePost<{ enabled: boolean }>(`/mcp/${name}/toggle?scope=${scope}`, {});
-      setServers((p) => p.map((s) => (s.name === name ? { ...s, enabled: data.enabled } : s)));
-      message.success(`${name} ${data.enabled ? '已启用' : '已禁用'}`);
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleToggle = (name: string) => {
+    toggleMutation.mutate(
+      { name, scope },
+      {
+        onSuccess: (data) => {
+          message.success(`${name} ${data.enabled ? '已启用' : '已禁用'}`);
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '操作失败');
+        },
+      },
+    );
   };
 
-  const handleDelete = async (name: string) => {
-    try {
-      await opencodeDelete<void>(`/mcp/${name}?scope=${scope}`);
-      message.success(`${name} 已删除`);
-      fetchServers();
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleDelete = (name: string) => {
+    deleteMutation.mutate(
+      { name, scope },
+      {
+        onSuccess: () => {
+          message.success(`${name} 已删除`);
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '操作失败');
+        },
+      },
+    );
   };
 
-  const handleMove = async (name: string) => {
-    try {
-      const data = await opencodePost<{ to: Scope }>(`/mcp/${name}/move`, { from: scope });
-      message.success(`已移至 ${data.to}`);
-      fetchServers();
-    } catch (err: unknown) { message.error(err instanceof Error ? err.message : '操作失败'); }
+  const handleMove = (name: string) => {
+    moveMutation.mutate(
+      { name, from: scope },
+      {
+        onSuccess: (data) => {
+          message.success(`已移至 ${data.to}`);
+        },
+        onError: (err: unknown) => {
+          message.error(err instanceof Error ? err.message : '操作失败');
+        },
+      },
+    );
   };
 
   const handleEdit = (record: McpServerRow) => {
@@ -94,16 +122,27 @@ export default function MCPServersPage() {
       const values = await form.validateFields();
       setSaving(true);
       const payload: McpServerConfig = { type: values.type, command: values.command, args: values.args ? values.args.split(/\s+/) : [], enabled: editTarget.enabled, description: values.description || undefined };
-      await opencodePut<void>(`/mcp/${editTarget.name}?scope=${scope}`, payload);
-      message.success(`${editTarget.name} 已更新`);
-      setEditVisible(false);
-      setEditTarget(null);
-      form.resetFields();
-      fetchServers();
+      upsertMutation.mutate(
+        { name: editTarget.name, scope, body: payload as unknown as Record<string, unknown> },
+        {
+          onSuccess: () => {
+            message.success(`${editTarget.name} 已更新`);
+            setEditVisible(false);
+            setEditTarget(null);
+            form.resetFields();
+          },
+          onError: (err: unknown) => {
+            if (err && typeof err === 'object' && 'errorFields' in err) return;
+            message.error(err instanceof Error ? err.message : '保存失败');
+          },
+        },
+      );
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : '保存失败');
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const columns: ColumnsType<McpServerRow> = [
@@ -134,10 +173,10 @@ export default function MCPServersPage() {
             { label: <Space><GlobalOutlined />全局</Space>, value: 'global' },
             { label: <Space><FolderOutlined />项目</Space>, value: 'project' },
           ]} />
-          <Button icon={<ReloadOutlined />} onClick={fetchServers} loading={loading} size="large">刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => mcpServers.refetch()} loading={loading} size="large">刷新</Button>
         </Space>
       </div>
-      {error && <Alert type="error" message="加载 MCP 服务器失败" description={error} showIcon closable onClose={() => setError(null)} style={{ marginBottom: 24 }} />}
+      {error && <Alert type="error" message="加载 MCP 服务器失败" description={error} showIcon closable onClose={() => {}} style={{ marginBottom: 24 }} />}
       <Card className="card-spacious fade-in fade-in-2">
         <Table<McpServerRow> columns={columns} dataSource={servers} rowKey="name" loading={loading} pagination={{ pageSize: 10 }} size="middle" />
       </Card>
