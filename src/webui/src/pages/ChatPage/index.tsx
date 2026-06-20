@@ -20,7 +20,7 @@
  * it imperatively via `messageThreadRef.current?.requestScroll()`
  * before sending a message so the new row lands visible.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Button,
   Space,
@@ -35,7 +35,6 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 
-import type { SessionInfo } from '../../types/session';
 import { useAgents } from '../../hooks/useAgents';
 import { useWorkflows } from '../../hooks/useWorkflows';
 import ChatInput, { type ChatMode } from './ChatInput';
@@ -81,48 +80,6 @@ export default function ChatPage() {
   const agents = agentsRaw ?? [];
   const workflows = workflowsRaw ?? [];
 
-  // Sessions grouped by conversation id (for per-row sidebar sub-lists).
-  const [sessionsByConversation, setSessionsByConversation] = useState<Record<string, SessionInfo[]>>({});
-  // Which conversations have their session sub-list expanded in the sidebar.
-  const [expandedConversations, setExpandedConversations] = useState<string[]>([]);
-
-  const fetchSessionsForConversation = (conversationId: string) => {
-    listSessions({ conversation_id: conversationId })
-      .then((res) => {
-        setSessionsByConversation((prev) => ({
-          ...prev,
-          [conversationId]: res.sessions ?? [],
-        }));
-      })
-      .catch(() => { /* ignore */ });
-  };
-
-  const handleConversationExpand = (conversationId: string) => {
-    setExpandedConversations((prev) =>
-      prev.includes(conversationId)
-        ? prev.filter((id) => id !== conversationId)
-        : [...prev, conversationId]
-    );
-    // Lazy-fetch sessions for this conversation if not yet loaded
-    if (!sessionsByConversation[conversationId]) {
-      fetchSessionsForConversation(conversationId);
-    }
-  };
-
-  const handleSessionClick = (session: SessionInfo) => {
-    // Find which conversation this session belongs to
-    const convId = Object.entries(sessionsByConversation).find(
-      ([, sessions]) => sessions.some((s) => s.session_id === session.session_id)
-    )?.[0];
-    if (convId) {
-      const conv = conversations.find((c) => c.id === convId);
-      if (conv) {
-        setCurrentConversation(conv);
-        loadMessages(conv.id);
-      }
-    }
-  };
-
   // Imperative handle for MessageThread so we can request a scroll on send.
   const messageThreadRef = useRef<MessageThreadHandle>(null);
 
@@ -162,10 +119,6 @@ export default function ChatPage() {
       <ConversationSidebar
         conversations={conversations}
         currentId={currentConversation?.id ?? null}
-        sessionsByConversation={sessionsByConversation}
-        expandedConversations={new Set(expandedConversations)}
-        onConversationExpand={handleConversationExpand}
-        onSessionClick={handleSessionClick}
         onSelect={setCurrentConversation}
         onCreate={createConversation}
         onDelete={deleteConversation}

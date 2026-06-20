@@ -1,23 +1,20 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Typography, Table, Button, Tag, Space, Modal, Spin, Alert, message, Popconfirm, Form, Input, Select, Tabs, Card } from 'antd';
+import { useEffect, useState } from 'react';
+import { Typography, Table, Button, Tag, Space, Alert, message, Popconfirm, Tabs, Card } from 'antd';
 import { EditOutlined, PlayCircleOutlined, CopyOutlined, DeleteOutlined, ReloadOutlined, PlusOutlined, SettingOutlined, BranchesOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
-import { listWorkflows, getWorkflow, createWorkflow, deleteWorkflow, triggerWorkflow } from '../api/workflows';
-import type { WorkflowStatus } from '../types/workflow';
+import {
+  useWorkflows,
+  useWorkflow,
+  useCreateWorkflow,
+  useDeleteWorkflow,
+  useTriggerWorkflow,
+} from '../hooks/useWorkflows';
+import type { WorkflowMeta, WorkflowStatus } from '../types/workflow';
 import { WORKFLOW_STATUS_CONFIG } from '../utils/statusConfig';
 import { formatDateTime } from '../utils/time';
 
 const { Text } = Typography;
-
-interface WorkflowMeta {
-  id: string;
-  name: string;
-  status: WorkflowStatus;
-  nodeCount: number;
-  createdAt: string;
-  lastRunAt?: string;
-}
 
 const tabItems = [
   { key: 'all', label: '全部' },
@@ -29,75 +26,89 @@ const tabItems = [
 ];
 
 export default function WorkflowList() {
-  const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('all');
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [copySourceName, setCopySourceName] = useState<string>('');
 
   const navigate = useNavigate();
 
-  const fetchWorkflows = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listWorkflows();
-      const workflows: WorkflowMeta[] = (Array.isArray(data) ? data : []).map((w) => ({
-        id: w.id,
-        name: w.name,
-        status: w.status,
-        nodeCount: w.node_count ?? 0,
-        createdAt: w.created_at ?? '',
-        lastRunAt: w.last_run_at ?? undefined,
-      }));
-      setWorkflows(workflows);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
-      setWorkflows([]);
-    } finally { setLoading(false); }
-  }, []);
+  // List hook — single source of truth for the table data.
+  const { data, loading, error, refetch } = useWorkflows();
+  const createMutation = useCreateWorkflow();
+  const deleteMutation = useDeleteWorkflow();
+  const triggerMutation = useTriggerWorkflow();
 
-  useEffect(() => { fetchWorkflows(); }, [fetchWorkflows]);
+  // Hook-driven single-workload fetch for the "copy" flow.
+  const { data: copySource } = useWorkflow(copySourceId);
+  const createWorkflow = createMutation.mutate;
+  const deleteWorkflow = deleteMutation.mutate;
+  const triggerWorkflow = triggerMutation.mutate;
+
+  // Whenever the hook resolves a copy source, create the duplicate.
+  useEffect(() => {
+    if (!copySourceId || !copySource) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await createWorkflow({
+          name: `${copySourceName} (Copy)`,
+          description: copySource.description,
+          nodes: copySource.nodes,
+          edges: copySource.edges,
+          trigger_type: copySource.trigger_type,
+          config: copySource.config,
+        });
+        if (!cancelled) {
+          message.success(`"${copySourceName}" copied`);
+          refetch();
+        }
+      } catch {
+        if (!cancelled) message.error('Failed to copy');
+      } finally {
+        if (!cancelled) {
+          setCopySourceId(null);
+          setCopySourceName('');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [copySourceId, copySource, copySourceName, createWorkflow, refetch]);
 
   const handleRun = async (id: string) => {
     try {
-      await triggerWorkflow(id);
+      await triggerWorkflow({ id });
       message.success('Workflow started');
-      fetchWorkflows();
+      refetch();
     } catch { message.error('Failed to run'); }
   };
 
-  const handleCopy = async (id: string, name: string) => {
-    try {
-      // No dedicated copy endpoint — fetch full workflow then create a duplicate
-      const source = await getWorkflow(id);
-      await createWorkflow({
-        name: `${name} (Copy)`,
-        description: source.description,
-        nodes: source.nodes,
-        edges: source.edges,
-        trigger_type: source.trigger_type,
-        config: source.config,
-      });
-      message.success(`"${name}" copied`);
-      fetchWorkflows();
-    } catch { message.error('Failed to copy'); }
+  const handleCopy = (id: string, name: string) => {
+    setCopySourceId(id);
+    setCopySourceName(name);
   };
 
   const handleDelete = async (id: string) => {
     try {
       await deleteWorkflow(id);
       message.success('Deleted');
-      fetchWorkflows();
+      refetch();
     } catch { message.error('Failed to delete'); }
   };
 
-  const filteredWorkflows = activeTab === 'all' ? workflows : workflows.filter((w) => w.status === activeTab);
+  const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : null;
+  const workflowList: WorkflowMeta[] = data ?? [];
+
+  const filteredWorkflows = activeTab === 'all'
+    ? workflowList
+    : workflowList.filter((w) => w.status === activeTab);
 
   const columns: ColumnsType<WorkflowMeta> = [
     { title: 'Name', dataIndex: 'name', key: 'name', sorter: (a, b) => a.name.localeCompare(b.name), render: (text: string) => <Text style={{ color: '#F0F0F0', fontWeight: 500, fontSize: 15 }}>{text}</Text> },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (s: WorkflowStatus) => <Tag color={WORKFLOW_STATUS_CONFIG[s]?.tag ?? 'default'}>{WORKFLOW_STATUS_CONFIG[s]?.label ?? s}</Tag> },
-    { title: 'Nodes', dataIndex: 'nodeCount', key: 'nodeCount', width: 90, align: 'center', render: (c: number) => <span style={{ color: '#B0B0B0', fontSize: 15 }}>{c}</span> },
-    { title: 'Last Run', dataIndex: 'lastRunAt', key: 'lastRunAt', width: 180, render: (ts?: string) => <Text type="secondary" style={{ fontSize: 13 }}>{formatDateTime(ts)}</Text> },
+    { title: 'Nodes', dataIndex: 'node_count', key: 'nodeCount', width: 90, align: 'center', render: (c: number | undefined) => <span style={{ color: '#B0B0B0', fontSize: 15 }}>{c ?? 0}</span> },
+    { title: 'Last Run', dataIndex: 'last_run_at', key: 'lastRunAt', width: 180, render: (ts?: string) => <Text type="secondary" style={{ fontSize: 13 }}>{formatDateTime(ts)}</Text> },
     { title: 'Actions', key: 'actions', width: 260, render: (_, r) => (
       <Space>
         <Button type="link" icon={<EditOutlined />} onClick={() => navigate(`/workflows/${r.id}/edit`)}>编辑</Button>
@@ -119,10 +130,10 @@ export default function WorkflowList() {
         <Space size={12}>
           <Button icon={<SettingOutlined />} onClick={() => navigate('/workflows/settings')} size="large">设置</Button>
           <Button icon={<PlusOutlined />} type="primary" onClick={() => navigate('/workflows/new/edit')} size="large">新建工作流</Button>
-          <Button icon={<ReloadOutlined />} onClick={fetchWorkflows} loading={loading} size="large">刷新</Button>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={loading} size="large">刷新</Button>
         </Space>
       </div>
-      {error && <Alert type="error" message="加载工作流失败" description={error} showIcon closable onClose={() => setError(null)} style={{ marginBottom: 24 }} />}
+      {errorMessage && <Alert type="error" message="加载工作流失败" description={errorMessage} showIcon closable style={{ marginBottom: 24 }} />}
       <Card className="card-spacious fade-in fade-in-2">
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} style={{ marginBottom: 16, paddingLeft: 4 }} />
         <Table<WorkflowMeta> columns={columns} dataSource={filteredWorkflows} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} size="middle" />

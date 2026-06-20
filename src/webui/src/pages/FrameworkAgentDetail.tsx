@@ -1,49 +1,18 @@
-import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Descriptions, List, Tag, Button, Spin, Alert, Space, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import { getAgent } from '../api/agents';
-import { ApiError } from '../types/api-error';
+import { useAgent } from '../hooks/useAgents';
 
 const { Title, Text } = Typography;
-
-interface AgentDetail {
-  name: string;
-  description: string;
-  mode: string;
-  capabilities: string[];
-  tools: string[];
-}
 
 export default function FrameworkAgentDetail() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
 
-  const [agent, setAgent] = useState<AgentDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchAgent = useCallback(async () => {
-    if (!name) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getAgent(name);
-      setAgent(data as unknown as AgentDetail);
-    } catch (err: unknown) {
-      const msg = err instanceof ApiError
-        ? `HTTP ${err.status}`
-        : err instanceof Error ? err.message : 'Failed to load agent';
-      setError(msg);
-      setAgent(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [name]);
-
-  useEffect(() => {
-    fetchAgent();
-  }, [fetchAgent]);
+  // Single agent lookup via the framework-level hook. `useAgent(null)`
+  // short-circuits when no name is present, so we always pass a real
+  // (possibly undefined) string and let the page handle the empty case.
+  const { data: agent, loading, error, refetch } = useAgent(name ?? null);
 
   if (loading) {
     return (
@@ -58,10 +27,8 @@ export default function FrameworkAgentDetail() {
       <Alert
         type="error"
         message="Failed to load agent"
-        description={error || 'Agent not found'}
+        description={error?.message ?? 'Agent not found'}
         showIcon
-        closable
-        onClose={() => navigate('/agents')}
         action={
           <Button size="small" onClick={() => navigate('/agents')}>
             Back to Agents
@@ -70,6 +37,18 @@ export default function FrameworkAgentDetail() {
       />
     );
   }
+
+  // The canonical `AgentDetail` only carries execution telemetry fields;
+  // the legacy detail page also renders `capabilities` and `tools` arrays
+  // (optional in the backend payload). Cast to a richer local view-model
+  // so the section renderers keep working with permissive `[]` fallbacks.
+  const agentVm = agent as unknown as {
+    name: string;
+    description: string;
+    mode: string;
+    capabilities?: string[];
+    tools?: string[];
+  };
 
   return (
     <div>
@@ -83,12 +62,12 @@ export default function FrameworkAgentDetail() {
       >
         <div>
           <Title level={4} style={{ margin: 0 }}>
-            {agent.name}
+            {agentVm.name}
           </Title>
-          <Text type="secondary">{agent.description || 'No description'}</Text>
+          <Text type="secondary">{agentVm.description || 'No description'}</Text>
         </div>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchAgent}>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
             Refresh
           </Button>
         </Space>
@@ -98,20 +77,20 @@ export default function FrameworkAgentDetail() {
         <Card title="Agent Information">
           <Descriptions column={2} bordered>
             <Descriptions.Item label="Name" span={1}>
-              {agent.name}
+              {agentVm.name}
             </Descriptions.Item>
             <Descriptions.Item label="Mode" span={1}>
-              <Tag color={agent.mode === 'primary' ? 'blue' : 'default'}>{agent.mode}</Tag>
+              <Tag color={agentVm.mode === 'primary' ? 'blue' : 'default'}>{agentVm.mode}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Description" span={2}>
-              {agent.description || 'No description'}
+              {agentVm.description || 'No description'}
             </Descriptions.Item>
           </Descriptions>
         </Card>
 
         <Card title="Capabilities">
           <List
-            dataSource={agent.capabilities || []}
+            dataSource={agentVm.capabilities || []}
             renderItem={(item: string) => (
               <List.Item>
                 <Text>{item}</Text>
@@ -123,7 +102,7 @@ export default function FrameworkAgentDetail() {
 
         <Card title="Tools">
           <List
-            dataSource={agent.tools || []}
+            dataSource={agentVm.tools || []}
             renderItem={(item: string) => (
               <List.Item>
                 <Tag>{item}</Tag>

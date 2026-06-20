@@ -3,7 +3,6 @@ import {
   Typography,
   Form,
   Input,
-  Select,
   Button,
   Space,
   message,
@@ -13,80 +12,53 @@ import {
   Descriptions,
   Tag,
   Radio,
+  Spin,
+  Alert,
 } from 'antd';
-import { SaveOutlined, ReloadOutlined, ClockCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { SaveOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { CronEditor } from '../components/CronEditor';
 import {
-  listWorkflows,
-  listScheduled,
-  scheduleWorkflow,
-  unscheduleWorkflow,
-  updateWorkflow,
-} from '../api/workflows';
-import type { ScheduledJob } from '../api/workflows';
+  useWorkflows,
+  useUpdateWorkflow,
+} from '../hooks/useWorkflows';
+import type { WorkflowTriggerType } from '../types/workflow';
 
 const { Title, Text } = Typography;
-
-type WorkflowTriggerType = 'manual' | 'schedule' | 'command';
 
 interface WorkflowSettings {
   id: string;
   name: string;
   description?: string;
   triggerType: WorkflowTriggerType;
-  cronExpression?: string;
   commandString?: string;
-  nextRun?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
+/**
+ * `WorkflowSettings` — per-workflow configuration page.
+ *
+ * The legacy scheduler feature (APScheduler integration with cron
+ * expressions) was removed in P2-T2. The page now only edits the
+ * trigger type (`manual` vs `command`) and the command string. The
+ * `schedule` radio option is dropped from the UI because the backend
+ * no longer accepts it.
+ */
 export default function WorkflowSettings() {
-  const [settings, setSettings] = useState<WorkflowSettings[]>([]);
-  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { data, loading, refetch } = useWorkflows();
+  // Backend returns a richer payload than the slim `WorkflowMeta` view-model;
+  // cast so the form's description / createdAt / updatedAt fields keep
+  // populating.
+  const workflowList = (data ?? []) as unknown as WorkflowSettings[];
 
-  const fetchSettings = async () => {
-    setLoading(true);
-    try {
-      const [wfData, scheduledJobs] = await Promise.all([
-        listWorkflows(),
-        // The scheduled listing is best-effort: if it fails, fall back to an empty
-        // array so the page still renders the workflow list (preserves the original
-        // behavior where the scheduled fetch was checked with `if (scheduledRes.ok)`).
-        listScheduled().catch(() => [] as ScheduledJob[]),
-      ]);
-      // The api `WorkflowMeta` type is a slim view-model (id/name/status/trigger_type),
-      // but the backend actually returns the full payload (description, created_at,
-      // updated_at, etc.). Cast to the richer local view-model so the form's
-      // commandString/description/createdAt/updatedAt fields keep populating.
-      const workflows = wfData as unknown as WorkflowSettings[];
-
-      const scheduleMap = new Map<string, ScheduledJob>();
-      for (const job of scheduledJobs) {
-        scheduleMap.set(job.workflow_id, job);
-      }
-      for (const wf of workflows) {
-        const job = scheduleMap.get(wf.id);
-        if (job) {
-          wf.triggerType = 'schedule';
-          wf.cronExpression = job.cron_expression;
-          wf.nextRun = job.next_run_times?.[0];
-        }
-      }
-
-      setSettings(workflows);
-    } catch (err) {
-      message.error('Failed to load: ' + (err instanceof Error ? err.message : 'Unknown'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
+        <Spin size="large" tip="Loading workflows..." />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -100,19 +72,26 @@ export default function WorkflowSettings() {
       >
         <div>
           <Title level={4} style={{ margin: 0 }}>
-            <ClockCircleOutlined style={{ marginRight: 8 }} />
             Workflow Settings
           </Title>
-          <Text type="secondary">Configure triggers and schedules for workflows</Text>
+          <Text type="secondary">Configure trigger mode for each workflow</Text>
         </div>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchSettings} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={loading}>
             Reload
           </Button>
         </Space>
       </div>
 
-      {settings.length === 0 && !loading ? (
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+        message="Scheduler removed"
+        description="The cron-based scheduler was retired in P2-T2. Only manual and command triggers are supported now."
+      />
+
+      {workflowList.length === 0 ? (
         <Card>
           <Text type="secondary">No workflows found. Create a workflow first.</Text>
           <div style={{ marginTop: 16 }}>
@@ -123,9 +102,9 @@ export default function WorkflowSettings() {
         </Card>
       ) : (
         <Row gutter={16}>
-          {settings.map((w) => (
+          {workflowList.map((w) => (
             <Col span={12} key={w.id} style={{ marginBottom: 16 }}>
-              <WorkflowFormCard workflow={w} onSaved={fetchSettings} />
+              <WorkflowFormCard workflow={w} onSaved={() => refetch()} />
             </Col>
           ))}
         </Row>
@@ -138,7 +117,7 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
   const [triggerType, setTriggerType] = useState<WorkflowTriggerType>(w.triggerType || 'manual');
-  const [cronExpression, setCronExpression] = useState<string>(w.cronExpression || '');
+  const updateMutation = useUpdateWorkflow();
 
   useEffect(() => {
     form.setFieldsValue({
@@ -147,49 +126,21 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
       commandString: w.commandString,
     });
     setTriggerType(w.triggerType || 'manual');
-    setCronExpression(w.cronExpression || '');
-  }, [w.id]);
+  }, [w.id, w.name, w.triggerType, w.commandString, form]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (triggerType === 'schedule') {
-        const cronParts = cronExpression.trim().split(/\s+/);
-        if (cronParts.length !== 5) {
-          message.error('Cron 表达式无效');
-          setSaving(false);
-          return;
-        }
-        await scheduleWorkflow(w.id, cronExpression);
-        message.success('已设置定时任务');
-      } else {
-        // Original code fired a bare DELETE and ignored the response. Preserve that
-        // tolerance (404 when no schedule exists, or any transient failure) by
-        // swallowing the error so switching to manual still succeeds.
-        await unscheduleWorkflow(w.id).catch(() => {});
-        if (triggerType === 'command') {
-          await updateWorkflow(w.id, { trigger_type: 'command' });
-        }
-        message.success(triggerType === 'manual' ? '已切换为手动触发' : '已切换为命令触发');
-      }
+      await updateMutation.mutate({
+        id: w.id,
+        data: { trigger_type: triggerType },
+      });
+      message.success(
+        triggerType === 'manual' ? '已切换为手动触发' : '已切换为命令触发',
+      );
       onSaved();
     } catch (err) {
       message.error('保存失败: ' + (err instanceof Error ? err.message : '未知错误'));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveSchedule = async () => {
-    setSaving(true);
-    try {
-      await unscheduleWorkflow(w.id);
-      message.success('已移除定时任务');
-      setTriggerType('manual');
-      setCronExpression('');
-      onSaved();
-    } catch (err) {
-      message.error('移除失败: ' + (err instanceof Error ? err.message : '未知错误'));
     } finally {
       setSaving(false);
     }
@@ -200,9 +151,9 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
       title={
         <Space>
           <span>{w.name}</span>
-          {w.triggerType === 'schedule' && (
+          {w.triggerType === 'command' && (
             <Tag color="processing" icon={<ThunderboltOutlined />}>
-              已定时
+              命令触发
             </Tag>
           )}
         </Space>
@@ -230,31 +181,9 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
             buttonStyle="solid"
           >
             <Radio.Button value="manual">手动</Radio.Button>
-            <Radio.Button value="schedule">定时</Radio.Button>
             <Radio.Button value="command">命令</Radio.Button>
           </Radio.Group>
         </Form.Item>
-
-        {triggerType === 'schedule' && (
-          <div style={{ marginBottom: 16 }}>
-            <CronEditor
-              initialCron={cronExpression}
-              onChange={setCronExpression}
-              nextRunTime={w.nextRun}
-            />
-            {w.triggerType === 'schedule' && (
-              <Button
-                danger
-                size="small"
-                style={{ marginTop: 12 }}
-                onClick={handleRemoveSchedule}
-                loading={saving}
-              >
-                移除定时
-              </Button>
-            )}
-          </div>
-        )}
 
         {triggerType === 'command' && (
           <Form.Item

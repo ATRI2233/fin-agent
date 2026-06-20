@@ -1,5 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Typography, Card, Row, Col, Button, Space, Table, Tag, Spin, Alert, message, Tooltip, Progress, Statistic } from 'antd';
+import { Typography, Card, Row, Col, Button, Space, Table, Tag, Spin, message, Tooltip, Progress, Statistic } from 'antd';
 import {
   PlayCircleOutlined,
   PlusOutlined,
@@ -16,17 +15,10 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { listWorkflows, getWorkflowStats, triggerWorkflow } from '../api/workflows';
+import { useWorkflows, useWorkflowStats, useTriggerWorkflow } from '../hooks/useWorkflows';
 import type { WorkflowMeta } from '../types/workflow';
 
 const { Text } = Typography;
-
-interface WorkflowStats {
-  running: number;
-  completed: number;
-  failed: number;
-  successRate: number | null;
-}
 
 const statusColors: Record<string, string> = {
   draft: 'default',
@@ -45,37 +37,21 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function FrameworkPage() {
-  const [workflows, setWorkflows] = useState<WorkflowMeta[]>([]);
-  const [stats, setStats] = useState<WorkflowStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [health, setHealth] = useState<{ status: string } | null>(null);
   const navigate = useNavigate();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [healthRes, wfRes, statsRes] = await Promise.allSettled([
-        getSystemStatus(),
-        listWorkflows(),
-        getWorkflowStats(),
-      ]);
-      if (healthRes.status === 'fulfilled') setHealth(healthRes.value as unknown as { status: string });
-      if (wfRes.status === 'fulfilled') setWorkflows((Array.isArray(wfRes.value) ? wfRes.value : []) as unknown as WorkflowMeta[]);
-      if (statsRes.status === 'fulfilled') setStats(statsRes.value as unknown as WorkflowStats);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // All data via hooks — no manual fetch / state management.
+  const { data: workflowsData, loading: wfLoading, refetch: refetchWorkflows } = useWorkflows();
+  const { data: stats, loading: statsLoading } = useWorkflowStats();
+  const triggerMutation = useTriggerWorkflow();
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const loading = wfLoading || statsLoading;
+  const workflows: WorkflowMeta[] = workflowsData ?? [];
 
   const handleTrigger = async (id: string) => {
     try {
-      await triggerWorkflow(id);
+      await triggerMutation.mutate({ id });
       message.success('工作流已触发');
-      fetchData();
+      refetchWorkflows();
     } catch {
       message.error('触发工作流失败');
     }
@@ -92,7 +68,6 @@ export default function FrameworkPage() {
     </div>
   );
 
-  const isConnected = health !== null && 'timestamp' in health;
   const runningCount = stats?.running ?? 0;
   const completedCount = stats?.completed ?? 0;
   const failedCount = stats?.failed ?? 0;
@@ -206,22 +181,11 @@ export default function FrameworkPage() {
           </Button>
           <Button
             icon={<ReloadOutlined />}
-            onClick={fetchData}
+            onClick={() => refetchWorkflows()}
             size="large"
           />
         </Space>
       </div>
-
-      {/* Connection Status */}
-      {!isConnected && (
-        <Alert
-          type="warning"
-          message="框架未连接"
-          description="Python FastAPI 服务（端口 8000）未运行。请运行: start.bat"
-          showIcon
-          style={{ marginBottom: 32 }}
-        />
-      )}
 
       {/* Big Stats Row — horizontal, no small cards */}
       <Row gutter={[24, 24]} style={{ marginBottom: 40 }}>

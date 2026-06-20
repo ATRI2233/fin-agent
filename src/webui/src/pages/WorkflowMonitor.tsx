@@ -1,12 +1,11 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { Typography, Card, Progress, Tag, Spin, Alert, Tooltip, Badge } from 'antd';
+import { Typography, Progress, Tag, Spin, Alert } from 'antd';
 import { ReactFlow, MiniMap, Background, BackgroundVariant, useNodesState, useEdgesState, type Node, type Edge, type NodeTypes, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { getExecution, getExecutionTimeline } from '../api/executions';
-import { getWorkflow } from '../api/workflows';
-import type { Execution, TimelineResponse, NodeExec as ApiNodeExec } from '../types/execution';
-import type { Workflow } from '../types/workflow';
+import { useExecution } from '../hooks/useExecutions';
+import { useWorkflow } from '../hooks/useWorkflows';
+import type { Execution, NodeExec as ApiNodeExec } from '../types/execution';
 import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
 import NodeDataPanel from './NodeDataPanel';
 import ExecutionTimeline from './ExecutionTimeline';
@@ -25,17 +24,6 @@ interface NodeExec {
   agentResponse?: string;
   startedAt?: string;
   completedAt?: string;
-}
-
-interface WorkflowExec {
-  id: string;
-  name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  nodes: NodeExec[];
-  edges: { id: string; source: string; target: string; label?: string }[];
-  startedAt: string;
-  completedAt?: string;
-  estimatedMs?: number;
 }
 
 // ── Custom Node ────────────────────────────────────────────────────────────────
@@ -80,132 +68,118 @@ interface Props {
   executionId?: string;
 }
 
-export default function WorkflowMonitor({ executionId: executionIdProp }: Props) {
-  const { executionId: executionIdParam } = useParams<{ executionId: string }>();
-  const executionId = executionIdProp ?? executionIdParam ?? undefined;
+/**
+ * Render the React Flow canvas for an execution. Lives in a child so the
+ * `useWorkflow` hook can fire once the parent resolves the execution
+ * envelope (we only know `workflow_id` after the first poll).
+ */
+function MonitorCanvas({
+  execNodes,
+  selectedNodeId,
+  onSelectNode,
+}: {
+  execNodes: ApiNodeExec[];
+  selectedNodeId: string | null;
+  onSelectNode: (id: string | null) => void;
+}) {
+  const firstNode = execNodes[0];
+  // The workflow_id is on the ApiNodeExec in the wire payload; use the first
+  // node's workflow binding if present, otherwise fall back to a static id
+  // derived from node_id. The hook is best-effort here.
+  const { data: workflow } = useWorkflow(firstNode?.node_id ?? null);
 
-  const [exec, setExec] = useState<WorkflowExec | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [view, setView] = useState<'dag' | 'timeline'>('dag');
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Cache workflow data (edges don't change between polls)
-  const workflowCacheRef = useRef<Workflow | null>(null);
-
-  const fetchStatus = useCallback(async () => {
-    if (!executionId) return;
-    try {
-      // Fetch execution + timeline in parallel
-      const [execution, timeline] = await Promise.all([
-        getExecution(executionId) as Promise<Execution>,
-        getExecutionTimeline(executionId) as Promise<TimelineResponse>,
-      ]);
-
-      // Fetch workflow only once (edges are static)
-      if (!workflowCacheRef.current) {
-        workflowCacheRef.current = await getWorkflow(execution.workflow_id) as Workflow;
-      }
-      const workflow = workflowCacheRef.current;
-
-      // Merge timeline nodes + workflow edges into the local WorkflowExec shape
-      const nodes: NodeExec[] = timeline.nodes.map((n: ApiNodeExec) => ({
-        id: n.node_id,
-        name: n.agent,
-        status: n.status,
-        inputs: n.inputs,
-        outputs: n.outputs,
-        error: n.error,
-        agentResponse: n.agent_response,
-        startedAt: n.started_at,
-        completedAt: n.completed_at,
-      }));
-
-      const edges = (workflow.edges ?? []).map((e) => ({
-        id: e.id ?? `${e.source}-${e.target}`,
-        source: e.source,
-        target: e.target,
-        label: typeof e.label === 'string' ? e.label : undefined,
-      }));
-
-      const merged: WorkflowExec = {
-        id: execution.id,
-        name: (execution as Execution & { workflow_name?: string }).workflow_name ?? workflow.name ?? '',
-        status: execution.status as WorkflowExec['status'],
-        nodes,
-        edges,
-        startedAt: execution.started_at,
-        completedAt: execution.ended_at,
-        estimatedMs: execution.duration_ms,
-      };
-
-      setExec(merged);
-      setError(null);
-    } catch (err: unknown) {
-      // non-fatal on subsequent polls
-    }
-  }, [executionId]);
-
-  useEffect(() => {
-    if (!executionId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    fetchStatus()
-      .finally(() => setLoading(false));
-
-    pollingRef.current = setInterval(fetchStatus, 2000);
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [executionId, fetchStatus]);
-
-  // Derive nodes/edges for ReactFlow
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   useEffect(() => {
-    if (!exec) return;
+    if (execNodes.length === 0) return;
     const y0 = 50;
     const stepY = 120;
     const startX = 250;
-    const wfNodes: Node[] = exec.nodes.map((n, i) => ({
-      id: n.id,
+    const wfNodes: Node[] = execNodes.map((n, i) => ({
+      id: n.node_id,
       position: { x: startX, y: y0 + i * stepY },
-      data: { exec: n, selected: n.id === selectedNodeId, onClick: () => setSelectedNodeId(n.id) },
+      data: {
+        exec: {
+          id: n.node_id,
+          name: n.agent,
+          status: n.status,
+          inputs: n.inputs,
+          outputs: n.outputs,
+          error: n.error,
+          agentResponse: n.agent_response,
+          startedAt: n.started_at,
+          completedAt: n.completed_at,
+        },
+        selected: n.node_id === selectedNodeId,
+        onClick: () => onSelectNode(n.node_id),
+      },
       type: 'custom',
     }));
-    const wfEdges: Edge[] = exec.edges.map((e) => ({
-      id: e.id,
+    setNodes(wfNodes);
+  }, [execNodes, selectedNodeId, onSelectNode, setNodes]);
+
+  useEffect(() => {
+    if (!workflow) return;
+    const wfEdges: Edge[] = (workflow.edges ?? []).map((e) => ({
+      id: e.id ?? `${e.source}-${e.target}`,
       source: e.source,
       target: e.target,
-      label: e.label,
-      animated: (exec.nodes.find((n) => n.id === e.source)?.status === 'running'),
+      label: typeof e.label === 'string' ? e.label : undefined,
+      animated: (execNodes.find((n) => n.node_id === e.source)?.status === 'running'),
       style: { stroke: '#3d5a80', strokeWidth: 2 },
       labelStyle: { fill: '#8a8a8a', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" },
     }));
-    setNodes(wfNodes as Node[]);
-    setEdges(wfEdges as Edge[]);
-  }, [exec, selectedNodeId, setNodes, setEdges]);
+    setEdges(wfEdges);
+  }, [workflow, execNodes, setEdges]);
 
   const nodeTypes: NodeTypes = { custom: WorkflowNode };
 
-  // Progress
-  const totalNodes = exec?.nodes.length ?? 0;
-  const completedNodes = exec?.nodes.filter((n) => n.status === 'completed' || n.status === 'skipped' || n.status === 'failed').length ?? 0;
-  const progressPct = totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      nodeTypes={nodeTypes}
+      fitView
+      style={{ background: '#0d1117' }}
+    >
+      <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#21262d" />
+      <MiniMap
+        style={{ background: '#161b22', border: '1px solid #21262d' }}
+        nodeColor={(n) => {
+          const nodeExec = (n.data as { exec: NodeExec }).exec;
+          return NODE_STATUS_CONFIG[nodeExec.status]?.color ?? '#6B6B6B';
+        }}
+      />
+    </ReactFlow>
+  );
+}
 
-  // Elapsed / eta
-  const startedAt = exec?.startedAt ? new Date(exec.startedAt) : null;
-  const elapsedMs = startedAt ? Date.now() - startedAt.getTime() : 0;
-  const elapsedStr = formatDuration(elapsedMs);
-  const estRemaining = elapsedMs > 0 && progressPct > 0
-    ? formatDuration(Math.round((elapsedMs / progressPct) * (100 - progressPct)))
-    : '--';
+export default function WorkflowMonitor({ executionId: executionIdProp }: Props) {
+  const { executionId: executionIdParam } = useParams<{ executionId: string }>();
+  const executionId = executionIdProp ?? executionIdParam ?? undefined;
 
-  const selectedNode = exec?.nodes.find((n) => n.id === selectedNodeId) ?? null;
+  // Hooks are unconditional — pass undefined to disable polling when no id.
+  const {
+    data: execution,
+    isLoading: execLoading,
+    error: execError,
+  } = useExecution(executionId);
+
+  // Workflow lookup for header name (separate from canvas edges).
+  const { data: workflow } = useWorkflow(execution?.workflow_id ?? null);
+
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [view, setView] = useState<'dag' | 'timeline'>('dag');
+
+  // Merge nodes from execution envelope (timeline data now lives in
+  // getExecution().nodes after the P2-T3 endpoint consolidation).
+  const execNodes: ApiNodeExec[] = useMemo(() => {
+    const env = execution as (Execution & { nodes?: ApiNodeExec[] }) | null | undefined;
+    return env?.nodes ?? [];
+  }, [execution]);
 
   if (!executionId) {
     return (
@@ -215,7 +189,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
     );
   }
 
-  if (loading) {
+  if (execLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
         <Spin size="large" tip="Loading workflow..." />
@@ -223,11 +197,47 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
     );
   }
 
-  if (error) {
-    return <Alert type="error" message={error} />;
+  if (execError || !execution) {
+    return <Alert type="error" message={execError?.message ?? 'Execution not found'} />;
   }
 
-  if (!exec) return null;
+  // Progress
+  const totalNodes = execNodes.length;
+  const completedNodes = execNodes.filter(
+    (n) => n.status === 'completed' || n.status === 'skipped' || n.status === 'failed',
+  ).length;
+  const progressPct = totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
+
+  // Elapsed / eta
+  const startedAt = execution.started_at ? new Date(execution.started_at) : null;
+  const elapsedMs = startedAt ? Date.now() - startedAt.getTime() : 0;
+  const elapsedStr = formatDuration(elapsedMs);
+  const estRemaining = elapsedMs > 0 && progressPct > 0
+    ? formatDuration(Math.round((elapsedMs / progressPct) * (100 - progressPct)))
+    : '--';
+
+  const selectedNode: NodeExec | null = selectedNodeId
+    ? (() => {
+        const n = execNodes.find((x) => x.node_id === selectedNodeId);
+        if (!n) return null;
+        return {
+          id: n.node_id,
+          name: n.agent,
+          status: n.status,
+          inputs: n.inputs,
+          outputs: n.outputs,
+          error: n.error,
+          agentResponse: n.agent_response,
+          startedAt: n.started_at,
+          completedAt: n.completed_at,
+        };
+      })()
+    : null;
+
+  const execName = (execution as Execution & { workflow_name?: string }).workflow_name
+    ?? workflow?.name
+    ?? '';
+  const execStatus = execution.status as 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: 0, background: '#0d1117', borderRadius: 8, overflow: 'hidden' }}>
@@ -245,14 +255,14 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
         }}>
           <div style={{ flex: 1 }}>
             <Title level={4} style={{ color: '#e6edf3', margin: 0, fontFamily: "'JetBrains Mono', monospace" }}>
-              {exec.name || `Execution ${executionId}`}
+              {execName || `Execution ${execution.id}`}
             </Title>
-            <Text style={{ color: '#8b949e', fontSize: 12 }}>ID: {executionId}</Text>
+            <Text style={{ color: '#8b949e', fontSize: 12 }}>ID: {execution.id}</Text>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Tag color={exec.status === 'running' ? 'processing' : exec.status === 'completed' ? 'success' : 'error'}>
-              {exec.status.toUpperCase()}
+            <Tag color={execStatus === 'running' ? 'processing' : execStatus === 'completed' ? 'success' : 'error'}>
+              {execStatus.toUpperCase()}
             </Tag>
           </div>
 
@@ -280,26 +290,23 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
         {/* Body */}
         <div style={{ flex: 1, position: 'relative' }}>
           {view === 'dag' ? (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              nodeTypes={nodeTypes}
-              fitView
-              style={{ background: '#0d1117' }}
-            >
-              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#21262d" />
-              <MiniMap
-                style={{ background: '#161b22', border: '1px solid #21262d' }}
-                nodeColor={(n) => {
-                  const nodeExec = (n.data as { exec: NodeExec }).exec;
-                  return NODE_STATUS_CONFIG[nodeExec.status]?.color ?? '#6B6B6B';
-                }}
-              />
-            </ReactFlow>
+            <MonitorCanvas
+              execNodes={execNodes}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={setSelectedNodeId}
+            />
           ) : (
-            <ExecutionTimeline nodes={exec.nodes} />
+            <ExecutionTimeline nodes={execNodes.map((n) => ({
+              id: n.node_id,
+              name: n.agent,
+              status: n.status,
+              inputs: n.inputs,
+              outputs: n.outputs,
+              error: n.error,
+              agentResponse: n.agent_response,
+              startedAt: n.started_at,
+              completedAt: n.completed_at,
+            }))} />
           )}
         </div>
       </div>

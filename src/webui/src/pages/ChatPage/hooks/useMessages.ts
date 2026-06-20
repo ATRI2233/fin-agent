@@ -22,8 +22,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { message as antdMessage } from 'antd';
-import { useCreateMessage } from '../../../hooks/useConversations';
-import { listMessages } from '../../../api/conversations';
+import { useCreateMessage, useConversation } from '../../../hooks/useConversations';
 import { useConversationStore } from '../../../store/useConversationStore';
 import { useConversationStream, type StreamMode } from './useConversationStream';
 
@@ -51,37 +50,39 @@ export function useMessages(): UseMessagesResult {
   const appendMessage = useConversationStore((s) => s.appendMessage);
 
   const [sendingMessage, setSendingMessage] = useState(false);
+  // Track which conversation id we want messages for; null = idle.
+  // The `useConversation` hook short-circuits on null and only fires when
+  // we set an id, so this drives the load lifecycle declaratively.
+  const [requestedConvId, setRequestedConvId] = useState<string | null>(
+    currentConversation?.id ?? null,
+  );
+  const { data: convEnvelope, refetch: refetchConversation } = useConversation(requestedConvId);
+
   const createMessageMutation = useCreateMessage();
   const { startStream, stopStream, processingMessage, pendingMessageId } =
     useConversationStream();
 
-  // Auto-load messages when the active conversation changes. Also stop any
-  // in-flight SSE stream from the previous conversation so its events don't
-  // overwrite the new conversation's messages.
+  // Whenever the envelope resolves with a fresh conversation, push its
+  // messages into the zustand store. The hook also stops any in-flight
+  // stream from the previous conversation so events don't cross-pollinate.
   useEffect(() => {
     stopStream();
-    if (currentConversation) {
-      void (async (): Promise<void> => {
-        try {
-          const msgs = await listMessages(currentConversation.id);
-          setMessages(msgs);
-        } catch (err) {
-          console.error('Failed to load messages:', err);
-        }
-      })();
+    if (convEnvelope?.messages) {
+      setMessages(convEnvelope.messages);
     }
-  }, [currentConversation, setMessages, stopStream]);
+  }, [convEnvelope, setMessages, stopStream]);
+
+  // Sync the auto-load target with the active conversation.
+  useEffect(() => {
+    setRequestedConvId(currentConversation?.id ?? null);
+  }, [currentConversation]);
 
   const loadMessages = useCallback(
     async (conversationId: string): Promise<void> => {
-      try {
-        const msgs = await listMessages(conversationId);
-        setMessages(msgs);
-      } catch (err) {
-        console.error('Failed to load messages:', err);
-      }
+      setRequestedConvId(conversationId);
+      refetchConversation();
     },
-    [setMessages],
+    [refetchConversation],
   );
 
   const sendMessage = useCallback(
