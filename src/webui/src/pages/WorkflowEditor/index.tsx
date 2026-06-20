@@ -51,7 +51,7 @@ import {
   useUpdateWorkflow,
   useTriggerWorkflow,
 } from '../../hooks/useWorkflows';
-import { useWorkflowStore } from '../../store/useWorkflowStore';
+import { WorkflowProvider, useWorkflowContext } from './WorkflowContext';
 
 import AgentPalettePanel, {
   type PaletteAgent,
@@ -122,6 +122,14 @@ export type WorkflowNode =
 /* ─── Orchestrator ─────────────────────────────────────────────────────── */
 
 export default function WorkflowEditor() {
+  return (
+    <WorkflowProvider>
+      <WorkflowEditorInner />
+    </WorkflowProvider>
+  );
+}
+
+function WorkflowEditorInner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -131,12 +139,9 @@ export default function WorkflowEditor() {
   const { data: workflow, loading: workflowLoading, error: workflowError } =
     useWorkflow(id ?? null);
 
-  // Selection state — owned by the zustand store ().
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
-  const setSelectedNode = useWorkflowStore((s) => s.setSelectedNode);
+  // Selection state — owned by the React Context (WorkflowProvider).
+  const { selectedNodeId, setSelectedNode, selectedEdgeId, setSelectedEdge } = useWorkflowContext();
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
-  const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
-  const setSelectedEdge = useWorkflowStore((s) => s.setSelectedEdge);
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
 
   const [saving, setSaving] = useState(false);

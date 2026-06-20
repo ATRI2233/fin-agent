@@ -19,7 +19,7 @@
  * - nothing selected → empty state
  *
  * The orchestrator owns the `selectedNode` / `selectedEdge` derivation
- * (`nodes.find` over the `selectedNodeId` from `useWorkflowStore`); the
+ * (`nodes.find` over the `selectedNodeId` from `WorkflowContext`); the
  * inspector is a pure router. wires this component in to
  * replace the legacy `InspectorPlaceholder` shim.
  */
@@ -29,7 +29,6 @@ import { Form, Typography, Input, Select, Button, Space, Popconfirm } from 'antd
 import type { Edge } from '@xyflow/react';
 
 import type { PaletteAgent } from './AgentPalettePanel';
-import { useWorkflowStore } from '../../store/useWorkflowStore';
 
 import AgentNodePropertiesPanel, {
   type AgentNode,
@@ -182,9 +181,9 @@ export default function NodeInspector({
   onCloseEdge,
   agents,
 }: NodeInspectorProps) {
-  // Touch the store so the inspector participates in selection re-renders
-  // and so future helpers (e.g. "esc to deselect") can be wired here.
-  useWorkflowStore((s) => s.setSelectedNode);
+  // NodeInspector is prop-driven: the orchestrator passes derived
+  // `selectedNode` / `selectedEdge` so the inspector re-renders whenever
+  // the parent re-renders. No direct context read is required here.
 
   if (selectedNode) {
     switch (selectedNode.type) {

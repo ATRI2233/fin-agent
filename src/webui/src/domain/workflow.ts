@@ -3,7 +3,7 @@
  *
  * Field naming convention:
  * - snake_case for all fields that map 1:1 to the backend Pydantic/SQLAlchemy
- * payload (see `main/framework/services/workflow_query_service.py`).
+ * payload (see `src/main/modules/workflow/service/workflow_query_service.py`).
  * - camelCase only for fields the backend itself returns camelCase
  * (e.g. `successRate` from `GET /api/v1/workflows/stats`).
  *

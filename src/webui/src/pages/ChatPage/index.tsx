@@ -3,11 +3,11 @@
  *
  * Composes the smaller modules in this folder:
  * - `ConversationSidebar` — left-rail conversation list
+ * - `ChatHeader` — title + target tag + processing badge + Refresh
  * - `MessageThread` — scrollable message list + auto-scroll
  * - `ChatInput` — mode toggle + agent/workflow + composer
- * - `hooks/useConversations` — list + create + delete (page wrapper)
+ * - `hooks/useChatConversations` — list + create + delete (page wrapper)
  * - `hooks/useMessages` — load + send + SSE state (page wrapper)
- * - `hooks/useConversationStream` — used by `useMessages`
  *
  * Top-level state owned here (UI-only):
  * - `mode`, `selectedAgent`, `selectedWorkflow` — composer targeting
@@ -21,22 +21,12 @@
  * before sending a message so the new row lands visible.
  */
 import { useRef, useState } from 'react';
-import {
-  Button,
-  Space,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
-import {
-  LoadingOutlined,
-  MessageOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { Button, Typography, message } from 'antd';
+import { MessageOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { useAgents } from '../../hooks/useAgents';
 import { useWorkflows } from '../../hooks/useWorkflows';
+import ChatHeader from './ChatHeader';
 import ChatInput, { type ChatMode } from './ChatInput';
 import ConversationSidebar from './ConversationSidebar';
 import {
@@ -56,7 +46,7 @@ export default function ChatPage() {
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [selectedWorkflow, setSelectedWorkflow] = useState<string | null>(null);
 
-  // Page-specific hooks .
+  // Page-specific hooks.
   const {
     conversations,
     currentConversation,
@@ -128,50 +118,18 @@ export default function ChatPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {currentConversation ? (
           <>
-            <div
-              style={{
-                padding: '12px 24px',
-                borderBottom: '1px solid #222',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
+            <ChatHeader
+              title={currentConversation.title}
+              mode={mode}
+              selectedAgent={selectedAgent}
+              selectedWorkflow={selectedWorkflow}
+              workflows={workflows}
+              processingMessage={processingMessage}
+              onRefresh={() => {
+                void loadMessages(currentConversation.id);
               }}
-            >
-              <div>
-                <Text style={{ color: '#F0F0F0', fontSize: 16, fontWeight: 500 }}>
-                  {currentConversation.title}
-                </Text>
-                <div style={{ marginTop: 4 }}>
-                  {mode === 'agent' ? (
-                    <Tag color="blue">{selectedAgent || 'Select agent'}</Tag>
-                  ) : (
-                    <Tag color="purple">
-                      {workflows.find((w) => w.id === selectedWorkflow)?.name ||
-                        'Select workflow'}
-                    </Tag>
-                  )}
-                  {processingMessage && (
-                    <Space size={8}>
-                      <Tag color="orange" icon={<LoadingOutlined spin />}>
-                        Processing
-                      </Tag>
-                      <Button size="small" danger onClick={() => stopStream()}>
-                        取消
-                      </Button>
-                    </Space>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={() => {
-                  void loadMessages(currentConversation.id);
-                }}
-              >
-                Refresh
-              </Button>
-            </div>
+              onCancelStream={() => stopStream()}
+            />
 
             <MessageThread
               ref={messageThreadRef}

@@ -1,7 +1,7 @@
 /**
  * TypeScript types for the Conversation API.
  *
- * Source of truth: `project/main/framework/schemas/conversation.py`
+ * Source of truth: `src/main/modules/conversation/domain/conversation.py`
  * (Pydantic V2). Field names are kept in snake_case to match the wire
  * format — FastAPI + Pydantic v2 do NOT auto-convert to camelCase, so
  * what the server emits is exactly what the client must consume.

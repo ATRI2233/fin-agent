@@ -8,7 +8,7 @@
  * - FrameworkAgentDetail.tsx (AgentDetail)
  *
  * The canonical `Agent` mirrors the backend `_to_summary()` shape from
- * `framework/services/agent_query_service.py` (with the optional
+ * `src/main/modules/agent/service/agent_query_service.py` (with the optional
  * `system_prompt`, `model`, `tools_whitelist`, and `tags` fields that
  * the registry carries but the public API does not always surface).
  *

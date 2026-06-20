@@ -1,7 +1,7 @@
 /**
  * TypeScript types for the `/api/v1/system/*` endpoints.
  *
- * Source of truth (backend): `project/main/framework/services/system_query_service.py`.
+ * Source of truth (backend): `src/main/modules/system/service/system_query_service.py`.
  *
  * Three endpoints live behind this facade:
  * - `GET /api/v1/system/status` — opencode / scheduler / sessions

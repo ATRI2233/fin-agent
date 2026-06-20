@@ -1,8 +1,8 @@
 /**
  * TypeScript types for the Execution API.
  *
- * Source of truth: `project/main/framework/controllers/executions.py`
- * + `project/main/framework/services/execution_query_service.py`
+ * Source of truth: `src/main/api/v1/executions.py`
+ * + `src/main/modules/execution/service/execution_query_service.py`
  * (Pydantic V2). Field names are kept in snake_case to match the wire
  * format — FastAPI + Pydantic v2 do NOT auto-convert to camelCase, so
  * what the server emits is exactly what the client must consume.
