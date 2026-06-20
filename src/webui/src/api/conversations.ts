@@ -1,36 +1,30 @@
 /**
  * Typed wrappers for the Conversation API.
  *
- * Source of truth: `project/main/framework/controllers/conversations.py`
+ * Source of truth: `src/main/api/v1/conversations.py`
  * (FastAPI router at `/api/v1/conversations`). Each function maps 1:1 to a
  * route handler and preserves the snake_case wire format — do NOT
  * auto-convert field names; the server speaks snake_case and the WebUI
  * must consume it as-is.
  *
- * The transport layer (`apiGet` / `apiPost` / `apiPut` / `apiDelete`) is
- * defined in `./client` and is responsible for base-URL resolution,
- * JSON encoding, error normalisation, and response unwrapping.
+ * The transport layer (`apiGet` / `apiPost`) is defined in `./http` and
+ * is responsible for base-URL resolution, JSON encoding, error
+ * normalisation, and response unwrapping.
  *
  * Exported symbols (de-facto `__all__`):
  * - listConversations — GET /api/v1/conversations
- * - getConversation — GET /api/v1/conversations/{id}
  * - createConversation — POST /api/v1/conversations
- * - updateConversation — PUT /api/v1/conversations/{id}
- * - deleteConversation — DELETE /api/v1/conversations/{id}
- * - listMessages — GET /api/v1/conversations/{id}/messages
+ * - getConversation — GET /api/v1/conversations/{id} (response includes messages)
  * - createMessage — POST /api/v1/conversations/{id}/messages
  */
 
-import { API_V1_BASE } from '../config/env'
-import { apiDelete, apiGet, apiPost, apiPut } from './http'
+import { apiGet, apiPost } from './http'
 import type {
   Conversation,
-  ConversationCreate,
-  ConversationUpdate,
   Message,
   MessageCreate,
-  MessageResponse,
 } from '../types/conversation'
+import { ROUTES } from './contract'
 
 /**
  * GET `/api/v1/conversations` — list all conversations in the system.
@@ -40,98 +34,71 @@ import type {
  * (most-recently-updated first).
  */
 export async function listConversations(): Promise<Conversation[]> {
-  return apiGet<Conversation[]>(`${API_V1_BASE}/conversations`)
-}
-
-/**
- * GET `/api/v1/conversations/{id}` — fetch a single conversation by ID.
- *
- * @param id Server-assigned conversation UUID.
- * @returns Full conversation row. Throws on 404 (not found) and 500.
- */
-export async function getConversation(id: string): Promise<Conversation> {
-  return apiGet<Conversation>(`${API_V1_BASE}/conversations/${id}`)
+  return apiGet<Conversation[]>(ROUTES.conversations.list)
 }
 
 /**
  * POST `/api/v1/conversations` — create a new empty conversation.
  *
- * @param data Request body. `title` is optional; the server defaults to
- * 'New Conversation'. The active agent defaults to
- * 'fin-orchestrator' and the UUID is server-assigned.
+ * @param data Request body. `agent_name` is REQUIRED
+ * (see `ConversationCreate` in `src/main/api/v1/conversations.py:39`).
+ * `title` is optional; the server defaults to 'New Conversation'.
+ * The conversation UUID is server-assigned.
  * @returns The newly-created conversation (201 Created).
  */
-export async function createConversation(data: ConversationCreate): Promise<Conversation> {
-  return apiPost<Conversation>(`${API_V1_BASE}/conversations`, data)
+export async function createConversation(data: {
+  agent_name: string
+  title?: string
+}): Promise<Conversation> {
+  return apiPost<Conversation>(ROUTES.conversations.create, data)
 }
 
 /**
- * PUT `/api/v1/conversations/{id}` — partial update of a conversation.
+ * GET `/api/v1/conversations/{id}` — fetch a single conversation by ID.
  *
- * Only fields present in `data` are written; the server bumps
- * `updated_at` automatically. Returns a minimal envelope rather than
- * the full row — call `getConversation` afterwards to read back the
- * new state.
+ * The response payload includes the conversation row AND its
+ * messages array (see `src/main/api/v1/conversations.py:166`), so
+ * callers do not need a separate `listMessages` round-trip.
  *
- * @param id Conversation UUID to update.
- * @param data Fields to modify (`title` and/or `current_agent`).
- * @returns `{ success: true }` on successful write. Throws on 404.
+ * Note: the returned shape is `{ conversation, messages }` — the
+ * frontend hooks/page layer is responsible for unwrapping the
+ * envelope. The TypeScript return type reflects the raw envelope so
+ * the contract stays explicit.
+ *
+ * @param id Server-assigned conversation UUID.
+ * @returns Full conversation row plus its messages. Throws on 404.
  */
-export async function updateConversation(
-  id: string,
-  data: ConversationUpdate,
-): Promise<{ success: boolean }> {
-  return apiPut<{ success: boolean }>(`${API_V1_BASE}/conversations/${id}`, data)
+export async function getConversation(id: string): Promise<{
+  conversation: Conversation
+  messages: Message[]
+}> {
+  const payload = await apiGet<{
+    conversation: Conversation
+    messages: Message[]
+  }>(ROUTES.conversations.get(id))
+  return payload
 }
 
 /**
- * DELETE `/api/v1/conversations/{id}` — delete a conversation.
+ * POST `/api/v1/conversations/{id}/messages` — append a message to a
+ * conversation.
  *
- * The backend returns 204 No Content; the resolved Promise is
- * `void`. Associated session state is cleaned up server-side.
- *
- * @param id Conversation UUID to delete.
- */
-export async function deleteConversation(id: string): Promise<void> {
-  await apiDelete<void>(`${API_V1_BASE}/conversations/${id}`)
-}
-
-/**
- * GET `/api/v1/conversations/{id}/messages` — list all messages in a
- * conversation, oldest-first (chronological).
+ * The server persists the message immediately (201 Created). For
+ * `role='user'` dispatches the agent / workflow kickoff happens
+ * asynchronously — the assistant reply arrives later via the
+ * conversation polling or future streaming channel.
  *
  * @param conversationId Owning conversation UUID.
- * @returns Array of `Message` rows (user / assistant / system).
- * Throws on 404 (conversation not found).
- */
-export async function listMessages(conversationId: string): Promise<Message[]> {
-  return apiGet<Message[]>(`${API_V1_BASE}/conversations/${conversationId}/messages`)
-}
-
-/**
- * POST `/api/v1/conversations/{id}/messages` — send a user message
- * (202 Accepted, async processing).
- *
- * The server persists the user message immediately, then schedules a
- * background task to dispatch to the agent (or kick off a workflow
- * execution). The actual assistant reply is NOT part of this
- * response — it arrives later via WebSocket / SSE / polling on
- * `execution_id`.
- *
- * @param conversationId Owning conversation UUID.
- * @param data Message body (`content` required; `mode`,
- * `agent`, `workflow_id` optional — see
- * `MessageCreate`).
- * @returns Dispatch envelope containing the persisted user-message
- * echo, a status string, and an optional `execution_id`
- * for workflow dispatches.
+ * @param data Message body — see {@link MessageCreate}.
+ *   The backend (`src/main/api/v1/conversations.py:51`) currently
+ *   accepts `{ role?, content }`; the richer frontend shape
+ *   (`mode`, `agent`, `workflow_id`) is preserved for forward
+ *   compatibility and will be ignored by the server when absent.
+ * @returns The persisted message dict.
  */
 export async function createMessage(
   conversationId: string,
   data: MessageCreate,
-): Promise<MessageResponse> {
-  return apiPost<MessageResponse>(
-    `${API_V1_BASE}/conversations/${conversationId}/messages`,
-    data,
-  )
+): Promise<Message> {
+  return apiPost<Message>(ROUTES.conversations.messages(conversationId), data)
 }
