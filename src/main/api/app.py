@@ -47,10 +47,11 @@ async def lifespan(app: FastAPI):
     """
     settings: Settings = app.state.settings
     configure_logging(settings)
-    get_logger().info("app.startup", version="2.1")
+    log = get_logger(__name__)
+    log.info("app.startup", version="2.1")
     yield
     await app.state.registry.shutdown()
-    get_logger().info("app.shutdown")
+    log.info("app.shutdown")
 
 
 # ── Factory ──

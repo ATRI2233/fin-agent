@@ -6,14 +6,14 @@
 
 from __future__ import annotations
 
+import logging
 from contextvars import ContextVar, Token
 from uuid import uuid4
 
 from src.main.infra.domain import TraceId
 from src.main.infra.errors import TraceLostError
-from src.main.infra.logging import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # ── 模块级上下文变量 ──
 
