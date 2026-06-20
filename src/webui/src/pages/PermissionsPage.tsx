@@ -90,7 +90,9 @@ export default function PermissionsPage() {
       setPermissions({ ...permissions, rules: nr });
       setEditVisible(false);
       form.resetFields();
-    } catch {}
+    } catch {
+      // intentionally blank — validation errors are handled by Ant Design form
+    }
   };
 
   const columns: ColumnsType<PermissionRule> = [

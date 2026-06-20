@@ -189,8 +189,8 @@ function WorkflowEditorInner() {
     workflowId: id ?? null,
     getSaveData: () => ({
       name: workflowName,
-      nodes: nodes as any,
-      edges: edges as any,
+      nodes: nodes as Node[],
+      edges: edges as Edge[],
     }),
   });
 

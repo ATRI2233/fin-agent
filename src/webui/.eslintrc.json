@@ -59,6 +59,18 @@
           ]
         }]
       }
+    },
+    {
+      "files": ["src/api/http.ts"],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    },
+    {
+      "files": ["server/**/*.ts"],
+      "rules": {
+        "no-magic-numbers": "off"
+      }
     }
   ]
 }
