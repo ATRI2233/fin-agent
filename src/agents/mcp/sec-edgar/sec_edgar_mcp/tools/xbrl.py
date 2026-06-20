@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+_session = requests.Session()
+
 from ..config import initialize_config
 
 # XBRL concept definitions by statement type
@@ -80,7 +82,7 @@ class XBRLExtractor:
                 "User-Agent": user_agent,
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             }
-            response = requests.get(url, headers=headers, timeout=30)
+            response = _session.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             return response.text
         except Exception:

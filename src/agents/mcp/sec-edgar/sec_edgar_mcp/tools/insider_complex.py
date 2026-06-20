@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from ..core.client import EdgarClient
 from ..core.models import TransactionInfo
 from ..utils.exceptions import FilingNotFoundError
-from .types import ToolResponse
+from .base import ToolResponse
 
 
 class InsiderTools:

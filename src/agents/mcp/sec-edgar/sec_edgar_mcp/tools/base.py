@@ -1,6 +1,6 @@
 """Base utilities for SEC EDGAR tools."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Optional
 
 from ..core.client import EdgarClient
@@ -61,5 +61,5 @@ class BaseTools:
             "disclaimer": "All data extracted directly from SEC EDGAR filing with exact precision.",
         }
         if period_days:
-            ref["period_analyzed"] = f"Last {period_days} days from {datetime.now().strftime('%Y-%m-%d')}"
+            ref["period_analyzed"] = f"Last {period_days} days from {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
         return ref

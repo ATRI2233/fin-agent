@@ -1,6 +1,6 @@
 """Insider trading tools for SEC EDGAR data (Forms 3, 4, 5)."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from ..utils.exceptions import FilingNotFoundError
@@ -24,7 +24,7 @@ class InsiderTools(BaseTools):
             filings = company.get_filings(form=form_types)
 
             transactions: List[Dict[str, Any]] = []
-            cutoff_date = datetime.now() - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             for filing in filings:
                 if len(transactions) >= limit:
@@ -66,7 +66,7 @@ class InsiderTools(BaseTools):
                 "insiders": set(),
             }
 
-            cutoff_date = datetime.now() - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             for filing in filings:
                 filing_date = self._parse_date(filing.filing_date)
@@ -142,7 +142,7 @@ class InsiderTools(BaseTools):
             filings = company.get_filings(form="4")
 
             detailed_transactions: List[Dict[str, Any]] = []
-            cutoff_date = datetime.now() - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             for filing in filings:
                 if len(detailed_transactions) >= limit:
@@ -165,7 +165,7 @@ class InsiderTools(BaseTools):
                 "filing_reference": {
                     "data_source": "SEC EDGAR Form 4 Filings - Detailed Transaction Analysis",
                     "disclaimer": "All data extracted directly from SEC EDGAR Form 4 filings.",
-                    "period_analyzed": f"Last {days} days from {datetime.now().strftime('%Y-%m-%d')}",
+                    "period_analyzed": f"Last {days} days from {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
                 },
             }
         except Exception as e:
@@ -178,7 +178,7 @@ class InsiderTools(BaseTools):
             filings = company.get_filings(form=["4"])
 
             days = months * 30
-            cutoff_date = datetime.now() - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             recent_filings = []
             for filing in filings:
@@ -246,7 +246,7 @@ class InsiderTools(BaseTools):
         return {
             "data_source": "SEC EDGAR Insider Trading Filings (Forms 3, 4, 5)",
             "disclaimer": "All data extracted directly from SEC EDGAR filings.",
-            "period_analyzed": f"Last {days} days from {datetime.now().strftime('%Y-%m-%d')}",
+            "period_analyzed": f"Last {days} days from {datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
         }
 
     def _count_form_type(self, summary: Dict[str, Any], form_type: str):

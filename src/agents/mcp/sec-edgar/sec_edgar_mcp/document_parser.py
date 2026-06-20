@@ -4,6 +4,8 @@ SEC EDGAR document parser for handling large filing content with chunking strate
 
 import re
 import requests
+
+_session = requests.Session()
 from typing import List, Dict, Optional, Any, Union
 from bs4 import BeautifulSoup
 
@@ -83,7 +85,7 @@ class SECDocumentParser:
         }
 
         try:
-            response = requests.get(url, headers=headers, timeout=30)
+            response = _session.get(url, headers=headers, timeout=30)
             response.raise_for_status()
             return response.text
         except requests.RequestException as e:
