@@ -145,9 +145,9 @@ export function getExperienceSummary(days = 7): string {
       m.was_correct
     FROM analysis_log a
     LEFT JOIN market_outcomes m ON m.analysis_id = a.id
-    WHERE a.created_at >= datetime('now', '-${days} days')
+    WHERE a.created_at >= datetime('now', '-' || ? || ' days')
       AND m.was_correct IS NOT NULL
-  `).all() as any[];
+  `).all(days) as any[];
 
   const totalStats = d.prepare(`
     SELECT
@@ -155,8 +155,8 @@ export function getExperienceSummary(days = 7): string {
       SUM(CASE WHEN m.was_correct = 1 THEN 1 ELSE 0 END) as correct
     FROM analysis_log a
     JOIN market_outcomes m ON m.analysis_id = a.id
-    WHERE a.created_at >= datetime('now', '-${days} days')
-  `).get() as any;
+    WHERE a.created_at >= datetime('now', '-' || ? || ' days')
+  `).get(days) as any;
 
   const hitRate = totalStats.total > 0
     ? Math.round((totalStats.correct / totalStats.total) * 100)

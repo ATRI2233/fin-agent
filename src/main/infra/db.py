@@ -32,7 +32,7 @@ def configure_sqlite(connection, connection_record) -> None:
         The connection record from the pool (unused but required by the event
         listener signature).
     """
-    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute(f"PRAGMA journal_mode={Settings().DB_JOURNAL_MODE}")
     connection.execute(f"PRAGMA busy_timeout={Settings().DB_BUSY_TIMEOUT_MS}")
     connection.execute("PRAGMA synchronous=NORMAL")
     connection.execute("PRAGMA foreign_keys=ON")
@@ -74,7 +74,7 @@ def create_engine(settings: Settings) -> Engine:
     # Closure captures the caller's settings instance so the PRAGMA values
     # reflect the caller's configuration (not a freshly-constructed default).
     def _on_connect(connection, connection_record) -> None:
-        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute(f"PRAGMA journal_mode={settings.DB_JOURNAL_MODE}")
         connection.execute(f"PRAGMA busy_timeout={settings.DB_BUSY_TIMEOUT_MS}")
         connection.execute("PRAGMA synchronous=NORMAL")
         connection.execute("PRAGMA foreign_keys=ON")

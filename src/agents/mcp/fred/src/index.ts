@@ -51,6 +51,7 @@ export async function startServer(server: McpServer, transport: StdioServerTrans
 
     process.on('SIGINT', () => {
       console.error("Server shutting down...");
+      transport.close().catch(() => {});
       process.exit(0);
     });
 
@@ -150,6 +151,11 @@ export async function startHttpServer(port: number = 3000): Promise<HttpServerRe
     console.error(`FRED MCP Server running on http://localhost:${port}/mcp`);
   });
 
+  httpServer.on('error', (error) => {
+    console.error("HTTP server error:", error);
+    process.exit(1);
+  });
+
   process.on('SIGINT', async () => {
     console.error("Server shutting down...");
     for (const sessionId in transports) {
@@ -160,7 +166,11 @@ export async function startHttpServer(port: number = 3000): Promise<HttpServerRe
         console.error(`Error closing transport for session ${sessionId}:`, error);
       }
     }
-    httpServer.close();
+    try {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    } catch (error) {
+      console.error("Error closing HTTP server:", error);
+    }
     process.exit(0);
   });
 

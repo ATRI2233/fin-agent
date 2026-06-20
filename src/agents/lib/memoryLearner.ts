@@ -192,7 +192,7 @@ function computeAccuracy(lookbackDays: number, symbol?: string): MemoryLearnerRe
         agentCounts[agent].total++;
         if (row.was_correct === 1) agentCounts[agent].hits++;
       }
-    } catch {}
+    } catch (e) { console.error("[memoryLearner] parse source_signals failed:", e); }
   }
 
   for (const [agent, stats] of Object.entries(agentCounts)) {
@@ -223,7 +223,7 @@ function computeWeightUpdates(accuracy: MemoryLearnerResult["accuracy_report"]):
         currentWeights[w.signal_name] = w.base_weight;
       }
     }
-  } catch {}
+  } catch (e) { console.error("[memoryLearner] getSignalWeights failed:", e); }
 
   // 贝叶斯更新
   for (const [agent, stats] of Object.entries(accuracy.by_agent)) {

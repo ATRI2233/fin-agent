@@ -71,21 +71,23 @@ class SqlAlchemyUnitOfWork:
         exc_val: BaseException | None,
         exc_tb: object,
     ) -> None:
-        if exc_type is None:
-            try:
-                self.commit()
-            except Exception:
+        try:
+            if exc_type is None:
+                try:
+                    self.commit()
+                except Exception:
+                    try:
+                        self.rollback()
+                    except Exception:
+                        pass
+                    raise
+            else:
                 try:
                     self.rollback()
                 except Exception:
                     pass
-                raise
-        else:
-            try:
-                self.rollback()
-            except Exception:
-                pass
-        self.session.close()
+        finally:
+            self.session.close()
 
     def commit(self) -> None:
         """提交当前事务。"""

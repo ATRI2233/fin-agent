@@ -8,8 +8,7 @@
  * GET  /api/v1/mcp/agents/{name}/allowed-tools → tools whitelist (MCP domain)
  */
 
-import { API_V1_BASE } from '../config/env';
-import { apiGet, buildUrl } from './http';
+import { apiGet } from './http';
 import { ROUTES } from './contract';
 import type { Agent, AgentDetail } from '../domain/agent';
 
@@ -17,7 +16,7 @@ import type { Agent, AgentDetail } from '../domain/agent';
  * Fetch every registered agent.
  */
 export async function listAgents(): Promise<Agent[]> {
-  return apiGet<Agent[]>(buildUrl(API_V1_BASE, ROUTES.agents.list));
+  return apiGet<Agent[]>(ROUTES.agents.list);
 }
 
 /**

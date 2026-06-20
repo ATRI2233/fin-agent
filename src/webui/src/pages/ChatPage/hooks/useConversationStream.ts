@@ -40,6 +40,7 @@ export function useConversationStream(): UseConversationStreamResult {
   const setMessages = useConversationStore((s) => s.setMessages);
   const appendMessage = useConversationStore((s) => s.appendMessage);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [processingMessage, setProcessingMessage] = useState(false);
   const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
 
@@ -113,7 +114,7 @@ export function useConversationStream(): UseConversationStreamResult {
             // Workflow mode: stop on terminal events
             if (mode === 'workflow' && (parsed.type === 'workflow_result' || parsed.type === 'workflow_error')) {
               // Delay stop so the message list fully updates first
-              setTimeout(() => stopStream(), 500);
+              timerRef.current = setTimeout(() => stopStream(), 500);
             }
             break;
           }
@@ -137,6 +138,10 @@ export function useConversationStream(): UseConversationStreamResult {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
+      }
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
       }
     };
   }, []);

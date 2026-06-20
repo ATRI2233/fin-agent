@@ -8,6 +8,7 @@ Node.js cold-start overhead and enables true parallel agent execution.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from typing import Any
@@ -68,6 +69,9 @@ class ServeBackend(AgentBackend):
         self._history: dict[str, list[dict]] = {}
         self._session_agents: dict[str, str] = {}
 
+        # Lock to serialise _ensure_server / _start_server calls (race protection)
+        self._server_lock = asyncio.Lock()
+
     # ------------------------------------------------------------------
     # HTTP client lifecycle
     # ------------------------------------------------------------------
@@ -112,30 +116,31 @@ class ServeBackend(AgentBackend):
         Checks server liveness via HTTP. If the server is down, starts it
         and waits for it to become ready.
         """
-        if self._server_ready and self._server_process is not None:
-            # Check if process is still alive
-            if self._server_process.returncode is not None:
-                logger.warning(
-                    "opencode serve exited with code %d, restarting",
-                    self._server_process.returncode,
-                )
-                self._server_ready = False
-                self._server_process = None
+        async with self._server_lock:
+            if self._server_ready and self._server_process is not None:
+                # Check if process is still alive
+                if self._server_process.returncode is not None:
+                    logger.warning(
+                        "opencode serve exited with code %d, restarting",
+                        self._server_process.returncode,
+                    )
+                    self._server_ready = False
+                    self._server_process = None
 
-        if self._server_ready:
-            # Quick health check
-            try:
-                http = await self._get_http()
-                resp = await http.get("/session", timeout=5.0)
-                if resp.status_code == 200:
-                    return
-                logger.warning("Health check returned %d, restarting server", resp.status_code)
-                self._server_ready = False
-            except Exception:
-                logger.warning("Health check failed, restarting server")
-                self._server_ready = False
+            if self._server_ready:
+                # Quick health check
+                try:
+                    http = await self._get_http()
+                    resp = await http.get("/session", timeout=5.0)
+                    if resp.status_code == 200:
+                        return
+                    logger.warning("Health check returned %d, restarting server", resp.status_code)
+                    self._server_ready = False
+                except Exception:
+                    logger.warning("Health check failed, restarting server")
+                    self._server_ready = False
 
-        await self._start_server()
+            await self._start_server()
 
     async def _start_server(self) -> None:
         """Start the opencode serve process."""
@@ -201,8 +206,18 @@ class ServeBackend(AgentBackend):
         resp = await http.post("/session", json=payload)
         resp.raise_for_status()
 
-        data = resp.json()
-        opencode_sid = data["id"] # Format: ses_xxx
+        try:
+            data = resp.json()
+        except json.JSONDecodeError:
+            raise RuntimeError(
+                f"opencode serve returned non-JSON response: {resp.text[:300]}"
+            )
+
+        opencode_sid = data.get("id")
+        if not opencode_sid:
+            raise RuntimeError(
+                f"opencode serve response missing 'id': {data}"
+            )
 
         # Initialize state for this session
         self._history[opencode_sid] = []
@@ -267,8 +282,7 @@ class ServeBackend(AgentBackend):
         # Include "agent" in the payload to switch the active agent for this message.
         # This is how Tab-switch works in the opencode TUI — each message can carry
         # an agent designation that overrides the session's default agent for that message.
-        if agent:
-            payload["agent"] = agent
+        payload["agent"] = active_agent
 
         # Store user message in history
         self._history.setdefault(session_id, []).append({
@@ -299,7 +313,12 @@ class ServeBackend(AgentBackend):
             raise RuntimeError(f"Agent '{agent}' error: {error_msg}") from e
 
         # Parse response
-        data = resp.json()
+        try:
+            data = resp.json()
+        except json.JSONDecodeError:
+            raise RuntimeError(
+                f"opencode serve returned non-JSON response: {resp.text[:300]}"
+            )
         response_text = self._extract_text(data)
 
         # Strip thinking blocks
@@ -313,7 +332,7 @@ class ServeBackend(AgentBackend):
 
         logger.info(
             "Agent %s completed: session=%s text_len=%d",
-            agent, session_id, len(clean_text or ""),
+            active_agent, session_id, len(clean_text or ""),
         )
 
         return "ok"

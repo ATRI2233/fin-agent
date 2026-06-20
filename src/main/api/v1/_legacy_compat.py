@@ -121,7 +121,7 @@ class LegacyEnvelopeMiddleware(BaseHTTPMiddleware):
         # 解析失败透传,不让前端看到 500
         try:
             payload: dict = json.loads(body)
-        except (ValueError, json.JSONDecodeError):
+        except ValueError:
             return response
 
         # 不是字典也透传(理论上不会发生,防御性编程)

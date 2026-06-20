@@ -50,7 +50,11 @@ def retry_on_failure(
                     if attempt < policy.max_attempts - 1:
                         delay = policy.base_delay * (policy.backoff**attempt)
                         await asyncio.sleep(delay)
-            assert last_exc is not None
+            if last_exc is None:
+                raise RuntimeError(
+                    "retry loop exhausted without an exception being captured; "
+                    "this should never happen"
+                )
             raise last_exc
 
         return wrapper

@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 :: 支持: 双击运行 或命令行 ./start.bat
 :: ============================================================
 
-set "PROJECT_ROOT=%~dp0"
+set "PROJECT_ROOT=%~dp0.."
 set "PID_FILE=%PROJECT_ROOT%.pids"
 set "KILLED="
 set "PYTHON_SERVER_PID="
@@ -16,25 +16,22 @@ set "PYTHON_SERVER_PID="
 if exist "%PID_FILE%" (
     echo [Cleanup] 检测到残留进程文件，正在清理...
     for /f "usebackq tokens=*" %%i in ("%PID_FILE%") do (
-        for /f "tokens=2 delims=, " %%j in ("%%i") do (
-            set "PID=%%j"
-            for /f "tokens=1" %%k in ("!PID:~1,-1!") do (
-                taskkill /F /PID %%k 2>nul
-            )
+        set "PID=%%i"
+        for /f "tokens=1" %%k in ("!PID!") do (
+            taskkill /F /PID %%k 2>nul
         )
     )
     del /f /q "%PID_FILE%" 2>nul
 )
 
 :: ── 加载 .env ─────────────────────────────────────────────
-if exist "%PROJECT_ROOT%.env" (
-    for /f "usebackq tokens=1,* delims==" %%a in ("%PROJECT_ROOT%.env") do (
+if exist "%PROJECT_ROOT%config\.env" (
+    for /f "usebackq tokens=1,* delims==" %%a in ("%PROJECT_ROOT%config\.env") do (
         set "KEY=%%a"
         set "VAL=%%b"
         if not defined KEY (
         ) else if "!KEY:~0,1!"=="#" (
         ) else (
-            setx !KEY! "!VAL!" >nul 2>&1
             set "!KEY!=!VAL!"
         )
     )
@@ -67,7 +64,7 @@ echo.
 echo [1/4] opencode serve ^(port 4096^)...
 set "OC_BIN=%PROJECT_ROOT%agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
 if exist "%OC_BIN%" (
-    start /min cmd /c "title opencode-serve && "%OC_BIN%" serve --port 4096"
+    powershell -Command "$p = Start-Process -FilePath \"%OC_BIN%\" -ArgumentList \"serve --port 4096\" -WorkingDirectory \"%PROJECT_ROOT%\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
     echo   opencode serve started
 ) else (
     echo   [SKIP] opencode binary not found
@@ -75,15 +72,15 @@ if exist "%OC_BIN%" (
 
 :: [2/4] FastAPI
 echo [2/4] FastAPI Framework ^(port 8000^)...
-start /min cmd /c "title FastAPI-8000 && cd /d "%PROJECT_ROOT%" && python -m uvicorn main.framework.main:app --port 8000 --log-level error"
+powershell -Command "$p = Start-Process -FilePath \"python\" -ArgumentList \"-m src.main\" -WorkingDirectory \"%PROJECT_ROOT%\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
 
 :: [3/4] WebUI Server
 echo [3/4] WebUI Server ^(port 9876^)...
-start /min cmd /c "title WebUI-Server-9876 && cd /d "%PROJECT_ROOT%webui\server" && node node_modules\tsx\dist\cli.mjs watch index.ts"
+powershell -Command "$p = Start-Process -FilePath \"node\" -ArgumentList \"node_modules/tsx/dist/cli.mjs watch index.ts\" -WorkingDirectory \"%PROJECT_ROOT%webui\\server\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
 
 :: [4/4] WebUI Frontend (Vite)
 echo [4/4] WebUI Frontend ^(port 5173^)...
-start /min cmd /c "title Vite-5173 && cd /d "%PROJECT_ROOT%webui" && npm run dev"
+powershell -Command "$p = Start-Process -FilePath \"cmd\" -ArgumentList \"/c npm run dev\" -WorkingDirectory \"%PROJECT_ROOT%webui\" -WindowStyle Hidden -PassThru; $p.Id | Out-File -FilePath \"%PID_FILE%\" -Append"
 
 echo.
 echo ========================================

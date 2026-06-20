@@ -24,7 +24,8 @@ class Registry:
     def register_singleton(
         self, protocol: type, factory: Callable[[Registry], Any]
     ) -> None:
-        assert isinstance(protocol, type), "protocol must be a type"
+        if not isinstance(protocol, type):
+            raise TypeError(f"protocol must be a type, got {type(protocol).__name__}")
         if protocol in self._factories:
             raise RegistryError(f"{protocol.__name__} already registered")
         self._factories[protocol] = factory
@@ -57,30 +58,32 @@ class Registry:
 
         Revision T-11: Engine 显式 dispose 不能仅依赖 close() 链。
         """
-        # 第 1 步：遍历实例调用 close/cleanup/shutdown/stop
-        for inst in list(self._instances.values()):
-            for method_name in ("close", "cleanup", "shutdown", "stop"):
-                closer = getattr(inst, method_name, None)
-                if callable(closer):
+        with self._lock:
+            # 第 1 步：遍历实例调用 close/cleanup/shutdown/stop
+            for inst in list(self._instances.values()):
+                for method_name in ("close", "cleanup", "shutdown", "stop"):
+                    closer = getattr(inst, method_name, None)
+                    if callable(closer):
+                        try:
+                            closer()
+                        except Exception:
+                            pass
+
+            # 第 2 步：显式 dispose 所有 SQLAlchemy Engine
+            from sqlalchemy.engine import Engine
+
+            for inst in list(self._instances.values()):
+                if isinstance(inst, Engine):
                     try:
-                        closer()
+                        inst.dispose()
                     except Exception:
                         pass
 
-        # 第 2 步：显式 dispose 所有 SQLAlchemy Engine
-        from sqlalchemy.engine import Engine
-
-        for inst in list(self._instances.values()):
-            if isinstance(inst, Engine):
-                try:
-                    inst.dispose()
-                except Exception:
-                    pass
-
-        # 第 3 步：清空实例与工厂
-        self._instances.clear()
-        self._factories.clear()
+            # 第 3 步：清空实例与工厂
+            self._instances.clear()
+            self._factories.clear()
 
     def override(self, protocol: type, instance: Any) -> None:
         """测试用 — 直接覆盖实例。"""
-        self._instances[protocol] = instance
+        with self._lock:
+            self._instances[protocol] = instance

@@ -15,7 +15,7 @@ TASK-408 §3.3.4 端点定义:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from src.main.api.deps import service_dep
 from src.main.infra.api_envelope import ApiResponse
@@ -74,5 +74,7 @@ async def get_agent(
     Raises:
         AgentNotFoundError: 对应 .md 不存在(由 repo 抛出)。
     """
+    if not name or ".." in name or "/" in name or "\\" in name:
+        raise HTTPException(status_code=422, detail=f"Invalid agent name: {name!r}")
     agent = repo.get(name)
     return ApiResponse.success(_agent_to_dict(agent), current_trace_id()).to_dict()

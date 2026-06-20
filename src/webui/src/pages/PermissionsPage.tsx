@@ -23,6 +23,12 @@ export default function PermissionsPage() {
   const [saving, setSaving] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  // KNOWN LIMITATION: `hydrated` flag prevents re-population from server data
+  // after local edits, protecting against overwrites. This means server-side
+  // updates (e.g. from another tab or a config reload) will NOT be reflected
+  // until the page is hard-refreshed. A future improvement should diff or
+  // prompt the user to merge.
+
   const [editVisible, setEditVisible] = useState(false);
   const [editIndex, setEditIndex] = useState<number>(-1);
   const [form] = Form.useForm();

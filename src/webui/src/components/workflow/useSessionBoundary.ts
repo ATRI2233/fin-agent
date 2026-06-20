@@ -48,7 +48,10 @@ export interface UseSessionBoundaryOptions {
   onBoundaryCreated?: (boundary: SessionBoundary) => void;
 }
 
-export function useSessionBoundary(options: UseSessionBoundaryOptions = {}) {
+/** Default empty options — module-level constant to keep reference stable. */
+const DEFAULT_OPTIONS: UseSessionBoundaryOptions = {};
+
+export function useSessionBoundary(options: UseSessionBoundaryOptions = DEFAULT_OPTIONS) {
   const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [isSelecting, setIsSelecting] = useState(false);

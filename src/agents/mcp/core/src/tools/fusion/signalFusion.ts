@@ -243,7 +243,7 @@ export function registerSignalFusion(
           const rawQuote = await mcpManager.callTool("stock-scanner", "tradingview_quote", { tickers: [symbol] }, 15000);
           const quoteItems = extractData(rawQuote);
           currentPrice = quoteItems[0]?.data?.close ?? quoteItems[0]?.close ?? 0;
-        } catch {}
+        } catch (e) { console.error("[signalFusion] failed to fetch quote:", e); }
 
         // ── 生成行动计划 ─────────────────────────────────
         const actionPlan = generateActionPlan(fusedDistribution, currentPrice, timeframe, conflictAnalysis, conditionalConclusions);
@@ -639,6 +639,9 @@ function runDebateProtocol(signals: SignalInput[]): DebateRound[] {
   return rounds;
 }
 
+// NOTE: This function mutates signal distributions in place for simplicity.
+// If re-entrant or concurrent access is needed, shallow-copy distributions first:
+//   const sig = { ...s, distribution: { ...s.distribution } };
 // ── 辩论后调整概率分布 ───────────────────────────────────
 function adjustDistributionsAfterDebate(signals: SignalInput[], rounds: DebateRound[]): void {
   if (rounds.length < 3) return;

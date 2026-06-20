@@ -43,11 +43,14 @@ from structlog.contextvars import bind_contextvars, unbind_contextvars
 from src.main.infra.domain import AgentReference, SessionId, TraceId
 from src.main.infra.errors import ValidationError
 from src.main.infra.settings import Settings
+from src.main.infra.logging import get_logger
 from src.main.modules.agent.protocol import (
     AgentBackend,
     AgentDispatcher,
     DispatchResult,
 )
+
+logger = get_logger(__name__)
 
 
 class DefaultAgentDispatcher(AgentDispatcher):
@@ -159,7 +162,12 @@ class DefaultAgentDispatcher(AgentDispatcher):
                 # Cleanup policy: only the session this call created, and
                 # only if the caller did not ask us to keep it alive.
                 if created_new and not reuse_session:
-                    await self.backend.abort_session(session_id)
+                    try:
+                        await self.backend.abort_session(session_id)
+                    except Exception:
+                        logger.warning(
+                            "Failed to abort session %s", session_id, exc_info=True
+                        )
         finally:
             unbind_contextvars("trace_id")
 
@@ -229,27 +237,38 @@ class DefaultAgentDispatcher(AgentDispatcher):
         ]
         gathered = await asyncio.gather(*tasks, return_exceptions=True)
 
-        results: list[DispatchResult] = []
+        # Collect session ids from successful dispatches for cleanup.
+        # reuse_session=True prevents per-worker dispatch() from aborting
+        # them, so we must clean up here.
+        session_ids_to_cleanup: list[SessionId] = []
         for item in gathered:
-            if isinstance(item, BaseException):
-                # Worker raised — surface the message in ``raw`` so the
-                # caller can render or log it. ``result`` and
-                # ``session_id`` are unknown on failure.
-                results.append(
-                    {
-                        "result": None,
-                        "session_id": None,  # type: ignore[typeddict-item]
-                        "raw": str(item),
-                    }
-                )
-            else:
+            if isinstance(item, dict) and item.get("session_id") is not None:
+                session_ids_to_cleanup.append(item["session_id"])
+
+        try:
+            # Check for exceptions and re-raise the first one
+            exceptions = [item for item in gathered if isinstance(item, BaseException)]
+            if exceptions:
+                raise exceptions[0]
+
+            results: list[DispatchResult] = []
+            for item in gathered:
                 results.append(item)
 
-        # Revision T-3: default implementation never opens follow-up
-        # sessions, so ``extra_session_ids`` is always empty and
-        # therefore trivially disjoint from ``results[i].session_id``.
-        extra_session_ids: list[SessionId] = []
-        return results, extra_session_ids
+            # Revision T-3: default implementation never opens follow-up
+            # sessions, so ``extra_session_ids`` is always empty and
+            # therefore trivially disjoint from ``results[i].session_id``.
+            extra_session_ids: list[SessionId] = []
+            return results, extra_session_ids
+        finally:
+            # Cleanup: abort all sessions created by this parallel fan-out.
+            for sid in session_ids_to_cleanup:
+                try:
+                    await self.backend.abort_session(sid)
+                except Exception:
+                    logger.warning(
+                        "Failed to abort parallel session %s", sid, exc_info=True
+                    )
 
     # ───────────────────────────────────────────────────────────────────
     # Helpers

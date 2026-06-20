@@ -11,12 +11,15 @@
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 
 from src.main.infra.domain import NodeId
 
 from src.main.modules.workflow.domain.edge import Edge
 from src.main.modules.workflow.domain.node import Node
+
+logger = logging.getLogger(__name__)
 
 
 def topological_sort(
@@ -40,9 +43,15 @@ def topological_sort(
 
     for edge in edges:
         if edge.source not in in_degree:
+            logger.warning(
+                "Edge source %s not in nodes list, adding implicitly", edge.source
+            )
             in_degree[edge.source] = 0
             adj[edge.source] = []
         if edge.target not in in_degree:
+            logger.warning(
+                "Edge target %s not in nodes list, adding implicitly", edge.target
+            )
             in_degree[edge.target] = 0
             adj[edge.target] = []
         in_degree[edge.target] += 1
@@ -89,8 +98,10 @@ def identify_parallel_branches(
     if not topo:
         return {}
 
-    # 计算每个节点的入度 (来自 edges)
-    in_degree: dict[NodeId, int] = {node.id: 0 for node in nodes}
+    # 计算每个节点的入度 — 使用 topological_sort 的节点集(一致的全量节点)
+    # Bug 21: 之前用 {node.id: 0 for node in nodes} 与 topological_sort
+    # 不一致(拓扑排序内部会从 edges 静默添加 nodes 之外的节点)。
+    in_degree: dict[NodeId, int] = {nid: 0 for nid in topo}
     for edge in edges:
         if edge.target in in_degree:
             in_degree[edge.target] += 1

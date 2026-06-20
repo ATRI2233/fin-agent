@@ -184,11 +184,11 @@ def handle_request(req):
         symbol = args.get("symbol", "").strip()
 
         if name in TOOLS_REQUIRING_SYMBOL and not symbol:
-            return {"jsonrpc": "2.0", "error": {"message": "缺少 symbol"}, "id": req_id}
+            return {"jsonrpc": "2.0", "error": {"code": -32603, "message": "缺少 symbol"}, "id": req_id}
 
         handler = TOOL_DISPATCH.get(name)
         if not handler:
-            return {"jsonrpc": "2.0", "error": {"message": f"Unknown tool: {name}"}, "id": req_id}
+            return {"jsonrpc": "2.0", "error": {"code": -32603, "message": f"Unknown tool: {name}"}, "id": req_id}
 
         result = handler(args)
         return {
@@ -197,7 +197,7 @@ def handle_request(req):
             "id": req_id,
         }
 
-    return {"jsonrpc": "2.0", "error": {"message": f"Unknown method: {method}"}, "id": req_id}
+    return {"jsonrpc": "2.0", "error": {"code": -32603, "message": f"Unknown method: {method}"}, "id": req_id}
 
 
 if __name__ == "__main__":
@@ -216,5 +216,5 @@ if __name__ == "__main__":
                 print(json.dumps(resp, ensure_ascii=False))
                 sys.stdout.flush()
         except Exception as e:
-            print(json.dumps({"jsonrpc": "2.0", "error": {"message": str(e)}}))
+            print(json.dumps({"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}}))
             sys.stdout.flush()

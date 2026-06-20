@@ -29,18 +29,26 @@ export const makeRequest = async <T>(
 
   console.error(`Fetching FRED API: ${url.toString().replace(/api_key=[^&]+/, "api_key=***")}`);
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      "Accept": "application/json",
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`FRED API error (${response.status}): ${errorText}`);
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        "Accept": "application/json",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`FRED API error (${response.status}): ${errorText}`);
+    }
+
+    return response.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return response.json() as Promise<T>;
 };
 
 // Observation schema for the series/observations endpoint
@@ -143,7 +151,7 @@ export async function fetchFREDSeriesData(
     // Transform the data for easier consumption
     const formattedData = response.observations.map(obs => ({
       date: obs.date,
-      value: parseFloat(obs.value),
+      value: obs.value === "." ? null : parseFloat(obs.value),
       units: metadata.units,
     }));
 

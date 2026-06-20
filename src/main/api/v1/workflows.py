@@ -166,7 +166,7 @@ async def create_workflow(
 
     nodes = [
         Node(
-            id=NodeId(n["id"]),
+            id=NodeId(n.get("id", "")),
             type=n.get("type", "agent"),
             data=n.get("data", {}),
             prompt=n.get("prompt"),
@@ -174,7 +174,7 @@ async def create_workflow(
         for n in body.nodes
     ]
     edges = [
-        Edge(source=NodeId(e["source"]), target=NodeId(e["target"]))
+        Edge(source=NodeId(e.get("source", "")), target=NodeId(e.get("target", "")))
         for e in body.edges
     ]
     workflow = Workflow(
@@ -236,10 +236,6 @@ async def update_workflow(
         for k, v in body.model_dump(exclude_unset=True).items()
         if v is not None
     }
-    if "nodes" in kwargs:
-        kwargs["nodes"] = kwargs["nodes"]  # JSON-friendly, service 端处理
-    if "edges" in kwargs:
-        kwargs["edges"] = kwargs["edges"]
     wf = svc.update(WorkflowId(workflow_id), **kwargs)
     return ApiResponse.success(_workflow_to_dict(wf), current_trace_id()).to_dict()
 

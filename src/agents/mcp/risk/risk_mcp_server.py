@@ -389,7 +389,7 @@ def handle_request(req):
             if not symbol:
                 return {
                     "jsonrpc": "2.0",
-                    "error": {"message": "缺少 symbol"},
+                    "error": {"code": -32603, "message": "缺少 symbol"},
                     "id": req_id,
                 }
             result = calculate_risk(symbol.upper())
@@ -399,7 +399,7 @@ def handle_request(req):
             if not symbol:
                 return {
                     "jsonrpc": "2.0",
-                    "error": {"message": "缺少 symbol"},
+                    "error": {"code": -32603, "message": "缺少 symbol"},
                     "id": req_id,
                 }
             result = calculate_position(
@@ -414,7 +414,7 @@ def handle_request(req):
             if not symbol:
                 return {
                     "jsonrpc": "2.0",
-                    "error": {"message": "缺少 symbol"},
+                    "error": {"code": -32603, "message": "缺少 symbol"},
                     "id": req_id,
                 }
             result = get_institutional_flow(symbol.upper(), top_n=args.get("top_n", 10))
@@ -422,7 +422,7 @@ def handle_request(req):
         else:
             return {
                 "jsonrpc": "2.0",
-                "error": {"message": f"Unknown tool: {name}"},
+                "error": {"code": -32603, "message": f"Unknown tool: {name}"},
                 "id": req_id,
             }
 
@@ -441,7 +441,7 @@ def handle_request(req):
 
     return {
         "jsonrpc": "2.0",
-        "error": {"message": f"Unknown method: {method}"},
+        "error": {"code": -32603, "message": f"Unknown method: {method}"},
         "id": req_id,
     }
 
@@ -457,5 +457,5 @@ if __name__ == "__main__":
                 print(json.dumps(resp, ensure_ascii=False))
                 sys.stdout.flush()
         except Exception as e:
-            print(json.dumps({"jsonrpc": "2.0", "error": {"message": str(e)}}))
+            print(json.dumps({"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}}))
             sys.stdout.flush()

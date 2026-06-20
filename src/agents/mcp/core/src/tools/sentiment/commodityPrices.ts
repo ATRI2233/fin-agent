@@ -60,7 +60,7 @@ export function registerCommodityPrices(
             || await mcpManager.callTool("stock-scanner", "commodity_prices", { commodities })
             || await mcpManager.callTool("stock-scanner", "energy_prices", {});
         } catch (e) {
-          console.error("[commodity_prices] 数据源不可用，使用模拟数据");
+          console.error("[commodity_prices] 数据源不可用:", e);
         }
 
         const result = commodityData || generateSimulatedCommodityData(commodities);

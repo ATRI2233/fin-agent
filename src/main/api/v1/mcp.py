@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/v1/mcp", tags=["mcp"])
 
 
 @router.get("/tools")
-async def list_tools(
+def list_tools(
     server: str | None = Query(default=None),
     category: str | None = Query(default=None),
     catalog: ToolCatalog = Depends(service_dep(ToolCatalog)),
@@ -48,7 +48,7 @@ async def list_tools(
 
 
 @router.get("/servers")
-async def list_servers(
+def list_servers(
     catalog: ToolCatalog = Depends(service_dep(ToolCatalog)),
 ) -> dict:
     """列出所有 MCP server 及其工具。
@@ -64,7 +64,7 @@ async def list_servers(
 
 
 @router.get("/agents/{name}/allowed-tools")
-async def list_allowed_tools(
+def list_allowed_tools(
     name: str,
     catalog: ToolCatalog = Depends(service_dep(ToolCatalog)),
 ) -> dict:

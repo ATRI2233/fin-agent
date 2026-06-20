@@ -1,6 +1,6 @@
 # Market tools
 from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
-from datetime import datetime
+from datetime import datetime, timedelta
 
 try:
     import akshare as ak
@@ -99,8 +99,8 @@ def get_sector_rotation(period="近5日"):
                     ak.stock_board_industry_hist_em,
                     symbol=sector_name,
                     period="日k",
-                    start_date="20200101",
-                    end_date="20991231",
+                    start_date=(datetime.now() - timedelta(days=60)).strftime("%Y%m%d"),
+                    end_date=datetime.now().strftime("%Y%m%d"),
                 )
                 if df_hist is None or df_hist.empty:
                     continue

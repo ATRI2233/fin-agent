@@ -56,6 +56,7 @@ class ServeBackend(AgentBackend):
         self._http: httpx.AsyncClient | None = None
         self._proc: asyncio.subprocess.Process | None = None
         self._ready: bool = False
+        self._ensure_lock: asyncio.Lock = asyncio.Lock()
 
     # ───────────────────────────────────────────────────────────────────
     # HTTP client lifecycle
@@ -105,19 +106,29 @@ class ServeBackend(AgentBackend):
                 self._ready = False
                 self._proc = None
 
-        if self._ready:
-            try:
-                http = await self._get_http()
-                resp = await http.get("/session", timeout=5.0)
-                if resp.status_code == 200:
-                    return
-            except (httpx.RequestError, httpx.TimeoutException) as e:
-                logger.warning("opencode health check failed: %s", e)
-            except Exception as e:  # pragma: no cover - defensive
-                logger.warning("opencode health check raised: %s", e)
-            self._ready = False
+        async with self._ensure_lock:
+            if self._ready and self._proc is not None:
+                if self._proc.returncode is not None:
+                    logger.warning(
+                        "opencode serve exited (returncode=%s), respawning",
+                        self._proc.returncode,
+                    )
+                    self._ready = False
+                    self._proc = None
 
-        await self._spawn(trace_id)
+            if self._ready:
+                try:
+                    http = await self._get_http()
+                    resp = await http.get("/session", timeout=5.0)
+                    if resp.status_code == 200:
+                        return
+                except (httpx.RequestError, httpx.TimeoutException) as e:
+                    logger.warning("opencode health check failed: %s", e)
+                except Exception as e:  # pragma: no cover - defensive
+                    logger.warning("opencode health check raised: %s", e)
+                self._ready = False
+
+            await self._spawn(trace_id)
 
     async def _spawn(self, trace_id: TraceId) -> None:
         """Spawn ``opencode serve`` with the given ``trace_id`` in its env.
@@ -143,8 +154,8 @@ class ServeBackend(AgentBackend):
         try:
             self._proc = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
                 env=env,
             )
         except FileNotFoundError as e:
@@ -320,6 +331,12 @@ class ServeBackend(AgentBackend):
         except (httpx.RequestError, httpx.TimeoutException) as e:
             raise OpencodeUnavailableError(
                 f"opencode serve unreachable on abort_session (session={session_id})",
+                details={"session_id": str(session_id)},
+                cause=e,
+            ) from e
+        except asyncio.TimeoutError as e:
+            raise AgentTimeoutError(
+                f"opencode serve timed out on abort_session (session={session_id})",
                 details={"session_id": str(session_id)},
                 cause=e,
             ) from e

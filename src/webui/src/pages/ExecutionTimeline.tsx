@@ -39,7 +39,11 @@ interface Props {
 }
 
 export default function ExecutionTimeline({ nodes }: Props) {
-  const sorted = [...nodes];
+  const sorted = [...nodes].sort((a, b) => {
+    const aTime = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+    const bTime = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+    return aTime - bTime;
+  });
 
   return (
     <div style={{

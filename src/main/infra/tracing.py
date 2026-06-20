@@ -11,6 +11,9 @@ from uuid import uuid4
 
 from src.main.infra.domain import TraceId
 from src.main.infra.errors import TraceLostError
+from src.main.infra.logging import get_logger
+
+logger = get_logger(__name__)
 
 # ── 模块级上下文变量 ──
 
@@ -74,8 +77,20 @@ class TracingMiddleware:
             await self._app(scope, receive, send)
             return
 
-        headers = dict(scope.get("headers") or [])
-        tid_bytes = headers.get(self._header_name.lower().encode())
+        raw_headers = scope.get("headers") or []
+        # Check for duplicate X-Trace-Id headers before building the dict
+        header_key = self._header_name.lower().encode()
+        count = sum(1 for k, _ in raw_headers if k == header_key)
+        if count > 1:
+            logger.warning(
+                "trace.duplicate_header",
+                header=self._header_name,
+                count=count,
+                message=f"Found {count} duplicate {self._header_name} headers; "
+                f"only the last value will be used",
+            )
+        headers = dict(raw_headers)
+        tid_bytes = headers.get(header_key)
         if tid_bytes:
             tid = TraceId(tid_bytes.decode())
         else:

@@ -151,7 +151,7 @@ function processOptionsData(
   const ivPercentile = ivRange > 0 ? ((avgIV - minIV) / ivRange) * 100 : 50;
 
   const strikes = optionsChain.map((o) => o.strike).filter((s) => s > 0);
-  const underlyingPrice = rawData?.underlying_price || strikes.length > 0 ? strikes[Math.floor(strikes.length / 2)] / 2 : 0;
+  const underlyingPrice = (rawData?.underlying_price && rawData.underlying_price > 0) ? rawData.underlying_price : (strikes.length > 0 ? strikes[Math.floor(strikes.length / 2)] / 2 : 0);
 
   const atmStrikes = strikes.filter((s) => Math.abs(s - underlyingPrice) < underlyingPrice * 0.05);
   const maxPain = atmStrikes.length > 0 ? atmStrikes[Math.floor(atmStrikes.length / 2)] : underlyingPrice;

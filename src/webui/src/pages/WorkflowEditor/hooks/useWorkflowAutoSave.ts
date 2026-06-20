@@ -89,7 +89,7 @@ export function useWorkflowAutoSave({
         clearInterval(timerRef.current);
       }
     };
-    // mutate is stable (useCallback inside useMutation).
+    // mutate is stable across renders (useMutation wraps useCallback internally).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowId, getSaveData, setDirty]);
 }

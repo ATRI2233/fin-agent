@@ -5,7 +5,7 @@ description = "Fin-Agent framework — FastAPI backend + React webui"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["../src/tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
 addopts = "-v --tb=short"

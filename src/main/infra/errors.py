@@ -5,19 +5,16 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Optional
 
 from src.main.infra.error_codes import ErrorCode
-
-# TraceId 为前向引用,实际 import 待 TASK-002(infra/domain.py)合并后补全。
-# 当前以字符串注解形式出现。
 
 
 class FinAgentError(Exception):
     """根异常。所有 raise 必须落在这棵树上。"""
 
-    code: ClassVar[ErrorCode]
-    http_status: ClassVar[int]
+    code: ClassVar[Optional[ErrorCode]] = None
+    http_status: ClassVar[int] = 500
 
     def __init__(
         self,
@@ -33,7 +30,7 @@ class FinAgentError(Exception):
 
     def to_envelope(self, trace_id: "TraceId") -> dict:
         return {
-            "code": int(self.code),
+            "code": int(self.code) if self.code is not None else 0,
             "message": self.message,
             "data": self.details or None,
             "trace_id": str(trace_id),

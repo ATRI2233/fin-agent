@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from src.main.api.deps import service_dep
@@ -140,7 +140,7 @@ async def list_executions(
     Returns:
         ``ApiResponse`` 信封,``data`` 为 execution 字典列表。
     """
-    wf_id = WorkflowId(workflow_id) if workflow_id else None
+    wf_id = WorkflowId(workflow_id) if workflow_id is not None else None
     items = reader.list_executions(wf_id, limit=limit, offset=offset)
     payload = [_execution_to_dict(e) for e in items]
     return ApiResponse.success(payload, current_trace_id()).to_dict()
@@ -161,6 +161,8 @@ async def get_execution(
         ``ApiResponse`` 信封,``data`` 为 ``{"execution": ..., "nodes": [...]}``。
     """
     exec_obj = reader.get_execution(ExecutionId(execution_id))
+    if exec_obj is None:
+        raise HTTPException(status_code=404, detail=f"Execution {execution_id} not found")
     nodes = reader.get_execution_nodes(ExecutionId(execution_id))
     payload = {
         "execution": _execution_to_dict(exec_obj),
@@ -190,6 +192,8 @@ async def abort_execution(
         ``ApiResponse`` 信封,``data`` 为最新 execution 字典。
     """
     exec_obj = reader.get_execution(ExecutionId(execution_id))
+    if exec_obj is None:
+        raise HTTPException(status_code=404, detail=f"Execution {execution_id} not found")
     return ApiResponse.success(
         {"execution_id": execution_id, "aborted": True, "execution": _execution_to_dict(exec_obj)},
         current_trace_id(),

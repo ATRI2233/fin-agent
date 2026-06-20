@@ -474,26 +474,43 @@ class SqlAlchemyExecutionRecorder(ExecutionRecorder):
                         ExecutionNodeORM.status.in_(
                             [
                                 ExecutionStatus.PENDING.value,
-                                ExecutionStatus.RUNNING.value,
                             ]
                         ),
                     )
                     .all()
                 )
-                downstream: list[ExecutionNodeORM] = []
-                for row in rows:
-                    if _input_references(row.input, str(failed_node_id)):
-                        downstream.append(row)
-
                 skipped_ids: list[NodeId] = []
-                for row in downstream:
-                    transition(
-                        ExecutionStatus(row.status),
-                        ExecutionStatus.SKIPPED,
+                to_process = [str(failed_node_id)]
+                processed: set[str] = set()
+
+                while to_process:
+                    current = to_process.pop()
+                    if current in processed:
+                        continue
+                    processed.add(current)
+
+                    # Find all PENDING nodes whose input references current
+                    rows = (
+                        uow.session.query(ExecutionNodeORM)
+                        .filter(
+                            ExecutionNodeORM.execution_id == str(execution_id),
+                            ExecutionNodeORM.node_id != str(failed_node_id),
+                            ExecutionNodeORM.node_id.notin_(set(skipped_ids)),
+                            ExecutionNodeORM.status == ExecutionStatus.PENDING.value,
+                        )
+                        .all()
                     )
-                    row.status = ExecutionStatus.SKIPPED.value
-                    row.completed_at = _now()
-                    skipped_ids.append(NodeId(row.node_id))
+                    for row in rows:
+                        if _input_references(row.input, current):
+                            transition(
+                                ExecutionStatus(row.status),
+                                ExecutionStatus.SKIPPED,
+                            )
+                            row.status = ExecutionStatus.SKIPPED.value
+                            row.completed_at = _now()
+                            nid = NodeId(row.node_id)
+                            skipped_ids.append(nid)
+                            to_process.append(str(nid))
 
                 # Stable order: sort by node_id so the returned list is
                 # deterministic regardless of DB row order.

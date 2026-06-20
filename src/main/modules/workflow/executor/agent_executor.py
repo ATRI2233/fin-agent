@@ -118,13 +118,7 @@ class AgentNodeExecutor(BaseNodeExecutor):
                 trace_id=trace_id,
             )
         except FinAgentError as e:
-            # dispatcher 已分类的异常:直接结构化记录后 raise
-            await self.recorder.record_node_failed(
-                execution_id=ctx["execution_id"],
-                node_id=node_id,
-                error=e,
-                trace_id=trace_id,
-            )
+            # dispatcher 已分类的异常:直接 raise,持久化由 WorkflowRunner 处理
             raise
         except Exception as e:
             # 未预期异常:包装为 InfraError,禁止静默吞掉
@@ -133,23 +127,9 @@ class AgentNodeExecutor(BaseNodeExecutor):
                 details={"node_id": str(node_id)},
                 cause=e,
             )
-            await self.recorder.record_node_failed(
-                execution_id=ctx["execution_id"],
-                node_id=node_id,
-                error=wrapped,
-                trace_id=trace_id,
-            )
             raise wrapped from e
 
-        # ── 5. 成功 — 持久化(写权在 recorder,不在 self) ──
-        await self.recorder.record_node_completed(
-            execution_id=ctx["execution_id"],
-            node_id=node_id,
-            output={"result": resp["result"]},
-            session_id=resp["session_id"],
-            trace_id=trace_id,
-        )
-
+        # ── 5. 成功 — 仅返回结果(持久化由 WorkflowRunner 处理) ──
         return {
             "output": resp["result"],
             "session_id": resp["session_id"],

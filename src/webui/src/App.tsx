@@ -210,7 +210,10 @@ const AppLayout: React.FC = () => {
             theme="dark"
             mode="inline"
             selectedKeys={[location.pathname]}
-            defaultOpenKeys={openKeys}
+            openKeys={openKeys}
+            onOpenChange={() => {
+              /* keep submenus controlled by route; no user-toggle needed */
+            }}
             items={menuItems}
             style={{
               background: 'transparent',
@@ -363,7 +366,7 @@ const AppLayout: React.FC = () => {
               <Route path="/workflows/new/edit" element={<WorkflowEditor />} />
               <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
               <Route path="/workflows/settings" element={<WorkflowSettings />} />
-              <Route path="/workflow/:executionId?" element={<WorkflowMonitor />} />
+              <Route path="/workflows/:executionId?" element={<WorkflowMonitor />} />
             </Routes>
           </Suspense>
         </Content>

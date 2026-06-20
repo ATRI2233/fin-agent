@@ -2,7 +2,7 @@
 # fin-agent single-window startup
 
 $ErrorActionPreference = "Continue"
-$PROJECT_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
+$PROJECT_ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $pidFile = Join-Path $PROJECT_ROOT ".pids"
 $script:processes = @()
 
@@ -32,7 +32,7 @@ if (Test-Path $pidFile) {
 }
 
 # Load .env file
-$envFile = Join-Path $PROJECT_ROOT ".env"
+$envFile = Join-Path $PROJECT_ROOT "config\.env"
 if (Test-Path $envFile) {
     Get-Content $envFile | ForEach-Object {
         if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
@@ -90,7 +90,7 @@ if (Test-Path $ocBin) {
 
 # Start FastAPI
 Write-Host "[2/4] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
-$p = Start-Process -FilePath "python" -ArgumentList "-m uvicorn main.framework.main:app --port 8000" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
+$p = Start-Process -FilePath "python" -ArgumentList "-m src.main" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
 $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
 $script:processes += $p
 Start-Sleep -Seconds 2
@@ -124,13 +124,13 @@ Write-Host "  WebUI Server:       http://localhost:9876/api/health" -ForegroundC
 Write-Host "  WebUI Frontend:     http://localhost:5173" -ForegroundColor White
 Write-Host ""
 
-# Wait for startup
-Write-Host "Waiting for services..." -ForegroundColor Yellow
-Start-Sleep -Seconds 8
-
-# Health check
+# Health check with per-service retry
+Write-Host "Checking services..." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "[Health Check]" -ForegroundColor Cyan
+
+$maxRetries = 3
+$retryDelay = 3
 
 $checks = @(
     @{ Name = "opencode";  Url = "http://localhost:4096/session" },
@@ -140,11 +140,21 @@ $checks = @(
 
 foreach ($check in $checks) {
     Write-Host "  $($check.Name): " -NoNewline
-    try {
-        Invoke-RestMethod -Uri $check.Url -TimeoutSec 5 | Out-Null
-        Write-Host "OK" -ForegroundColor Green
-    } catch {
-        Write-Host "Not responding" -ForegroundColor Red
+    $ok = $false
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            Invoke-RestMethod -Uri $check.Url -TimeoutSec 5 | Out-Null
+            Write-Host "OK" -ForegroundColor Green
+            $ok = $true
+            break
+        } catch {
+            if ($attempt -lt $maxRetries) {
+                Start-Sleep -Seconds $retryDelay
+            }
+        }
+    }
+    if (-not $ok) {
+        Write-Host "Not responding after $maxRetries attempts" -ForegroundColor Red
     }
 }
 

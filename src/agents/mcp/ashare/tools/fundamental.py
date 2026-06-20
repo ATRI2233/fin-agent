@@ -1,5 +1,5 @@
 # Fundamental analysis tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
+from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
 import logging
 
 try:
@@ -65,7 +65,7 @@ def get_fundamental_scan(symbol):
         if HAS_DEPS:
             try:
                 # 个股信息（含 EPS、每股净资产、总市值、流通市值等）
-                df_info = ak.stock_individual_info_em(symbol=code)
+                df_info = retry_akshare(ak.stock_individual_info_em, symbol=code)
                 if df_info is not None and not df_info.empty:
                     info_dict = {}
                     for _, row in df_info.iterrows():

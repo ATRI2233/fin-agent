@@ -254,7 +254,7 @@ class DefaultRetryService(RetryService):
             result = await self._dispatcher.dispatch(
                 agent_ref,
                 prompt,
-                timeout=policy.max_attempts,  # placeholder;实际超时由 settings 控制
+                timeout=self._settings.NODE_TIMEOUT_SECONDS,
                 trace_id=trace_id,
             )
             return {"result": result["result"], "session_id": result["session_id"]}
@@ -373,20 +373,22 @@ class DefaultRetryService(RetryService):
 
         # 若 from_node_id 为 None,获取当前 workflow 的最近一次执行的失败节点
         target_execution_id: ExecutionId | None = None
-        if from_node_id is None:
-            recent = self._reader.list_executions(
-                workflow_id=workflow_id, limit=1, offset=0
+        recent = self._reader.list_executions(
+            workflow_id=workflow_id, limit=1, offset=0
+        )
+        if recent:
+            target_execution_id = ExecutionId(str(getattr(recent[0], "id", "")))
+
+        if from_node_id is not None:
+            # TODO(Bug 19): from_node_id 应过滤仅重试 from_node_id 及其下游节点。
+            #   当前实现忽略 from_node_id,重试所有 failed_nodes。
+            #   后续需: 1. 读 DAG 拓扑; 2. 用 find_downstream 扩展至下游;
+            #   3. 只重试该子图中的 failed_nodes。
+            logger.info(
+                "Bug 19 TODO: from_node_id=%s provided but full downstream "
+                "filtering not yet implemented; retrying all failed nodes instead",
+                from_node_id,
             )
-            if recent:
-                target_execution_id = ExecutionId(str(getattr(recent[0], "id", "")))
-        else:
-            # from_node_id 场景:由调用方提供原 execution 上下文
-            # (此处使用 list_executions 获取最近一次)
-            recent = self._reader.list_executions(
-                workflow_id=workflow_id, limit=1, offset=0
-            )
-            if recent:
-                target_execution_id = ExecutionId(str(getattr(recent[0], "id", "")))
 
         if target_execution_id is None:
             # 无原 execution:仅创建新 execution,返回成功(空工作流)

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from src.main.infra.settings import Settings
 from src.main.infra.di import Registry
-from src.main.infra.db import create_engine, get_session_local
+from src.main.infra.db import Base, create_engine, get_session_local
 from src.main.infra.uow import SqlAlchemyUoWFactory, UoWFactory
+from src.main.infra.errors import ConfigError
 
 # 各模块 Protocol — 必须在 build_registry 注册前 import
 from src.main.modules.mcp.protocol import ToolCatalog
@@ -63,6 +64,12 @@ def build_registry(settings: Settings) -> Registry:
 
     reg = Registry()
     engine = create_engine(settings)
+    # Auto-create tables for fresh databases.
+    # NOTE: If you have an existing dev database with old schema columns
+    # (e.g. hapi_session_id / current_agent), delete the .db file and
+    # restart so tables are recreated with the current ORM definition.
+    # This call is idempotent for tables that already exist.
+    Base.metadata.create_all(bind=engine)
     session_local = get_session_local(engine)
 
     reg.register_singleton(Settings, lambda r: settings)
@@ -126,8 +133,13 @@ def main() -> None:
     import uvicorn
     from src.main.api.app import create_app  # TASK-409
 
+    import sys
+
     settings = Settings()
-    settings.validate()  # ConfigError → 进程退出码 78 (EX_CONFIG)
+    try:
+        settings.validate()  # ConfigError → 进程退出码 78 (EX_CONFIG)
+    except ConfigError:
+        sys.exit(78)
     registry = build_registry(settings)
     app = create_app(settings=settings, registry=registry)
 

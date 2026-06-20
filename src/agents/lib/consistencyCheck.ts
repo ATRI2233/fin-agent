@@ -73,11 +73,11 @@ export function registerConsistencyCheck(): ToolRegistration {
           timestamp: j.created_at || j.timestamp,
           direction: j.direction,
           confidence: j.confidence,
-          age_days: Math.round((Date.now() - new Date(j.created_at || j.timestamp).getTime()) / 86400000),
+          age_days: Math.round((Date.now() - new Date((j.created_at || j.timestamp) + "Z").getTime()) / 86400000),
         }));
 
         const recentFlips = previousDirections.filter(
-          (d: any) => new Date(d.timestamp).getTime() > thirtyDaysAgo
+          (d: any) => new Date(d.timestamp + "Z").getTime() > thirtyDaysAgo
         );
         let flipCount30d = 0;
         for (let i = 1; i < recentFlips.length; i++) {

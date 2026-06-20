@@ -9,6 +9,7 @@ never crashes the publisher.
 from __future__ import annotations
 
 import asyncio
+import threading
 from typing import Any, Callable
 
 from src.main.infra.logging import get_logger
@@ -28,6 +29,7 @@ class EventBus:
 
     def __init__(self) -> None:
         self._handlers: dict[str, list[Callable[[Any], Any]]] = {}
+        self._lock = threading.Lock()
 
     # ── public API ──
 
@@ -37,7 +39,8 @@ class EventBus:
         Multiple handlers per type are supported; they are called in
         registration order.
         """
-        self._handlers.setdefault(event_type, []).append(handler)
+        with self._lock:
+            self._handlers.setdefault(event_type, []).append(handler)
 
     def publish(self, event_type: str, payload: dict[str, Any] | Any = None) -> None:
         """Dispatch *payload* to all handlers registered for *event_type*.
@@ -47,8 +50,27 @@ class EventBus:
         by a handler are caught and logged at ``WARNING`` level — they never
         propagate to the caller.
         """
-        for handler in self._handlers.get(event_type, []):
-            asyncio.create_task(self._safe_dispatch(handler, payload))
+        with self._lock:
+            handlers = list(self._handlers.get(event_type, []))
+        for handler in handlers:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None and loop.is_running():
+                asyncio.create_task(self._safe_dispatch(handler, payload))
+            else:
+                try:
+                    result = handler(payload)
+                    if result is not None and hasattr(result, "__await__"):
+                        asyncio.run(result)
+                except Exception:
+                    logger.warning(
+                        "event_bus.handler_failed",
+                        handler=handler.__name__,
+                        exc_info=True,
+                    )
 
     # ── internal ──
 

@@ -1,30 +1,6 @@
 /**
  * MessageBubble — single chat message rendered in the message list.
- *
- * Extracted from `pages/ChatPage.tsx` so the bubble can be
- * reused and independently tested. The component is purely
- * presentational; all data lives in the zustand conversation store
- * (`../store/useConversationStore`).
- *
- * Rendering rules:
- * - role='user' — right-aligned, blue accent, user icon
- * - role='assistant' — left-aligned, robot icon, neutral bg
- * - role='system' — left-aligned, thunderbolt icon, dark bg
- * - extra_data.type IN
- * {'workflow_status',
- * 'workflow_start'} — compact inline row with status icon
- * and a single agent tag; no avatar/bubble
- * - _struck=true — UI-only flag set by the renderer in
- * `index.tsx` when a later status
- * supersedes an earlier one — strikes
- * through the row at 50% opacity
- *
- * The local `ChatMessage` type extends the canonical `Message` with the
- * UI-only `_struck?: boolean` field. The `extra_data` bag is treated as
- * `Record<string, unknown>` and narrowed per call site — never typed as
- * `any`.
  */
-import { useState } from 'react';
 import { Tag, Tooltip, Typography } from 'antd';
 import {
   BranchesOutlined,
@@ -37,8 +13,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message } from '../../domain/conversation';
-import { NODE_STATUS_CONFIG } from '../../utils/statusConfig';
-import type { NodeStatusKey } from '../../utils/statusConfig';
+// NODE_STATUS_CONFIG / NodeStatusKey removed — node status rendering now uses msg.extra_data.nodes
 import { formatTime } from '../../utils/time';
 
 const { Text } = Typography;
@@ -70,10 +45,6 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
   const isWorkflowResult = msgType === 'workflow_result';
   const isWorkflowError = msgType === 'workflow_error';
   const isStruck = msg._struck;
-
-  // Node statuses are no longer polled separately — with SSE, the message list
-  // is refreshed on every workflow_status event and already contains the data.
-  const nodeStatuses: Array<{ status: NodeStatusKey; agent?: string; node_id: string; error?: string }> = [];
 
   // Compact inline row for workflow status / start — no avatar/bubble chrome.
   if (isWorkflowStatus || isWorkflowStart) {
@@ -141,57 +112,6 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
             </Text>
           </div>
 
-          {/* Node-level status — one line per step (only on the latest workflow_status for this execution) */}
-          {msg._latestWorkflow && nodeStatuses && nodeStatuses.length > 0 && (
-            <div style={{ marginLeft: 20, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {nodeStatuses.map((n) => {
-                const cfg = NODE_STATUS_CONFIG[n.status] ?? NODE_STATUS_CONFIG.pending;
-                const IconComp = cfg.icon;
-                const isNodeDone = n.status === 'completed';
-                const isNodeFailed = n.status === 'failed';
-                const isNodeStruck = isNodeDone || isNodeFailed;
-
-                const line = (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 12,
-                      lineHeight: '20px',
-                      cursor: isNodeFailed && n.error ? 'help' : 'default',
-                    }}
-                  >
-                    <IconComp
-                      spin={n.status === 'running'}
-                      style={{ color: cfg.color, fontSize: 11, flexShrink: 0 }}
-                    />
-                    <span
-                      style={{
-                        color: isNodeFailed ? '#C47C7C' : isNodeDone ? '#6B8E7B' : '#aaa',
-                        textDecoration: isNodeStruck ? 'line-through' : 'none',
-                        fontWeight: n.status === 'running' ? 600 : 400,
-                      }}
-                    >
-                      {n.agent || n.node_id}
-                    </span>
-                    {isNodeFailed && n.error && (
-                      <ExclamationCircleOutlined style={{ color: '#C47C7C', fontSize: 10, flexShrink: 0 }} />
-                    )}
-                  </div>
-                );
-
-                if (isNodeFailed && n.error) {
-                  return (
-                    <Tooltip key={n.node_id} title={n.error} placement="top" overlayStyle={{ maxWidth: 400 }}>
-                      {line}
-                    </Tooltip>
-                  );
-                }
-                return <div key={n.node_id}>{line}</div>;
-              })}
-            </div>
-          )}
         </div>
       </div>
     );
@@ -381,34 +301,6 @@ export default function MessageBubble({ message: msg }: MessageBubbleProps) {
             </ReactMarkdown>
           </div>
 
-          {/* Node status pills for workflow error messages */}
-          {isWorkflowError && nodeStatuses && nodeStatuses.length > 0 && (
-            <div style={{ marginTop: 12, paddingTop: 8, borderTop: '1px solid #4a2a2a' }}>
-              <Text style={{ color: '#C47C7C', fontSize: 11, display: 'block', marginBottom: 4 }}>
-                Node Status:
-              </Text>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {nodeStatuses.map((n) => {
-                  const pill = (
-                    <Tag
-                      color={n.status === 'completed' ? 'green' : n.status === 'failed' ? 'red' : n.status === 'skipped' ? 'warning' : 'default'}
-                      style={{ fontSize: 10, cursor: n.status === 'failed' && n.error ? 'help' : 'default' }}
-                    >
-                      {n.agent || n.node_id} ({n.status})
-                    </Tag>
-                  );
-                  if (n.status === 'failed' && n.error) {
-                    return (
-                      <Tooltip key={n.node_id} title={n.error} placement="top">
-                        {pill}
-                      </Tooltip>
-                    );
-                  }
-                  return <div key={n.node_id}>{pill}</div>;
-                })}
-              </div>
-            </div>
-          )}
 
           {isWorkflowResult && (
             (() => {

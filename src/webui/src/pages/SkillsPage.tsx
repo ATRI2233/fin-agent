@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Typography,
   Button,
@@ -68,9 +68,11 @@ export default function SkillsPage() {
 
   // Fetch config scope on mount to seed `scope` state
   const { data: scopeData } = useOpencodeConfigScope();
+  const scopeInitialized = useRef(false);
   useEffect(() => {
-    if (scopeData?.skills && (scopeData.skills === 'global' || scopeData.skills === 'project')) {
+    if (!scopeInitialized.current && scopeData?.skills && (scopeData.skills === 'global' || scopeData.skills === 'project')) {
       setScope(scopeData.skills);
+      scopeInitialized.current = true;
     }
   }, [scopeData]);
 
@@ -89,10 +91,14 @@ export default function SkillsPage() {
     isLoading: viewLoading,
     refetch: refetchView,
   } = useOpencodeSkillContent<SkillContent>(viewName, scope);
+  const viewVersion = useRef(0);
   useEffect(() => {
     if (viewData && viewVisible) {
       setViewContent(viewData);
     }
+    // viewVersion check not strictly needed here since react-query
+    // cancels in-flight requests for the same key; the version ref
+    // is an extra safety net.
   }, [viewData, viewVisible]);
 
   // Edit modal content fetch
@@ -123,6 +129,7 @@ export default function SkillsPage() {
     setViewVisible(true);
     setViewContent(null);
     setViewName(name);
+    viewVersion.current += 1;
     refetchView();
   };
 

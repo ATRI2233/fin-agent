@@ -61,9 +61,10 @@ def client(db: Session):
     original_conv_repo = container.__class__.conversation_repo
 
     def _test_conv_repo(self):
-        # TODO: SqlAlchemyConversationRepository in new system takes uow_factory, not db
+        from src.main.infra.uow import SqlAlchemyUoWFactory
         from src.main.modules.conversation.repo.conversation_repo import SqlAlchemyConversationRepository
-        return SqlAlchemyConversationRepository(db=db)
+        uow_factory = SqlAlchemyUoWFactory(lambda: db)
+        return SqlAlchemyConversationRepository(uow_factory=uow_factory)
 
     def _test_workflow_repo(self):
         # TODO: WorkflowRepository not in new system (workflow is read-only via WorkflowReader)

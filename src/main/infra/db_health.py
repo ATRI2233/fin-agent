@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import glob
 import os
+import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
@@ -52,6 +53,9 @@ node and ``unregister_running_node(key)`` after it completes or fails.
 The probe reads ``len(_running_node_keys)`` as the concurrency metric.
 """
 
+_lock: threading.Lock = threading.Lock()
+"""Lock guarding _running_node_keys and _write_timestamps."""
+
 
 def register_running_node(key: str) -> None:
     """Register a node as currently executing.
@@ -62,7 +66,8 @@ def register_running_node(key: str) -> None:
         Unique identifier for the running node, typically
         ``f"{execution_id}:{node_id}"``.
     """
-    _running_node_keys.add(key)
+    with _lock:
+        _running_node_keys.add(key)
 
 
 def unregister_running_node(key: str) -> None:
@@ -73,12 +78,14 @@ def unregister_running_node(key: str) -> None:
     key : str
         The same key passed to ``register_running_node``.
     """
-    _running_node_keys.discard(key)
+    with _lock:
+        _running_node_keys.discard(key)
 
 
 def _current_parallel_concurrency() -> int:
     """Return the number of nodes currently executing in parallel."""
-    return len(_running_node_keys)
+    with _lock:
+        return len(_running_node_keys)
 
 
 # ── In-memory write QPS tracking ──
@@ -93,7 +100,8 @@ def record_write() -> None:
     Called by the UoW or execution recorder after each successful commit.
     Timestamps are consumed by ``_current_write_qps()``.
     """
-    _write_timestamps.append(time.monotonic())
+    with _lock:
+        _write_timestamps.append(time.monotonic())
 
 
 def _current_write_qps(window_seconds: int = _WRITE_QPS_WINDOW_SECONDS) -> float:
@@ -114,9 +122,10 @@ def _current_write_qps(window_seconds: int = _WRITE_QPS_WINDOW_SECONDS) -> float
         return 0.0
     now = time.monotonic()
     cutoff = now - window_seconds
-    while _write_timestamps and _write_timestamps[0] < cutoff:
-        _write_timestamps.popleft()
-    return len(_write_timestamps) / window_seconds
+    with _lock:
+        while _write_timestamps and _write_timestamps[0] < cutoff:
+            _write_timestamps.popleft()
+        return len(_write_timestamps) / window_seconds
 
 
 # ── Types ──

@@ -40,14 +40,16 @@ export function useAgentsPage(): UseAgentsResult {
   const [agentWhitelistCounts, setAgentWhitelistCounts] = useState<Record<string, number>>({});
 
   const fetchAllWhitelistCounts = useCallback(async (list: Agent[]) => {
+    const results = await Promise.all(
+      list.map((agent) =>
+        fetchAllowedTools(agent.name)
+          .then((whitelist) => ({ name: agent.name, count: whitelist.length }))
+          .catch(() => ({ name: agent.name, count: undefined as unknown as number })),
+      ),
+    );
     const counts: Record<string, number> = {};
-    for (const agent of list) {
-      try {
-        const whitelist = await fetchAllowedTools(agent.name);
-        counts[agent.name] = whitelist.length;
-      } catch {
-        // No whitelist configured — leave undefined for "..." placeholder.
-      }
+    for (const r of results) {
+      if (typeof r.count === 'number') counts[r.name] = r.count;
     }
     setAgentWhitelistCounts(counts);
   }, []);

@@ -35,6 +35,7 @@ interface ConnectedClient {
   transport: StdioClientTransport;
   serverName: string;
   disconnected: boolean;
+  cleaningUp?: boolean;
 }
 
 function readEnv(key: string): string {
@@ -193,7 +194,11 @@ export class MCPClientManager {
     if (!entry) return;
 
     try {
-      await entry.client.close();
+      entry.cleaningUp = true;
+      const timeoutPromise = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error(`Disconnect ${serverName} timed out after 5s`)), 5000)
+      );
+      await Promise.race([entry.client.close(), timeoutPromise]);
     } catch (err) {
       console.error(`[MCPClientManager] 断开 ${serverName} 时出错:`, err);
     }
@@ -232,7 +237,7 @@ export class MCPClientManager {
 
     // 构建子进程环境变量，仅在配置了代理时才传递
     const proxyVars: Record<string, string> = {};
-    const proxyUrl = readEnv("HTTP_PROXY") || readEnv("https_proxy");
+    const proxyUrl = readEnv("HTTP_PROXY") || readEnv("http_proxy");
     if (proxyUrl) {
       proxyVars.HTTP_PROXY = readEnv("HTTP_PROXY") || readEnv("http_proxy");
       proxyVars.HTTPS_PROXY = readEnv("HTTPS_PROXY") || readEnv("https_proxy");
@@ -266,6 +271,7 @@ export class MCPClientManager {
 
     // 注册断开/错误回调
     transport.onclose = () => {
+      if (entry.cleaningUp) return;
       entry.disconnected = true;
       this.clients.delete(serverName);
     };
@@ -283,13 +289,16 @@ export class MCPClientManager {
 
     try {
       const connectPromise = client.connect(transport);
-      const timeoutPromise = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error(`连接 ${serverName} 超时 (${CONNECT_TIMEOUT}ms)`)), CONNECT_TIMEOUT)
-      );
+      let connectTimer: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<void>((_, reject) => {
+        connectTimer = setTimeout(() => reject(new Error(`连接 ${serverName} 超时 (${CONNECT_TIMEOUT}ms)`)), CONNECT_TIMEOUT);
+      });
       await Promise.race([connectPromise, timeoutPromise]);
+      clearTimeout(connectTimer!);
       this.clients.set(serverName, entry);
       return entry;
     } catch (err) {
+      clearTimeout(connectTimer!);
       // 连接失败时清理 transport
       try { await transport.close(); } catch {}
       console.error(`[MCPClientManager] 连接 ${serverName} 失败:`, err);

@@ -120,7 +120,7 @@ export default function FrameworkPage() {
             <Button
               type="text"
               icon={<EyeOutlined />}
-              onClick={() => navigate(`/workflow/${record.id}`)}
+              onClick={() => navigate(`/workflows/${record.id}/edit`)}
               style={{ color: '#B0B0B0' }}
             />
           </Tooltip>

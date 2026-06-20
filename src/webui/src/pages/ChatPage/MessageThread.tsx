@@ -59,8 +59,7 @@ export interface MessageThreadProps {
   showWorkflowIndicator?: boolean;
   /**
    * Optional callback for future "load older messages" support.
-   * Currently unused; kept on the contract so callers can wire
-   * pagination without changing the component API.
+   * TODO: wire up pagination — currently unused, kept as reserved API.
    */
   onLoadMore?: () => void;
 }

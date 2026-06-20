@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Typography, Table, Button, Tag, Space, Modal, Switch, Form, Input, Select,
   Alert, Segmented, Popconfirm, message, Card,
@@ -48,11 +48,13 @@ export default function MCPServersPage() {
   const upsertMutation = useUpsertOpencodeMcpServer();
   const deleteMutation = useDeleteOpencodeMcpServer();
 
+  const scopeInitialized = useRef(false);
   useEffect(() => {
-    if (scopeQuery.data?.mcp && scope === 'global') {
+    if (!scopeInitialized.current && scopeQuery.data?.mcp) {
       setScope(scopeQuery.data.mcp as Scope);
+      scopeInitialized.current = true;
     }
-  }, [scopeQuery.data?.mcp, scope]);
+  }, [scopeQuery.data?.mcp]);
 
   const servers: McpServerRow[] = mcpServers.data
     ? Object.entries(mcpServers.data).map(([name, cfg]) => ({ ...cfg, name }))

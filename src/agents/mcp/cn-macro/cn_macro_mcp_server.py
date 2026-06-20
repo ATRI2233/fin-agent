@@ -349,7 +349,7 @@ def get_cn_macro_fx(indicator, periods=20):
             return {"indicator": "USD/CNY", "data": df.to_dict(orient="records")}
         elif indicator == "usd_cnh":
             df = ak.fx_spot_quote()
-            df = df[df["货币对"] == "美元/人民币"]
+            df = df[df["货币对"] == "美元/离岸人民币"]
             df = df.tail(periods)
             return {"indicator": "USD/CNH", "data": df.to_dict(orient="records")}
         else:
@@ -508,7 +508,11 @@ def main():
         except Exception as e:
             print(
                 json.dumps(
-                    {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": req.get("id", None),
+                        "error": {"code": -32603, "message": str(e)},
+                    }
                 ),
                 flush=True,
             )

@@ -34,7 +34,7 @@ export function MarketSnapshotRenderer({ content }: RendererProps) {
 
         return (
           <div
-            key={i}
+            key={idx.code ?? idx.symbol ?? i}
             style={{
               background: 'rgba(255,255,255,0.02)',
               borderRadius: 8,

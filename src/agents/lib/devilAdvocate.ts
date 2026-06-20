@@ -117,7 +117,7 @@ export function registerDevilAdvocate(): ToolRegistration {
         try {
           const history = getHistory(symbol, 20);
           historicalSamples = history.length;
-        } catch {}
+        } catch (e) { console.error("[devilAdvocate] getHistory failed:", e); }
 
         const confidence = agentCount >= 5 && historicalSamples >= 5 ? "high" :
                           agentCount >= 3 || historicalSamples >= 3 ? "medium" : "low";

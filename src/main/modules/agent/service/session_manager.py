@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from src.main.infra.domain import ConversationId, SessionId
 from src.main.modules.agent.protocol import SessionManager
 
@@ -11,11 +13,13 @@ class InMemorySessionManager(SessionManager):
 
     Attributes:
         _map: conversation_id → session_id 的实例属性 dict。
+        _lock: 保护 _map 并发访问的锁。
     """
 
     def __init__(self) -> None:
-        """初始化空的绑定映射。"""
+        """初始化空的绑定映射和锁。"""
         self._map: dict[ConversationId, SessionId] = {}
+        self._lock: asyncio.Lock = asyncio.Lock()
 
     async def bind(
         self,
@@ -28,7 +32,8 @@ class InMemorySessionManager(SessionManager):
             conversation_id: 会话 ID。
             session_id: opencode session ID。
         """
-        self._map[conversation_id] = session_id
+        async with self._lock:
+            self._map[conversation_id] = session_id
 
     async def lookup(
         self,
@@ -42,7 +47,8 @@ class InMemorySessionManager(SessionManager):
         Returns:
             对应的 ``SessionId``;若无绑定返回 ``None``。
         """
-        return self._map.get(conversation_id)
+        async with self._lock:
+            return self._map.get(conversation_id)
 
     async def unbind(self, conversation_id: ConversationId) -> None:
         """解除 ``conversation_id`` 的绑定(供 cleanup 使用)。
@@ -50,4 +56,5 @@ class InMemorySessionManager(SessionManager):
         Args:
             conversation_id: 会话 ID。
         """
-        self._map.pop(conversation_id, None)
+        async with self._lock:
+            self._map.pop(conversation_id, None)

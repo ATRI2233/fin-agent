@@ -275,12 +275,10 @@ export function closeDb() {
 
 process.on("SIGTERM", () => {
   closeDb();
-  process.exit(0);
 });
 
 process.on("SIGINT", () => {
   closeDb();
-  process.exit(0);
 });
 
 // ── 导出路径 (供调试) ─────────────────────────────────────

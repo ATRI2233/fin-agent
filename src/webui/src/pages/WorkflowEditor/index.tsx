@@ -59,6 +59,7 @@ import AgentPalettePanel, {
 } from './AgentPalettePanel';
 import WorkflowCanvasPanel from './WorkflowCanvasPanel';
 import NodeInspector from './NodeInspector';
+import { useWorkflowAutoSave } from './hooks/useWorkflowAutoSave';
 import WorkflowSettingsModal from './WorkflowSettingsModal';
 
 /* ─── Domain types (ReactFlow-specific, editor-only) ──────────────────── */
@@ -140,7 +141,7 @@ function WorkflowEditorInner() {
     useWorkflow(id ?? null);
 
   // Selection state — owned by the React Context (WorkflowProvider).
-  const { selectedNodeId, setSelectedNode, selectedEdgeId, setSelectedEdge } = useWorkflowContext();
+  const { selectedNodeId, setSelectedNode, selectedEdgeId, setSelectedEdge, isDirty, setDirty } = useWorkflowContext();
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
 
@@ -149,8 +150,6 @@ function WorkflowEditorInner() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [workflowName, setWorkflowName] = useState('');
   const [blockSelectorVisible, setBlockSelectorVisible] = useState(false);
-  const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isDirty = useRef(false);
 
   // Real agents from the registry. Built-ins are merged in the palette
   // panel itself, so the orchestrator only owns the API-backed slice.
@@ -185,22 +184,15 @@ function WorkflowEditorInner() {
     setWorkflowName(workflow.name ?? 'Workflow');
   }, [workflow, id, setNodes, setEdges]);
 
-  // 30 s auto-save. Re-establishes the timer whenever the route id
-  // changes (so navigating between workflows resets the cycle).
-  useEffect(() => {
-    if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
-    autoSaveTimer.current = setInterval(() => {
-      if (isDirty.current && id && id !== 'new') {
-        handleSave(true);
-      }
-    }, 30000);
-    return () => {
-      if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
-    };
-    // `handleSave` reads current closure values via refs/state — re-
-    // establishing the timer on `id` change is the public re-run knob.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  // 30 s auto-save via the dedicated hook (uses refs internally to avoid stale closure).
+  useWorkflowAutoSave({
+    workflowId: id ?? null,
+    getSaveData: () => ({
+      name: workflowName,
+      nodes: nodes as any,
+      edges: edges as any,
+    }),
+  });
 
   const createMut = useCreateWorkflow();
   const updateMut = useUpdateWorkflow();
@@ -252,7 +244,7 @@ function WorkflowEditorInner() {
           return { ...n, data: { ...n.data, ...data } } as WorkflowNode;
         }),
       );
-      isDirty.current = true;
+      setDirty(true);
     },
     [setNodes],
   );
@@ -262,7 +254,7 @@ function WorkflowEditorInner() {
       setNodes((nds) => nds.filter((n) => n.id !== nodeId));
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       setSelectedNode(null);
-      isDirty.current = true;
+      setDirty(true);
     },
     [setNodes, setEdges, setSelectedNode],
   );
@@ -275,7 +267,7 @@ function WorkflowEditorInner() {
           return { ...e, data: { ...e.data, ...data } } as WorkflowEdge;
         }),
       );
-      isDirty.current = true;
+      setDirty(true);
     },
     [setEdges],
   );
@@ -288,7 +280,7 @@ function WorkflowEditorInner() {
     (edgeId: string) => {
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
       setSelectedEdge(null);
-      isDirty.current = true;
+      setDirty(true);
     },
     [setEdges, setSelectedEdge],
   );
@@ -302,7 +294,7 @@ function WorkflowEditorInner() {
         eds.filter((e) => e.source !== blockId && e.target !== blockId && !childIds.has(e.source) && !childIds.has(e.target)),
       );
       setSelectedNode(null);
-      isDirty.current = true;
+      setDirty(true);
     },
     [nodes, setNodes, setEdges, setSelectedNode],
   );
@@ -312,7 +304,7 @@ function WorkflowEditorInner() {
       setNodes((nds) => nds.filter((n) => n.id !== blockId));
       setEdges((eds) => eds.filter((e) => e.source !== blockId && e.target !== blockId));
       setSelectedNode(null);
-      isDirty.current = true;
+      setDirty(true);
     },
     [setNodes, setEdges, setSelectedNode],
   );
@@ -327,7 +319,7 @@ function WorkflowEditorInner() {
           edges: edges as unknown as Parameters<typeof createMut.mutate>[0]['edges'],
         });
         if (!isAuto) message.success('工作流已创建');
-        isDirty.current = false;
+        setDirty(false);
         navigate(`/workflows/${created.id}/edit`);
       } catch {
         if (!isAuto) message.error('创建工作流失败');
@@ -347,7 +339,7 @@ function WorkflowEditorInner() {
         },
       });
       if (!isAuto) message.success('工作流已保存');
-      isDirty.current = false;
+      setDirty(false);
     } catch {
       if (!isAuto) message.error('保存工作流失败');
     } finally {
@@ -426,7 +418,7 @@ function WorkflowEditorInner() {
         } as AgentNode;
         setNodes((nds) => [...nds, newNode]);
       }
-      isDirty.current = true;
+      setDirty(true);
     },
     [setNodes, paletteAgents],
   );

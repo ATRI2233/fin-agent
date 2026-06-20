@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from src.main.api.deps import service_dep
@@ -113,8 +113,9 @@ def _parse_role(raw: str) -> MessageRole:
     try:
         return MessageRole(raw)
     except ValueError as exc:
-        raise ValueError(
-            f"invalid role: {raw!r} (must be one of {[r.value for r in MessageRole]})"
+        raise HTTPException(
+            status_code=422,
+            detail=f"invalid role: {raw!r} (must be one of {[r.value for r in MessageRole]})",
         ) from exc
 
 
@@ -183,6 +184,11 @@ async def get_conversation(
         ``{"conversation": ..., "messages": [...]}``。
     """
     conv = await svc.get(ConversationId(conversation_id))
+    if conv is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Conversation {conversation_id} not found",
+        )
     messages = await svc.get_messages(
         ConversationId(conversation_id), limit=limit, offset=offset
     )

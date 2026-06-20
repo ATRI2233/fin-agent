@@ -68,6 +68,14 @@ class Settings(BaseSettings):
 
     def validate(self) -> None:
         """启动时一致性校验。任何错误抛 ConfigError。"""
+        # Resolve relative paths to absolute so they do not break if CWD
+        # changes after startup.  Values from .env or env vars are already
+        # loaded by pydantic-settings before this method is called.
+        if not self.OPENCODE_AGENTS_DIR.is_absolute():
+            self.OPENCODE_AGENTS_DIR = Path.cwd() / self.OPENCODE_AGENTS_DIR
+        if not self.OPENCODE_MCP_CONFIG.is_absolute():
+            self.OPENCODE_MCP_CONFIG = Path.cwd() / self.OPENCODE_MCP_CONFIG
+
         if self.OPENCODE_SERVE_PORT == self.API_PORT:
             raise ConfigError(
                 "OPENCODE_SERVE_PORT must differ from API_PORT",

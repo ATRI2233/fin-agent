@@ -58,7 +58,7 @@ class OutputNodeExecutor(BaseNodeExecutor):
             ``session_id = None``,``extra_data = {}``。
         """
         inputs = [
-            ctx["results"][pid]
+            ctx["results"][pid].get("output") if isinstance(ctx["results"][pid], dict) else ctx["results"][pid]
             for pid in ctx["predecessor_ids"]
             if pid in ctx["results"]
         ]

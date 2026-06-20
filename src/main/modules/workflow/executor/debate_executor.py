@@ -134,15 +134,6 @@ class DebateNodeExecutor(BaseNodeExecutor):
         # ── 合并 ──────────────────────────────────────────────────────
         merged = self._merge(results, strategy)
 
-        # ── 写侧:持久化节点完成状态(由 ExecutionRecorder 独占 commit)─
-        await self.recorder.record_node_completed(
-            execution_id=execution_id,
-            node_id=node_id,
-            output={"result": merged, "strategy": strategy},
-            session_id=primary_session_id,
-            trace_id=trace_id,
-        )
-
         # ── 组装 NodeResult(extra_data 必须含 debate_session_ids)─────
         all_session_ids: list[SessionId] = list(extra_session_ids)
         return {
