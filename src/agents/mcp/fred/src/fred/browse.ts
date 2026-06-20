@@ -111,7 +111,7 @@ export async function getCategorySeries(categoryId: number, options: {
         text: JSON.stringify({
           category_id: categoryId,
           total_series: response.count,
-          showing: `${response.offset + 1}-${Math.min(response.offset + response.limit, response.count)}`,
+          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
           series: response.seriess.map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -164,7 +164,7 @@ export async function browseReleases(options: {
         type: "text" as const,
         text: JSON.stringify({
           total_releases: response.count,
-          showing: `${response.offset + 1}-${Math.min(response.offset + response.limit, response.count)}`,
+          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
           releases: response.releases.map(rel => ({
             id: rel.id,
             name: rel.name,
@@ -209,7 +209,7 @@ export async function getReleaseSeries(releaseId: number, options: {
         text: JSON.stringify({
           release_id: releaseId,
           total_series: response.count,
-          showing: `${response.offset + 1}-${Math.min(response.offset + response.limit, response.count)}`,
+          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
           series: response.seriess.map((s: any) => ({
             id: s.id,
             title: s.title,
@@ -262,7 +262,7 @@ export async function browseSources(options: {
         type: "text" as const,
         text: JSON.stringify({
           total_sources: response.count,
-          showing: `${response.offset + 1}-${Math.min(response.offset + response.limit, response.count)}`,
+          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
           sources: response.sources.map(src => ({
             id: src.id,
             name: src.name,

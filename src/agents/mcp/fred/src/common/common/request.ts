@@ -1,3 +1,7 @@
+/**
+ * @deprecated This file is a duplicate of src/common/request.ts and is not imported anywhere.
+ * Keep as reference only; do not modify. Remove in a future cleanup pass.
+ */
 import { z } from "zod";
 
 const BASE_URL = "https://api.stlouisfed.org/fred";

@@ -13,6 +13,11 @@ import { Server } from "http";
 
 export type TransportType = "stdio" | "http";
 
+/**
+ * NOTE: The `transport` field is a placeholder and not the actual transport
+ * used at runtime. Real HTTP transports are stored in a local dictionary
+ * (`transports` in `startHttpServer`) keyed by session ID.
+ */
 export interface HttpServerResult {
   server: McpServer;
   httpServer: Server;
@@ -174,6 +179,7 @@ export async function startHttpServer(port: number = 3000): Promise<HttpServerRe
     process.exit(0);
   });
 
+  // Placeholder only; actual transports are stored in the local transports dict keyed by session ID.
   const placeholderTransport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID()
   });

@@ -1,6 +1,6 @@
 /**
  * FRED Search API Client
- * 
+ *
  * Provides search functionality for discovering FRED series
  */
 import { makeRequest } from "../common/request.js";
@@ -66,7 +66,7 @@ export interface FREDSearchOptions {
 export async function searchSeries(options: FREDSearchOptions = {}) {
   try {
     const queryParams: Record<string, string | number> = {};
-    
+
     // Add search parameters
     if (options.search_text) queryParams.search_text = options.search_text;
     if (options.search_type) queryParams.search_type = options.search_type;
@@ -78,12 +78,12 @@ export async function searchSeries(options: FREDSearchOptions = {}) {
     if (options.sort_order) queryParams.sort_order = options.sort_order;
     if (options.filter_variable) queryParams.filter_variable = options.filter_variable;
     if (options.filter_value) queryParams.filter_value = options.filter_value;
-    
+
     const response = await makeRequest<SearchResponse>(
       "series/search",
       queryParams
     );
-    
+
     // Format the response for better readability
     const formattedResults = {
       total_results: response.count,
@@ -100,7 +100,7 @@ export async function searchSeries(options: FREDSearchOptions = {}) {
         notes: series.notes?.substring(0, 200) + (series.notes && series.notes.length > 200 ? "..." : "")
       }))
     };
-    
+
     return {
       content: [{
         type: "text" as const,
@@ -123,34 +123,29 @@ export async function getSeriesInfo(seriesId: string) {
     const queryParams: Record<string, string> = {
       series_id: seriesId
     };
-    
+
     const response = await makeRequest<{
       realtime_start: string;
       realtime_end: string;
       seriess: SearchSeries[];
     }>("series", queryParams);
-    
+
     if (!response.seriess || response.seriess.length === 0) {
       throw new Error(`Series ${seriesId} not found`);
     }
-    
+
     const series = response.seriess[0];
-    
+
     return {
-      content: [{
-        type: "text" as const,
-        text: JSON.stringify({
-          id: series.id,
-          title: series.title,
-          units: series.units,
-          frequency: series.frequency,
-          seasonal_adjustment: series.seasonal_adjustment,
-          observation_range: `${series.observation_start} to ${series.observation_end}`,
-          last_updated: series.last_updated,
-          popularity: series.popularity,
-          notes: series.notes
-        }, null, 2)
-      }]
+      id: series.id,
+      title: series.title,
+      units: series.units,
+      frequency: series.frequency,
+      seasonal_adjustment: series.seasonal_adjustment,
+      observation_range: `${series.observation_start} to ${series.observation_end}`,
+      last_updated: series.last_updated,
+      popularity: series.popularity,
+      notes: series.notes
     };
   } catch (error) {
     if (error instanceof Error) {

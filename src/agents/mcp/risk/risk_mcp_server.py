@@ -457,5 +457,10 @@ if __name__ == "__main__":
                 print(json.dumps(resp, ensure_ascii=False))
                 sys.stdout.flush()
         except Exception as e:
-            print(json.dumps({"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}}))
+            req_id = None
+            try:
+                req_id = json.loads(line).get("id")
+            except Exception:
+                pass
+            print(json.dumps({"jsonrpc": "2.0", "id": req_id, "error": {"code": -32603, "message": str(e)}}))
             sys.stdout.flush()
