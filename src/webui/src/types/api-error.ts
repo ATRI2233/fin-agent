@@ -6,18 +6,50 @@
  * `problem_response` helper.
  *
  * @see https://datatracker.ietf.org/doc/html/rfc7807
+ *
+ * @deprecated 自后端重构后不再使用 RFC 7807 格式。
+ * 后端现在返回 {code, message, data, trace_id}，请使用 {@link ApiErrorBody}。
+ * 此处保留以避免破坏遗留引用，阶段四统一清理。
  */
 
-/** Default `type` URI used when a problem omits a specific type identifier. */
+/**
+ * 后端 ApiResponse 错误格式 — 对应 src/main/infra/api_envelope.py
+ *
+ * 后端统一错误信封字段，HTTP 层(axios/fetch 拦截器)解析后包装进 {@link ApiError}。
+ */
+export interface ApiErrorBody {
+  /** 后端 ErrorCode 数值 (0=成功, 1xxx=业务, 2xxx=系统, 3xxx=基础设施) */
+  code: number;
+  /** 人类可读错误消息 */
+  message: string;
+  /** 额外错误详情 (可选，如 ValidationError 的字段列表) */
+  data?: unknown;
+  /** 请求追踪 ID — 可用于后端日志关联排查 */
+  trace_id: string;
+}
+
+/**
+ * @deprecated 自后端重构后不再使用 RFC 7807 格式。
+ * 后端现在返回 {code, message, data, trace_id}，请使用 {@link ApiErrorBody}。
+ * 此处保留以避免破坏遗留引用，阶段四统一清理。
+ */
 export const PROBLEM_TYPE_DEFAULT = "about:blank" as const;
 
-/** Standard `Content-Type` for RFC 7807 responses. */
+/**
+ * @deprecated 自后端重构后不再使用 RFC 7807 格式。
+ * 后端现在返回 {code, message, data, trace_id}，请使用 {@link ApiErrorBody}。
+ * 此处保留以避免破坏遗留引用，阶段四统一清理。
+ */
 export const PROBLEM_MEDIA_TYPE = "application/problem+json" as const;
 
 /**
  * RFC 7807 problem details object.
  *
  * Matches the Pydantic `ProblemDetail` model on the backend.
+ *
+ * @deprecated 自后端重构后不再使用 RFC 7807 格式。
+ * 后端现在返回 {code, message, data, trace_id}，请使用 {@link ApiErrorBody}。
+ * 此处保留以避免破坏遗留引用，阶段四统一清理。
  */
 export interface ProblemDetail {
   /** URI reference identifying the problem type. Defaults to `about:blank`. */
@@ -33,27 +65,45 @@ export interface ProblemDetail {
 }
 
 /**
- * Runtime error wrapping an `application/problem+json` response from the API.
+ * Runtime error wrapping a {code, message, data, trace_id} response from the API.
  *
  * Throw this (or its subclasses) from fetch/Axios interceptors so call sites
- * can react to typed problem details instead of raw HTTP statuses.
+ * can react to typed error bodies instead of raw HTTP statuses.
+ *
+ * @deprecated 旧 RFC 7807 构造函数已废弃，请使用 {@link ApiErrorBody} 格式。
  */
 export class ApiError extends Error {
   /** HTTP status code from the response. */
   public readonly status: number;
-  /** Parsed RFC 7807 problem details body. */
-  public readonly problem: ProblemDetail;
-  /** Optional upstream request identifier (from `X-Request-ID` or similar). */
-  public readonly requestId?: string;
+  /** Backend error code (0=success, 1xxx=biz, 2xxx=system, 3xxx=infra). */
+  public readonly code: number;
+  /** Trace ID for correlating with backend logs (from `X-Trace-Id` header or body.trace_id). */
+  public readonly traceId: string;
+  /** Full parsed error body. */
+  public readonly body: ApiErrorBody;
+  /** Convenience accessor for `body.data`. */
+  public readonly data?: unknown;
 
-  constructor(problem: ProblemDetail, requestId?: string) {
-    super(problem.detail ?? problem.title);
+  constructor(status: number, body: ApiErrorBody) {
+    super(body.message);
     this.name = "ApiError";
-    this.status = problem.status;
-    this.problem = problem;
-    this.requestId = requestId;
+    this.status = status;
+    this.code = body.code;
+    this.traceId = body.trace_id;
+    this.body = body;
+    this.data = body.data;
     // Restore prototype chain when targeting ES5 / transpiled output.
     Object.setPrototypeOf(this, ApiError.prototype);
+  }
+
+  /** Business error (1xxx range). */
+  get isBizError(): boolean {
+    return this.code >= 1000 && this.code < 2000;
+  }
+
+  /** System error (2xxx range and above). */
+  get isSystemError(): boolean {
+    return this.code >= 2000;
   }
 }
 
