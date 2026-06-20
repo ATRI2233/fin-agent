@@ -2,7 +2,7 @@
 title fin-agent
 setlocal enabledelayedexpansion
 
-set "ROOT=%~dp0.."
+set "ROOT=%~dp0..\"
 
 echo ========================================
 echo   fin-agent
