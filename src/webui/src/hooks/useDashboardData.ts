@@ -15,7 +15,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { listAgents } from "../api/agents";
 import { listTools, listServers } from "../api/mcp";
-import type { Agent, ToolItem } from "../types/agent";
+import type { Agent, ToolItem } from "../domain/agent";
 
 export interface DashboardData {
   agents: Agent[];

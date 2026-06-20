@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listMessages } from '../../../api/conversations';
 import { useConversationStore } from '../../../store/useConversationStore';
-import type { Message } from '../../../types/conversation';
+import type { Message } from '../../../domain/conversation';
 
 /** Poll cadence — must match the original `setInterval(…, 2000)`. */
 const POLL_INTERVAL_MS = 2000;

@@ -16,7 +16,7 @@
  */
 import { apiGet } from "./http";
 import { ROUTES } from "./contract";
-import type { ToolItem } from "../types/agent";
+import type { ToolItem } from "../domain/agent";
 
 /**
  * Fetch every registered MCP tool across all enabled servers.

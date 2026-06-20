@@ -16,7 +16,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from './http'
 import type {
   Workflow,
   WorkflowMeta,
-} from '../types/workflow'
+} from '../domain/workflow'
 
 /* ─── Payload types ───────────────────────────────────────────────── */
 

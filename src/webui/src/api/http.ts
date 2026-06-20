@@ -11,11 +11,11 @@
  * Callers usually compose a path with {@link buildUrl} using one of the
  * base URLs from `../config/env` (e.g. `API_V1_BASE`).
  *
- * @see ../types/api-error.ts for the error contract.
+ * @see ../domain/api-error.ts for the error contract.
  * @see ../config/env.ts for the configurable base URLs.
  */
 
-import { ApiError, type ApiErrorBody } from "../types/api-error";
+import { ApiError, type ApiErrorBody } from "../domain/api-error";
 import { API_V1_BASE } from "../config/env";
 
 /** Content-Type used for both requests and the JSON problem responses. */

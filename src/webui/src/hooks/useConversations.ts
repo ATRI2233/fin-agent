@@ -5,7 +5,7 @@
  * stay uniform across the app.
  *
  * Mount points and HTTP verbs are documented in `api/conversations.ts:14-22`;
- * types come from `types/conversation.ts`. Consumers should import hooks
+ * types come from `domain/conversation.ts`. Consumers should import hooks
  * from this module rather than calling `api/conversations.ts` directly from
  * components.
  *
@@ -38,7 +38,7 @@ import type {
   Message,
   MessageCreate,
   MessageResponse,
-} from '../types/conversation';
+} from '../domain/conversation';
 import { useFetch } from './useFetch';
 import { useMutation } from './useMutation';
 

@@ -36,7 +36,7 @@ import {
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Message } from '../../types/conversation';
+import type { Message } from '../../domain/conversation';
 import { NODE_STATUS_CONFIG } from '../../utils/statusConfig';
 import { formatTime } from '../../utils/time';
 

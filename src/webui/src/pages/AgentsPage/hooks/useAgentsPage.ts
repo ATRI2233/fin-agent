@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useAgents as useFrameworkAgents } from '../../../hooks/useAgents';
 import { getAgentToolsWhitelist } from '../../../api/agents';
-import type { Agent } from '../../../types/agent';
+import type { Agent } from '../../../domain/agent';
 
 /**
  * Table-row projection of an Agent — what the AgentsPage table lists.

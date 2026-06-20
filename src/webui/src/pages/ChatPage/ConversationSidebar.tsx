@@ -30,8 +30,8 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 
-import type { Conversation } from '../../types/conversation';
-import type { SessionInfo } from '../../types/session';
+import type { Conversation } from '../../domain/conversation';
+import type { SessionInfo } from '../../domain/session';
 import { formatDateTime } from '../../utils/time';
 
 export interface ConversationSidebarProps {

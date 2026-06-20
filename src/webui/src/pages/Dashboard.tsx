@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import { Row, Col, Card, Spin, Alert } from 'antd';
 import { RobotOutlined, ToolOutlined, DashboardOutlined, CloudServerOutlined } from '@ant-design/icons';
 import { useDashboardData } from '../hooks/useDashboardData';
-import type { ToolItem } from '../types/agent';
+import type { ToolItem } from '../domain/agent';
 
 interface ServerGroup { name: string; tools: ToolItem[]; }
 

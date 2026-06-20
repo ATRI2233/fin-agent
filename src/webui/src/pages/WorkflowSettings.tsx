@@ -21,7 +21,7 @@ import {
   useWorkflows,
   useUpdateWorkflow,
 } from '../hooks/useWorkflows';
-import type { WorkflowTriggerType } from '../types/workflow';
+import type { WorkflowTriggerType } from '../domain/workflow';
 
 const { Title, Text } = Typography;
 

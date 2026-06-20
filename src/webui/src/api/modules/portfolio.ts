@@ -17,7 +17,7 @@ import type {
   Stock,
   StockCreate,
   StockDetail,
-} from "../../types/modules/portfolio";
+} from "../../domain/modules/portfolio";
 
 const BASE = "/api/v1/modules/portfolio";
 

@@ -31,8 +31,8 @@ import {
   RobotOutlined,
   SendOutlined,
 } from '@ant-design/icons';
-import type { Agent } from '../../types/agent';
-import type { WorkflowMeta } from '../../types/workflow';
+import type { Agent } from '../../domain/agent';
+import type { WorkflowMeta } from '../../domain/workflow';
 
 const { TextArea } = Input;
 

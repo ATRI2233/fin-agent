@@ -43,7 +43,7 @@ import type {
   HoldingUpdate,
   Overview,
   Stock,
-} from "../../types/modules/portfolio";
+} from "../../domain/modules/portfolio";
 
 const { Text } = Typography;
 

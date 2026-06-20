@@ -4,7 +4,7 @@
  * loading / error / abort semantics stay uniform across the app.
  *
  * Mount points and HTTP verbs are documented in `api/agents.ts:1-21`;
- * types come from `types/agent.ts`. Consumers should import hooks
+ * types come from `domain/agent.ts`. Consumers should import hooks
  * from this module rather than calling `api/agents.ts` directly from
  * components.
  *
@@ -25,7 +25,7 @@ import { useCallback } from 'react';
 
 import { getAgent, getAgentStats, listAgents } from '../api/agents';
 import type { AgentStatsEntry } from '../api/agents';
-import type { Agent, AgentDetail } from '../types/agent';
+import type { Agent, AgentDetail } from '../domain/agent';
 import { useFetch } from './useFetch';
 
 /* ─── Read hooks (3) ───────────────────────────────────────────────── */

@@ -16,7 +16,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useWorkflows, useWorkflowStats, useTriggerWorkflow } from '../hooks/useWorkflows';
-import type { WorkflowMeta } from '../types/workflow';
+import type { WorkflowMeta } from '../domain/workflow';
 
 const { Text } = Typography;
 

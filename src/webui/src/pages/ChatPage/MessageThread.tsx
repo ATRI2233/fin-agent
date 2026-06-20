@@ -31,7 +31,7 @@ import { Tag, Typography } from 'antd';
 import { CloseCircleOutlined, RobotOutlined, SyncOutlined } from '@ant-design/icons';
 
 import MessageBubble from './MessageBubble';
-import type { Message } from '../../types/conversation';
+import type { Message } from '../../domain/conversation';
 
 const { Text } = Typography;
 

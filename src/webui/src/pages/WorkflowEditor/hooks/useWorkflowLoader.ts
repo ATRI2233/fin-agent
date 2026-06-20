@@ -29,7 +29,7 @@ import { useCallback } from 'react';
 
 import { useWorkflow, useTriggerWorkflow } from '../../../hooks/useWorkflows';
 import { getWorkflow } from '../../../api/workflows';
-import type { WorkflowNode, WorkflowEdge } from '../../../types/workflow';
+import type { WorkflowNode, WorkflowEdge } from '../../../domain/workflow';
 
 /* ─── Return types ──────────────────────────────────────────────────── */
 

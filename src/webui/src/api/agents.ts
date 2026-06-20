@@ -11,7 +11,7 @@
 import { API_V1_BASE } from '../config/env';
 import { apiGet, buildUrl } from './http';
 import { ROUTES } from './contract';
-import type { Agent, AgentDetail } from '../types/agent';
+import type { Agent, AgentDetail } from '../domain/agent';
 
 /**
  * Fetch every registered agent.

@@ -5,7 +5,7 @@ import { ReactFlow, MiniMap, Background, BackgroundVariant, useNodesState, useEd
 import '@xyflow/react/dist/style.css';
 import { useExecution } from '../hooks/useExecutions';
 import { useWorkflow } from '../hooks/useWorkflows';
-import type { Execution, NodeExec as ApiNodeExec } from '../types/execution';
+import type { Execution, NodeExec as ApiNodeExec } from '../domain/execution';
 import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
 import NodeDataPanel from './NodeDataPanel';
 import ExecutionTimeline from './ExecutionTimeline';

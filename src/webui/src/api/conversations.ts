@@ -23,7 +23,7 @@ import type {
   Conversation,
   Message,
   MessageCreate,
-} from '../types/conversation'
+} from '../domain/conversation'
 import { ROUTES } from './contract'
 
 /**

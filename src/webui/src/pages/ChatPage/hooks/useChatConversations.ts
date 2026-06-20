@@ -12,7 +12,7 @@ import {
   useDeleteConversation,
 } from '../../../hooks/useConversations';
 import { useConversationStore } from '../../../store/useConversationStore';
-import type { Conversation } from '../../../types/conversation';
+import type { Conversation } from '../../../domain/conversation';
 
 export interface UseConversationsResult {
   conversations: Conversation[];

@@ -14,7 +14,7 @@
  */
 
 import { create } from 'zustand';
-import type { Workflow } from '../types/workflow';
+import type { Workflow } from '../domain/workflow';
 
 /** Shape of the workflow editor store: state slices + action mutators. */
 export interface WorkflowStoreState {

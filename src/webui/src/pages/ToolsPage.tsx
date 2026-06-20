@@ -2,7 +2,7 @@ import { Typography, Table, Tag, Space, Switch, Alert, Card, Button } from 'antd
 import { ReloadOutlined, ToolOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useTools } from '../hooks/useMcp';
-import type { ToolItem } from '../types/agent';
+import type { ToolItem } from '../domain/agent';
 
 const { Text } = Typography;
 

@@ -14,7 +14,7 @@
 import { useMemo } from 'react';
 
 import { useAgents } from '../../../hooks/useAgents';
-import type { PaletteAgent } from '../../../types/agent';
+import type { PaletteAgent } from '../../../domain/agent';
 
 /**
  * Fetch and filter agents for the workflow editor palette.

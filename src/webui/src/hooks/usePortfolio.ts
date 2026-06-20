@@ -3,7 +3,7 @@
  * module surface (stocks, holdings, overview, prices, annotations).
  *
  * Mount points and HTTP verbs are documented in `api/modules/portfolio.ts:22-125`;
- * types come from `types/modules/portfolio`. Consumers should import hooks
+ * types come from `domain/modules/portfolio`. Consumers should import hooks
  * from this module rather than calling `api/modules/portfolio.ts` directly
  * from components.
  *
@@ -57,7 +57,7 @@ import type {
   Stock,
   StockCreate,
   StockDetail,
-} from "../types/modules/portfolio";
+} from "../domain/modules/portfolio";
 
 /* ─── Query key factory ────────────────────────────────────────────── */
 

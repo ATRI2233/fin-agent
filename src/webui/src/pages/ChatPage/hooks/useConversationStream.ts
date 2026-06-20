@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConversationStore } from '../../../store/useConversationStore';
 import { API_V1_BASE } from '../../../config/env';
 import { listMessages } from '../../../api/conversations';
-import type { Message } from '../../../types/conversation';
+import type { Message } from '../../../domain/conversation';
 
 export type StreamMode = 'agent' | 'workflow';
 

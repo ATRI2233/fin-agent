@@ -16,7 +16,7 @@
  */
 
 import { create } from 'zustand';
-import type { Conversation, Message } from '../types/conversation';
+import type { Conversation, Message } from '../domain/conversation';
 
 /**
  * Shape of the conversation store.

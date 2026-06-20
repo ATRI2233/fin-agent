@@ -53,7 +53,7 @@ import type {
   KlineData,
   PriceHistoryRecord,
   StockDetail,
-} from "../../types/modules/portfolio";
+} from "../../domain/modules/portfolio";
 
 const { Text } = Typography;
 

@@ -22,7 +22,7 @@ import { apiGet, apiPost } from './http'
 import type {
   Execution,
   ExecutionListResponse,
-} from '../types/execution'
+} from '../domain/execution'
 import { ROUTES } from './contract'
 
 /**

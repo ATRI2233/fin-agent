@@ -19,7 +19,7 @@
  * import { useFetch } from "../hooks/useFetch";
  * import { apiGet, buildUrl } from "../api/http";
  * import { API_V1_BASE } from "../config/env";
- * import type { AgentSummary } from "../types/agent";
+ * import type { AgentSummary } from "../domain/agent";
  *
  * function AgentListPage() {
  * const { data, loading, error, refetch } = useFetch<AgentSummary[]>(

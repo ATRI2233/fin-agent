@@ -5,7 +5,7 @@
  * uniform across the app.
  *
  * Mount points are documented in `api/workflows.ts:1-20`; types come from
- * `types/workflow.ts`. Consumers should import hooks from this module
+ * `domain/workflow.ts`. Consumers should import hooks from this module
  * rather than calling `api/workflows.ts` directly from components.
  *
  * Conventions:
@@ -40,7 +40,7 @@ import type {
   Workflow,
   WorkflowMeta,
   WorkflowStats,
-} from '../types/workflow';
+} from '../domain/workflow';
 import { useFetch } from './useFetch';
 import { useMutation } from './useMutation';
 

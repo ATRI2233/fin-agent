@@ -10,7 +10,7 @@ import {
   useDeleteWorkflow,
   useTriggerWorkflow,
 } from '../hooks/useWorkflows';
-import type { WorkflowMeta, WorkflowStatus } from '../types/workflow';
+import type { WorkflowMeta, WorkflowStatus } from '../domain/workflow';
 import { WORKFLOW_STATUS_CONFIG } from '../utils/statusConfig';
 import { formatDateTime } from '../utils/time';
 

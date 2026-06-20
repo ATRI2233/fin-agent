@@ -36,7 +36,7 @@ import {
   useScheduleWorkflow,
   useUnscheduleWorkflow,
 } from '../../hooks/useWorkflows';
-import type { WorkflowTriggerType } from '../../types/workflow';
+import type { WorkflowTriggerType } from '../../domain/workflow';
 
 export interface WorkflowSettingsModalProps {
   visible: boolean;
