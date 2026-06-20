@@ -6,8 +6,6 @@ const PROJECT_ROOT = resolveProjectRoot();
 
 interface ProviderModelConfig { name: string; }
 interface ProviderConfig { name: string; npm: string; options?: Record<string, unknown>; models?: Record<string, ProviderModelConfig>; }
-interface ProviderRow extends ProviderConfig { key: string; }
-
 // --- Active provider/model ---
 // Stored at provider.active to match opencode CLI convention
 function getActiveConfig(): { provider: string; model: string } {

@@ -19,7 +19,6 @@ import {
   MenuUnfoldOutlined,
   SendOutlined,
   DatabaseOutlined,
-  FolderOutlined,
 } from '@ant-design/icons';
 import './styles/theme.css';
 
@@ -105,6 +104,8 @@ const AppLayout: React.FC = () => {
 
   const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows'];
   const openKeys = agentsPaths.includes(location.pathname) ? ['agents-group'] : [];
+  const SIDEBAR_WIDTH = 260;
+  const SIDEBAR_COLLAPSED_WIDTH = 72;
 
   const pageName = () => {
     const path = location.pathname;
@@ -122,7 +123,8 @@ const AppLayout: React.FC = () => {
     if (path.startsWith('/workflows')) return 'Workflows';
     if (path === '/info') return '信息中心';
     if (path === '/info/settings') return '维护设置';
-    return path.replace('/', '').charAt(0).toUpperCase() + path.slice(2);
+    const SLICE_START = 2;
+    return path.replace('/', '').charAt(0).toUpperCase() + path.slice(SLICE_START);
   };
 
   return (
@@ -132,8 +134,8 @@ const AppLayout: React.FC = () => {
         collapsible
         collapsed={collapsed}
         onCollapse={toggleSidebar}
-        width={260}
-        collapsedWidth={72}
+        width={SIDEBAR_WIDTH}
+        collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
         style={{
           background: '#1A1A1A',
           borderRight: '1px solid rgba(255,255,255,0.06)',
@@ -272,7 +274,7 @@ const AppLayout: React.FC = () => {
       </Sider>
 
       {/* Main Content Area */}
-      <Layout style={{ marginLeft: collapsed ? 72 : 260, transition: 'margin-left 0.2s' }}>
+      <Layout style={{ marginLeft: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH, transition: 'margin-left 0.2s' }}>
         {/* Top Header Bar */}
         <Header
           style={{

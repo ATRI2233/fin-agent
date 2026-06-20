@@ -47,16 +47,6 @@ function parseFrontmatter(content: string): Record<string, string> {
   return frontmatter;
 }
 
-// Helper: Resolve skills directory and config for a given scope
-function getScopePaths(scope?: string): { skillsDir: string | null; configKey: string } {
-  if (scope === 'global') {
-    const globalDir = getGlobalConfigDir();
-    return { skillsDir: path.join(globalDir, 'skills'), configKey: 'global' };
-  }
-  // Default: project scope
-  return { skillsDir: PROJECT_SKILLS_DIR, configKey: 'project' };
-}
-
 // Helper: Read global skills from opencode config's `skills` section
 function getGlobalSkillsFromConfig(): SkillMeta[] {
   const config = readConfigFile('opencode.json', PROJECT_ROOT);
