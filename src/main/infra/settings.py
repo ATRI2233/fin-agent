@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="FIN_AGENT_",
         env_file=".env",
+        extra="ignore",
     )
 
     @property
