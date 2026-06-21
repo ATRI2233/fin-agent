@@ -9,7 +9,7 @@ header, and falls back to a generic 500 envelope for unhandled exceptions.
 
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -92,6 +92,29 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """Handle FastAPI :class:`HTTPException` and wrap it in the unified envelope.
+
+    This ensures ``raise HTTPException(...)`` calls in v1 routers return
+    the standard ``{code, message, data, trace_id}`` envelope instead of
+    FastAPI's default ``{"detail": ...}`` shape.
+    """
+    tid = current_trace_id()
+    detail = exc.detail if exc.detail is not None else exc.__class__.__name__
+    envelope: dict = {
+        "code": int(exc.status_code),
+        "message": str(detail),
+        "data": None,
+        "trace_id": str(tid),
+    }
+    headers = {"X-Trace-Id": str(tid)}
+    return JSONResponse(
+        content=envelope,
+        status_code=exc.status_code,
+        headers=headers,
+    )
+
+
 # ── Registration ──
 
 
@@ -108,4 +131,5 @@ def register_exception_handlers(app: FastAPI, settings: Settings) -> None:
     """
     app.add_exception_handler(FinAgentError, finagent_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
