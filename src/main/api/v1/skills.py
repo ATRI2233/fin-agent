@@ -27,6 +27,7 @@ Scope semantics match ``webui/server/skills.ts#getSkillsForScope``:
 
 from __future__ import annotations
 
+import asyncio
 import threading
 from pathlib import Path
 from typing import Literal
@@ -77,12 +78,17 @@ def _get_skills_lock(path: Path) -> threading.Lock:
 
 
 class SkillContentUpdate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=10000)
 
 
 class SkillMoveBody(BaseModel):
     model_config = {"populate_by_name": True}
-    from_: str = Field(alias="from")
+    from_: str = Field(
+        alias="from",
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-zA-Z0-9_\-\.]+$",
+    )
 
 
 # ── Frontmatter + skill listing (Python port of skills.ts) ──
@@ -213,14 +219,8 @@ def _list_skills(scope: Scope, project_root: Path) -> list[dict[str, object]]:
     return _scan_project_skills_dir(project_root)
 
 
-def _resolve_scope(request: Request, scope: Scope | None) -> Scope:
-    """Resolve the effective scope.
-
-    Honors the explicit query param first, then falls back to the
-    active skills scope stored in ``.opencode/.scope_prefs.json``
-    (the same file the Express ``/api/config/scope`` endpoint reads),
-    and finally defaults to ``"project"``.
-    """
+def _resolve_scope_sync(request: Request, scope: Scope | None) -> Scope:
+    """Sync helper backing ``_resolve_scope``; contains blocking file I/O."""
     if scope is not None:
         return scope
     settings: Settings = request.app.state.settings
@@ -228,6 +228,17 @@ def _resolve_scope(request: Request, scope: Scope | None) -> Scope:
     prefs = _read_json_or_jsonc(project_root / ".opencode" / ".scope_prefs.json")
     raw = prefs.get("skills") if isinstance(prefs, dict) else None
     return raw if raw in ("global", "project") else _DEFAULT_SCOPE
+
+
+async def _resolve_scope(request: Request, scope: Scope | None) -> Scope:
+    """Resolve the effective scope.
+
+    Honors the explicit query param first, then falls back to the
+    active skills scope stored in ``.opencode/.scope_prefs.json``
+    (the same file the Express ``/api/config/scope`` endpoint reads),
+    and finally defaults to ``"project"``.
+    """
+    return await asyncio.to_thread(_resolve_scope_sync, request, scope)
 
 
 # ── Additional helpers ──
@@ -294,7 +305,7 @@ def _read_skill_from_path(path: Path, name: str) -> dict[str, str]:
 
 
 @router.get("/count")
-def get_skills_count(
+async def get_skills_count(
     request: Request,
     scope: Scope | None = Query(default=None, description="global | project;省略时读 scope_prefs"),
 ) -> dict:
@@ -307,13 +318,13 @@ def get_skills_count(
     effective_scope = _resolve_scope(request, scope)
     settings: Settings = request.app.state.settings
     project_root = _resolve_project_root(settings)
-    count = len(_list_skills(effective_scope, project_root))
+    count = len(await asyncio.to_thread(_list_skills, effective_scope, project_root))
     payload = {"count": count, "scope": effective_scope}
     return ApiResponse.success(payload, current_trace_id()).to_dict()
 
 
 @router.get("")
-def list_skills(
+async def list_skills(
     request: Request,
     scope: Scope | None = Query(default=None, description="global | project;省略时读 scope_prefs"),
 ) -> dict:
@@ -328,7 +339,7 @@ def list_skills(
     effective_scope = _resolve_scope(request, scope)
     settings: Settings = request.app.state.settings
     project_root = _resolve_project_root(settings)
-    skills = _list_skills(effective_scope, project_root)
+    skills = await asyncio.to_thread(_list_skills, effective_scope, project_root)
     return ApiResponse.success(
         {"skills": skills},
         current_trace_id(),
@@ -336,7 +347,7 @@ def list_skills(
 
 
 @router.get("/{name}/content")
-def get_skill_content(
+async def get_skill_content(
     request: Request,
     name: str,
     scope: Scope | None = Query(default=None, description="global | project; 省略时读 scope_prefs"),
@@ -349,19 +360,19 @@ def get_skill_content(
     settings: Settings = request.app.state.settings
     project_root = _resolve_project_root(settings)
 
-    skill_path = _resolve_skill_path(name, effective_scope, project_root)
+    skill_path = await asyncio.to_thread(_resolve_skill_path, name, effective_scope, project_root)
     if skill_path is None:
         raise HTTPException(
             status_code=404,
             detail=f"Skill '{name}' not found in {effective_scope} scope",
         )
 
-    result = _read_skill_from_path(skill_path, name)
+    result = await asyncio.to_thread(_read_skill_from_path, skill_path, name)
     return ApiResponse.success(result, current_trace_id()).to_dict()
 
 
 @router.put("/{name}/content")
-def update_skill_content(
+async def update_skill_content(
     request: Request,
     name: str,
     body: SkillContentUpdate,
@@ -380,12 +391,12 @@ def update_skill_content(
 
     if effective_scope == "global":
         config_path = _global_config_dir() / "opencode.json"
-        if not config_path.exists():
+        if not await asyncio.to_thread(config_path.exists):
             raise HTTPException(
                 status_code=404,
                 detail=f"Global skill '{name}' not found in config",
             )
-        data = _read_json_or_jsonc(config_path)
+        data = await asyncio.to_thread(_read_json_or_jsonc, config_path)
         section = data.get("skills")
         if not isinstance(section, dict):
             raise HTTPException(
@@ -401,10 +412,10 @@ def update_skill_content(
         skill_path = Path(entry["path"])
     else:
         skill_dir = project_root / ".opencode" / "skills" / name
-        skill_dir.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(skill_dir.mkdir, parents=True, exist_ok=True)
         skill_path = skill_dir / "SKILL.md"
 
-    skill_path.write_text(body.content, encoding="utf-8")
+    await asyncio.to_thread(skill_path.write_text, body.content, "utf-8")
     return ApiResponse.success(
         {"success": True, "name": name, "path": str(skill_path)},
         current_trace_id(),
@@ -412,7 +423,7 @@ def update_skill_content(
 
 
 @router.post("/{name}/toggle")
-def toggle_skill(
+async def toggle_skill(
     request: Request,
     name: str,
     scope: Scope | None = Query(default=None, description="global | project; 省略时读 scope_prefs"),
@@ -431,7 +442,7 @@ def toggle_skill(
         config_path = _global_config_dir() / "opencode.json"
         lock = _get_skills_lock(config_path)
         with lock:
-            data = _read_json_or_jsonc(config_path)
+            data = await asyncio.to_thread(_read_json_or_jsonc, config_path)
             section = data.get("skills")
             if not isinstance(section, dict):
                 section = {}
@@ -443,21 +454,21 @@ def toggle_skill(
             else:
                 section[name] = {"disabled": False}
                 enabled = True
-            _write_json(config_path, data)
+            await asyncio.to_thread(_write_json, config_path, data)
     else:
         config_path = project_root / ".opencode" / "opencode.json"
-        if config_path.exists():
+        if await asyncio.to_thread(config_path.exists):
             lock = _get_skills_lock(config_path)
             with lock:
                 # Re-read inside lock to avoid TOCTOU with concurrent toggles
-                data = _read_json_or_jsonc(config_path)
+                data = await asyncio.to_thread(_read_json_or_jsonc, config_path)
                 section = data.get("skills")
                 if isinstance(section, dict):
                     entry = section.get(name)
                     if isinstance(entry, dict):
                         entry["disabled"] = not entry.get("disabled", False)
                         enabled = not entry["disabled"]
-                _write_json(config_path, data)
+                await asyncio.to_thread(_write_json, config_path, data)
 
     return ApiResponse.success(
         {"success": True, "name": name, "enabled": enabled},
@@ -466,7 +477,7 @@ def toggle_skill(
 
 
 @router.post("/{name}/move")
-def move_skill(
+async def move_skill(
     request: Request,
     name: str,
     body: SkillMoveBody,
@@ -485,7 +496,7 @@ def move_skill(
     if from_scope == "global":
         # Remove from global config, add to project
         global_path = _global_config_dir() / "opencode.json"
-        global_data = _read_json_or_jsonc(global_path)
+        global_data = await asyncio.to_thread(_read_json_or_jsonc, global_path)
         section = global_data.get("skills")
         skill_path = ""
         if isinstance(section, dict):
@@ -493,14 +504,14 @@ def move_skill(
             if isinstance(entry, dict) and isinstance(entry.get("path"), str):
                 skill_path = entry["path"]
             section.pop(name, None)
-        _write_json(global_path, global_data)
+        await asyncio.to_thread(_write_json, global_path, global_data)
 
         project_cfg_path = project_root / ".opencode" / "opencode.json"
-        project_data = _read_json_or_jsonc(project_cfg_path)
+        project_data = await asyncio.to_thread(_read_json_or_jsonc, project_cfg_path)
         if not isinstance(project_data.get("skills"), dict):
             project_data["skills"] = {}
         project_data["skills"][name] = {"path": skill_path, "disabled": False}
-        _write_json(project_cfg_path, project_data)
+        await asyncio.to_thread(_write_json, project_cfg_path, project_data)
 
         return ApiResponse.success(
             {"success": True, "name": name, "to": "project"},
@@ -509,7 +520,7 @@ def move_skill(
     else:
         # Remove from project config, add to global
         project_cfg_path = project_root / ".opencode" / "opencode.json"
-        project_data = _read_json_or_jsonc(project_cfg_path)
+        project_data = await asyncio.to_thread(_read_json_or_jsonc, project_cfg_path)
         section = project_data.get("skills")
         skill_path = ""
         if isinstance(section, dict):
@@ -517,20 +528,20 @@ def move_skill(
             if isinstance(entry, dict) and isinstance(entry.get("path"), str):
                 skill_path = entry["path"]
             section.pop(name, None)
-        _write_json(project_cfg_path, project_data)
+        await asyncio.to_thread(_write_json, project_cfg_path, project_data)
 
         # Fallback: if no path found, use project skills dir
         if not skill_path:
             fallback = project_root / ".opencode" / "skills" / name / "SKILL.md"
-            if fallback.is_file():
+            if await asyncio.to_thread(fallback.is_file):
                 skill_path = str(fallback)
 
         global_path = _global_config_dir() / "opencode.json"
-        global_data = _read_json_or_jsonc(global_path)
+        global_data = await asyncio.to_thread(_read_json_or_jsonc, global_path)
         if not isinstance(global_data.get("skills"), dict):
             global_data["skills"] = {}
         global_data["skills"][name] = {"path": skill_path, "disabled": False}
-        _write_json(global_path, global_data)
+        await asyncio.to_thread(_write_json, global_path, global_data)
 
         return ApiResponse.success(
             {"success": True, "name": name, "to": "global"},
@@ -539,7 +550,7 @@ def move_skill(
 
 
 @router.delete("/{name}")
-def delete_skill(
+async def delete_skill(
     request: Request,
     name: str,
     scope: Scope | None = Query(default=None, description="global | project; 省略时读 scope_prefs"),
@@ -554,19 +565,19 @@ def delete_skill(
 
     if effective_scope == "global":
         config_path = _global_config_dir() / "opencode.json"
-        data = _read_json_or_jsonc(config_path)
+        data = await asyncio.to_thread(_read_json_or_jsonc, config_path)
         section = data.get("skills")
         if isinstance(section, dict):
             section.pop(name, None)
-        _write_json(config_path, data)
+        await asyncio.to_thread(_write_json, config_path, data)
     else:
         config_path = project_root / ".opencode" / "opencode.json"
-        if config_path.exists():
-            data = _read_json_or_jsonc(config_path)
+        if await asyncio.to_thread(config_path.exists):
+            data = await asyncio.to_thread(_read_json_or_jsonc, config_path)
             section = data.get("skills")
             if isinstance(section, dict):
                 section.pop(name, None)
-                _write_json(config_path, data)
+                await asyncio.to_thread(_write_json, config_path, data)
 
     return ApiResponse.success(
         {"success": True, "deleted": name},

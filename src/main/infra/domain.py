@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NewType
@@ -73,9 +74,20 @@ class RetryPolicy:
         base_delay: 初始延迟秒数。
         backoff: 指数退避因子。
         circuit_breaker_threshold: 熔断阈值，连续失败次数超过此值触发熔断。
+        max_delay: 退避延迟上限（秒），防止指数退避无限放大。
+        default_retry_on: 未显式指定 ``retry_on`` 时使用的默认可重试异常类型。
+            仅包含网络/超时类瞬态故障，**不**包含 ``TypeError`` / ``KeyError`` /
+            ``ValueError`` 等确定性编程错误。
     """
 
     max_attempts: int = 3
     base_delay: float = 1.0
     backoff: float = 2.0
     circuit_breaker_threshold: int = 5
+    max_delay: float = 60.0
+    default_retry_on: tuple[type[Exception], ...] = (
+        ConnectionError,
+        TimeoutError,
+        asyncio.TimeoutError,
+        OSError,
+    )

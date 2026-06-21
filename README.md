@@ -98,11 +98,14 @@ cd agents/mcp/fred && npm install
 ### 3. 启动系统
 
 ```bash
-# Windows
+# Windows (CMD)
 start.bat
 
-# PowerShell
+# Windows (PowerShell)
 .\start.ps1
+
+# Linux / macOS
+bash config/start.sh
 
 # 或直接运行
 cd main && python -m framework.main

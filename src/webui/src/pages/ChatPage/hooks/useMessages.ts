@@ -15,20 +15,20 @@
  * `useCreateMessage` mutation, appends the user
  * echo to the store, and kicks off polling
  * (see `useConversationPolling`).
- * 4. **Streaming** — forwards `processingMessage` /
- * `pendingMessageId` / `stopStream` from the
- * SSE hook for the page to render the
+ * 4. **Polling** — forwards `processingMessage` /
+ * `pendingMessageId` / `stopPolling` from the
+ * polling hook for the page to render the
  * "Processing" badge and cancel button.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { message as antdMessage } from 'antd';
 import { useCreateMessage, useConversation } from '../../../hooks/useConversations';
 import { useConversationStore } from '../../../store/useConversationStore';
-import { useConversationStream, type StreamMode } from './useConversationStream';
+import { useConversationPolling, type PollingMode } from './useConversationPolling';
 
 export interface SendMessageParams {
   content: string;
-  mode: StreamMode;
+  mode: PollingMode;
   agent?: string;
   workflow_id?: string | null;
 }
@@ -40,7 +40,7 @@ export interface UseMessagesResult {
   processingMessage: boolean;
   pendingMessageId: string | null;
   sendingMessage: boolean;
-  stopStream: () => void;
+  stopPolling: () => void;
 }
 
 export function useMessages(): UseMessagesResult {
@@ -59,18 +59,26 @@ export function useMessages(): UseMessagesResult {
   const { data: convEnvelope, refetch: refetchConversation } = useConversation(requestedConvId);
 
   const createMessageMutation = useCreateMessage();
-  const { startStream, stopStream, processingMessage, pendingMessageId } =
-    useConversationStream();
+  const { startPolling, stopPolling, processingMessage, pendingMessageId } =
+    useConversationPolling();
+
+  // Keep latest stopPolling in a ref so the envelope-sync effect below
+  // doesn't capture a stale closure (stopPolling is recreated by the
+  // polling hook on every render that updates its internal state).
+  const stopPollingRef = useRef(stopPolling);
+  useEffect(() => {
+    stopPollingRef.current = stopPolling;
+  });
 
   // Whenever the envelope resolves with a fresh conversation, push its
   // messages into the zustand store. The hook also stops any in-flight
   // stream from the previous conversation so events don't cross-pollinate.
   useEffect(() => {
-    stopStream();
+    stopPollingRef.current();
     if (convEnvelope?.messages) {
       setMessages(convEnvelope.messages);
     }
-  }, [convEnvelope, setMessages, stopStream]);
+  }, [convEnvelope, setMessages]);
 
   // Sync the auto-load target with the active conversation.
   useEffect(() => {
@@ -112,8 +120,8 @@ export function useMessages(): UseMessagesResult {
             created_at: new Date().toISOString(),
           });
 
-          // Start SSE stream for the assistant / workflow response.
-          startStream(currentConversation.id, userMessageId, mode);
+          // Start polling for the assistant / workflow response.
+          startPolling(currentConversation.id, userMessageId, mode);
         }
       } catch (err) {
         antdMessage.error('Failed to send message');
@@ -126,7 +134,7 @@ export function useMessages(): UseMessagesResult {
       processingMessage,
       createMessageMutation,
       appendMessage,
-      startStream,
+      startPolling,
     ],
   );
 
@@ -137,6 +145,6 @@ export function useMessages(): UseMessagesResult {
     processingMessage,
     pendingMessageId,
     sendingMessage,
-    stopStream,
+    stopPolling,
   };
 }

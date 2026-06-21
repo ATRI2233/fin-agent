@@ -2,8 +2,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Descriptions, List, Tag, Button, Spin, Alert, Space, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useAgent } from '../hooks/useAgents';
+import type { AgentDetail } from '../domain/agent';
 
 const { Title, Text } = Typography;
+
+/**
+ * Local view-model that extends `AgentDetail` with legacy optional fields
+ * (`capabilities`, `tools`) the detail page renders but the canonical
+ * type does not surface. Backend may include them in the payload.
+ */
+type AgentDetailViewModel = AgentDetail & {
+  capabilities?: string[];
+  tools?: string[];
+};
 
 export default function FrameworkAgentDetail() {
   const { name } = useParams<{ name: string }>();
@@ -40,15 +51,10 @@ export default function FrameworkAgentDetail() {
 
   // The canonical `AgentDetail` only carries execution telemetry fields;
   // the legacy detail page also renders `capabilities` and `tools` arrays
-  // (optional in the backend payload). Cast to a richer local view-model
-  // so the section renderers keep working with permissive `[]` fallbacks.
-  const agentVm = agent as unknown as {
-    name: string;
-    description: string;
-    mode: string;
-    capabilities?: string[];
-    tools?: string[];
-  };
+  // (optional in the backend payload). Use a typed view-model with
+  // optional fields so the section renderers keep working with
+  // permissive `[]` fallbacks.
+  const agentVm: AgentDetailViewModel = agent;
 
   return (
     <div>

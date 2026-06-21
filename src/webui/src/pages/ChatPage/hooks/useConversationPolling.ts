@@ -61,6 +61,14 @@ export function useConversationPolling(): UseConversationPollingResult {
     setPendingMessageId(null);
   }, []);
 
+  // Keep the latest stopPolling in a ref so the setInterval callback
+  // below (which captures its own closure on every startPolling call)
+  // doesn't invoke a stale reference that may have been recreated.
+  const stopPollingRef = useRef(stopPolling);
+  useEffect(() => {
+    stopPollingRef.current = stopPolling;
+  });
+
   const startPolling = useCallback(
     (conversationId: string, userMessageId: string, mode: PollingMode): void => {
       if (pollingRef.current) {
@@ -74,7 +82,7 @@ export function useConversationPolling(): UseConversationPollingResult {
       pollingRef.current = setInterval(async () => {
         pollCount++;
         if (pollCount > MAX_POLLS) {
-          stopPolling();
+          stopPollingRef.current();
           return;
         }
 
@@ -96,7 +104,7 @@ export function useConversationPolling(): UseConversationPollingResult {
                 (getExtraType(m) === 'workflow_status' &&
                   (m.extra_data as Record<string, unknown>)?.status === 'failed'),
             );
-            if (hasTerminal) stopPolling();
+            if (hasTerminal) stopPollingRef.current();
           } else {
             const hasResponse = afterUser.some(
               (m) =>
@@ -105,7 +113,7 @@ export function useConversationPolling(): UseConversationPollingResult {
                   getExtraType(m) !== 'workflow_status' &&
                   getExtraType(m) !== 'workflow_start'),
             );
-            if (hasResponse) stopPolling();
+            if (hasResponse) stopPollingRef.current();
           }
         } catch (err) {
           console.error('Polling error:', err);

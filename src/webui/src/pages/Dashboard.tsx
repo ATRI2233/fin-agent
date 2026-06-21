@@ -17,7 +17,7 @@ import { DashboardSkeleton } from '../components/dashboard/DashboardSkeleton';
 import { DashboardError } from '../components/dashboard/DashboardError';
 
 export default function Dashboard() {
-  const { agents, tools, servers, isLoading, isError, refetch } = useDashboardData();
+  const { agents, tools, servers, skillsCount, systemOnline, isLoading, isError, refetch } = useDashboardData();
   const serverGroups = useMemo(() => groupToolsByServer(tools), [tools]);
 
   if (isLoading) return <DashboardSkeleton />;
@@ -26,7 +26,7 @@ export default function Dashboard() {
   return (
     <div className="page-container fade-in">
       <DashboardHero />
-      <StatCards agents={agents} tools={tools} servers={servers} />
+      <StatCards agents={agents} tools={tools} servers={servers} skillsCount={skillsCount} systemOnline={systemOnline} />
       <Row gutter={[20, 20]}>
         <Col xs={24} lg={12}>
           <AgentPerformancePanel agents={agents} />

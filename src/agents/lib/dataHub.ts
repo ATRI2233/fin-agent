@@ -9,6 +9,43 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
+// ── 简单 LRU 缓存 (TTL + 最大容量) ─────────────────────────
+interface LRUCacheEntry<V> {
+  value: V;
+  ts: number;
+}
+
+class LRUCache<K, V> {
+  private map = new Map<K, LRUCacheEntry<V>>();
+
+  constructor(
+    private readonly maxSize: number,
+    private readonly ttlMs: number
+  ) {}
+
+  get(key: K): V | undefined {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.ts > this.ttlMs) {
+      this.map.delete(key);
+      return undefined;
+    }
+    return entry.value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.map.size >= this.maxSize) {
+      const firstKey = this.map.keys().next().value;
+      if (firstKey !== undefined) this.map.delete(firstKey);
+    }
+    this.map.set(key, { value, ts: Date.now() });
+  }
+
+  clear(): void {
+    this.map.clear();
+  }
+}
+
 // ── 数据库路径 ────────────────────────────────────────────
 const DB_DIR = path.resolve(__dirname, "..", "..", "..", "data");
 const DB_PATH = path.join(DB_DIR, "fin-agent.db");
@@ -74,7 +111,8 @@ function initSchema(database: Database.Database) {
       hit_count INTEGER DEFAULT 0,
       miss_count INTEGER DEFAULT 0,
       active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
     );
 
     -- 索引
@@ -83,6 +121,16 @@ function initSchema(database: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_outcomes_analysis ON market_outcomes(analysis_id);
     CREATE INDEX IF NOT EXISTS idx_rules_active ON learned_rules(active);
   `);
+
+  // 兼容已存在的旧表 (无 updated_at 列) — 使用 ALTER TABLE 跳过已有列的报错
+  try {
+    database.exec("ALTER TABLE learned_rules ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))");
+  } catch (e: any) {
+    // 列已存在则忽略
+    if (!String(e?.message || "").includes("duplicate column")) {
+      console.error("[dataHub] ALTER TABLE learned_rules 失败:", e);
+    }
+  }
 
   // 默认信号权重
   database.exec(`INSERT OR IGNORE INTO signal_weights (signal_name, base_weight) VALUES
@@ -140,8 +188,13 @@ export function logAnalysis(result: {
 }
 
 /** 查询历史记录 */
+const historyCache = new LRUCache<string, any[]>(100, 60_000);
 export function getHistory(symbol: string, limit = 5): any[] {
-  return query(
+  const cacheKey = `${symbol}:${limit}`;
+  const cached = historyCache.get(cacheKey);
+  if (cached) return cached;
+
+  const result = query(
     `SELECT a.*,
        (SELECT COUNT(*) FROM market_outcomes m WHERE m.analysis_id = a.id AND m.was_correct = 1) as correct_count,
        (SELECT COUNT(*) FROM market_outcomes m WHERE m.analysis_id = a.id AND m.was_correct IS NOT NULL) as total_verified
@@ -151,6 +204,9 @@ export function getHistory(symbol: string, limit = 5): any[] {
      LIMIT ?`,
     symbol, limit
   );
+
+  historyCache.set(cacheKey, result);
+  return result;
 }
 
 /** 验证结果 */
@@ -227,16 +283,34 @@ export function addRule(rule: string, confidence: number, source = "auto") {
 
 /** 更新规则准确率 */
 export function updateRuleAccuracy(ruleId: number, wasCorrect: boolean) {
-  if (wasCorrect) {
-    execute("UPDATE learned_rules SET hit_count = hit_count + 1, confidence = MIN(1.0, confidence + 0.05) WHERE id = ?", ruleId);
-  } else {
-    const rule = queryOne("SELECT * FROM learned_rules WHERE id = ?", ruleId);
-    if (rule && rule.miss_count + 1 >= 3 && rule.confidence < 0.3) {
-      execute("UPDATE learned_rules SET active = 0 WHERE id = ?", ruleId);
+  const update = getDb().transaction((id: number, correct: boolean) => {
+    const now = new Date().toISOString();
+    if (correct) {
+      // 原子递增 — SQLite 单语句 UPDATE 本身就是原子的
+      getDb().prepare(
+        "UPDATE learned_rules SET hit_count = hit_count + 1, confidence = MIN(1.0, confidence + 0.05), updated_at = ? WHERE id = ?"
+      ).run(now, id);
     } else {
-      execute("UPDATE learned_rules SET miss_count = miss_count + 1, confidence = MAX(0.1, confidence - 0.1) WHERE id = ?", ruleId);
+      // 读最新值 (在事务内,与写互斥)
+      const rule = getDb().prepare(
+        "SELECT miss_count, confidence FROM learned_rules WHERE id = ?"
+      ).get(id) as { miss_count: number; confidence: number } | undefined;
+      if (!rule) return;
+
+      const newMissCount = rule.miss_count + 1;
+      if (newMissCount >= 3 && rule.confidence < 0.3) {
+        getDb().prepare(
+          "UPDATE learned_rules SET active = 0, miss_count = ?, confidence = MAX(0.1, confidence - 0.1), updated_at = ? WHERE id = ?"
+        ).run(newMissCount, now, id);
+      } else {
+        getDb().prepare(
+          "UPDATE learned_rules SET miss_count = ?, confidence = MAX(0.1, confidence - 0.1), updated_at = ? WHERE id = ?"
+        ).run(newMissCount, now, id);
+      }
     }
-  }
+  });
+  // IMMEDIATE 事务:立即获取写锁,防止读后写被其他事务插入
+  update.immediate(ruleId, wasCorrect);
 }
 
 /** 列出规则 */
@@ -251,8 +325,25 @@ export function getSignalWeights(): any[] {
 }
 
 /** 获取历史判断 */
+const judgmentCache = new LRUCache<string, any[]>(200, 60_000);
 export function getJudgments(symbol: string, limit = 10): any[] {
-  return query("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?", symbol, limit);
+  const cacheKey = `${symbol}:${limit}`;
+  const cached = judgmentCache.get(cacheKey);
+  if (cached) return cached;
+
+  const result = query("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?", symbol, limit);
+  judgmentCache.set(cacheKey, result);
+  return result;
+}
+
+/**
+ * Retention 清理:删除早于 retentionDays 的 analysis_log 行。
+ * 返回实际删除的行数。调用方负责周期性触发(例如 cron / 启动时)。
+ */
+export function cleanupOldLogs(retentionDays = 90): number {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = execute("DELETE FROM analysis_log WHERE created_at < ?", cutoff);
+  return result.changes;
 }
 
 /** 获取所有经验 */

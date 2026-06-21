@@ -57,10 +57,10 @@ export function useAgents() {
 export function useAgent(name: string | null) {
   const fetcher = useCallback(
     (_signal: AbortSignal) => {
-      if (!name) return Promise.resolve(null as unknown as AgentDetail);
+      if (!name) return Promise.resolve<AgentDetail | null>(null);
       return getAgent(name);
     },
     [name],
   );
-  return useFetch<AgentDetail>(fetcher, [name]);
+  return useFetch<AgentDetail | null>(fetcher, [name]);
 }

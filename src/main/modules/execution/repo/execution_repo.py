@@ -1,9 +1,9 @@
 """SQLAlchemy implementation of ``ExecutionStateReader`` (sync, read-only).
 
-The reader does **not** open a UnitOfWork: read-side queries do not need a
-transaction, so we use the bare ``Session`` from the injected
-``session_factory`` directly. This keeps the read path cheap and avoids
-holding a connection longer than necessary.
+The reader uses the injected ``session_factory`` directly, opening a
+session inside a ``with`` block for every query. This keeps the read
+path cheap and ensures the session is always closed (no manual
+``finally: session.close()`` needed).
 
 Each query method converts ORM rows into the corresponding domain
 dataclass (:class:`WorkflowExecution` or :class:`ExecutionNode`); the
@@ -69,10 +69,9 @@ def _to_node(row: ExecutionNodeORM) -> ExecutionNode:
 class SqlAlchemyExecutionReader(ExecutionStateReader):
     """Sync SQLAlchemy reader for execution state.
 
-    Constructed with a ``sessionmaker``-compatible callable (``() ->
-    Session``). Each query opens its own session and closes it when done
-    — no UoW is involved because read operations do not require a
-    transaction boundary.
+    Constructed with a ``sessionmaker``-compatible callable. Each query
+    opens its own session inside a ``with`` block and closes it
+    automatically.
 
     Implements the 5 sync methods declared by
     :class:`src.main.modules.execution.protocol.ExecutionStateReader`.
@@ -80,12 +79,6 @@ class SqlAlchemyExecutionReader(ExecutionStateReader):
 
     def __init__(self, session_factory: Callable[[], Session] | sessionmaker[Session]) -> None:
         self._session_factory = session_factory
-
-    # ── read helpers (private) ──
-
-    def _open(self) -> Session:
-        """Open a new session (caller is responsible for closing it)."""
-        return self._session_factory()
 
     # ── ExecutionStateReader ──
 
@@ -102,24 +95,22 @@ class SqlAlchemyExecutionReader(ExecutionStateReader):
         Raises:
             DatabaseError: on any underlying SQLAlchemy failure.
         """
-        session: Session = self._open()
-        try:
-            row = (
-                session.query(WorkflowExecutionORM)
-                .filter(WorkflowExecutionORM.id == execution_id)
-                .one_or_none()
-            )
-            if row is None:
-                return None
-            return _to_execution(row)
-        except SQLAlchemyError as exc:
-            raise DatabaseError(
-                "failed to load workflow execution",
-                details={"execution_id": str(execution_id)},
-                cause=exc,
-            ) from exc
-        finally:
-            session.close()
+        with self._session_factory() as session:
+            try:
+                row = (
+                    session.query(WorkflowExecutionORM)
+                    .filter(WorkflowExecutionORM.id == execution_id)
+                    .one_or_none()
+                )
+                if row is None:
+                    return None
+                return _to_execution(row)
+            except SQLAlchemyError as exc:
+                raise DatabaseError(
+                    "failed to load workflow execution",
+                    details={"execution_id": str(execution_id)},
+                    cause=exc,
+                ) from exc
 
     def get_execution_nodes(self, execution_id: ExecutionId) -> list[ExecutionNode]:
         """Fetch all nodes belonging to one execution.
@@ -134,22 +125,20 @@ class SqlAlchemyExecutionReader(ExecutionStateReader):
         Raises:
             DatabaseError: on any underlying SQLAlchemy failure.
         """
-        session: Session = self._open()
-        try:
-            rows = (
-                session.query(ExecutionNodeORM)
-                .filter(ExecutionNodeORM.execution_id == execution_id)
-                .all()
-            )
-            return [_to_node(r) for r in rows]
-        except SQLAlchemyError as exc:
-            raise DatabaseError(
-                "failed to load execution nodes",
-                details={"execution_id": str(execution_id)},
-                cause=exc,
-            ) from exc
-        finally:
-            session.close()
+        with self._session_factory() as session:
+            try:
+                rows = (
+                    session.query(ExecutionNodeORM)
+                    .filter(ExecutionNodeORM.execution_id == execution_id)
+                    .all()
+                )
+                return [_to_node(r) for r in rows]
+            except SQLAlchemyError as exc:
+                raise DatabaseError(
+                    "failed to load execution nodes",
+                    details={"execution_id": str(execution_id)},
+                    cause=exc,
+                ) from exc
 
     def get_failed_nodes(self, execution_id: ExecutionId) -> list[ExecutionNode]:
         """Fetch all FAILED nodes of one execution.
@@ -164,25 +153,23 @@ class SqlAlchemyExecutionReader(ExecutionStateReader):
         Raises:
             DatabaseError: on any underlying SQLAlchemy failure.
         """
-        session: Session = self._open()
-        try:
-            rows = (
-                session.query(ExecutionNodeORM)
-                .filter(
-                    ExecutionNodeORM.execution_id == execution_id,
-                    ExecutionNodeORM.status == ExecutionStatus.FAILED.value,
+        with self._session_factory() as session:
+            try:
+                rows = (
+                    session.query(ExecutionNodeORM)
+                    .filter(
+                        ExecutionNodeORM.execution_id == execution_id,
+                        ExecutionNodeORM.status == ExecutionStatus.FAILED.value,
+                    )
+                    .all()
                 )
-                .all()
-            )
-            return [_to_node(r) for r in rows]
-        except SQLAlchemyError as exc:
-            raise DatabaseError(
-                "failed to load failed nodes",
-                details={"execution_id": str(execution_id)},
-                cause=exc,
-            ) from exc
-        finally:
-            session.close()
+                return [_to_node(r) for r in rows]
+            except SQLAlchemyError as exc:
+                raise DatabaseError(
+                    "failed to load failed nodes",
+                    details={"execution_id": str(execution_id)},
+                    cause=exc,
+                ) from exc
 
     def get_node(
         self,
@@ -202,30 +189,28 @@ class SqlAlchemyExecutionReader(ExecutionStateReader):
         Raises:
             DatabaseError: on any underlying SQLAlchemy failure.
         """
-        session: Session = self._open()
-        try:
-            row = (
-                session.query(ExecutionNodeORM)
-                .filter(
-                    ExecutionNodeORM.execution_id == execution_id,
-                    ExecutionNodeORM.node_id == node_id,
+        with self._session_factory() as session:
+            try:
+                row = (
+                    session.query(ExecutionNodeORM)
+                    .filter(
+                        ExecutionNodeORM.execution_id == execution_id,
+                        ExecutionNodeORM.node_id == node_id,
+                    )
+                    .one_or_none()
                 )
-                .one_or_none()
-            )
-            if row is None:
-                return None
-            return _to_node(row)
-        except SQLAlchemyError as exc:
-            raise DatabaseError(
-                "failed to load execution node",
-                details={
-                    "execution_id": str(execution_id),
-                    "node_id": str(node_id),
-                },
-                cause=exc,
-            ) from exc
-        finally:
-            session.close()
+                if row is None:
+                    return None
+                return _to_node(row)
+            except SQLAlchemyError as exc:
+                raise DatabaseError(
+                    "failed to load execution node",
+                    details={
+                        "execution_id": str(execution_id),
+                        "node_id": str(node_id),
+                    },
+                    cause=exc,
+                ) from exc
 
     def list_executions(
         self,
@@ -250,30 +235,28 @@ class SqlAlchemyExecutionReader(ExecutionStateReader):
         Raises:
             DatabaseError: on any underlying SQLAlchemy failure.
         """
-        session: Session = self._open()
-        try:
-            query = session.query(WorkflowExecutionORM)
-            if workflow_id is not None:
-                query = query.filter(WorkflowExecutionORM.workflow_id == workflow_id)
-            rows = (
-                query.order_by(WorkflowExecutionORM.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
-            return [_to_execution(r) for r in rows]
-        except SQLAlchemyError as exc:
-            raise DatabaseError(
-                "failed to list executions",
-                details={
-                    "workflow_id": str(workflow_id) if workflow_id else None,
-                    "limit": limit,
-                    "offset": offset,
-                },
-                cause=exc,
-            ) from exc
-        finally:
-            session.close()
+        with self._session_factory() as session:
+            try:
+                query = session.query(WorkflowExecutionORM)
+                if workflow_id is not None:
+                    query = query.filter(WorkflowExecutionORM.workflow_id == workflow_id)
+                rows = (
+                    query.order_by(WorkflowExecutionORM.created_at.desc())
+                    .offset(offset)
+                    .limit(limit)
+                    .all()
+                )
+                return [_to_execution(r) for r in rows]
+            except SQLAlchemyError as exc:
+                raise DatabaseError(
+                    "failed to list executions",
+                    details={
+                        "workflow_id": str(workflow_id) if workflow_id else None,
+                        "limit": limit,
+                        "offset": offset,
+                    },
+                    cause=exc,
+                ) from exc
 
 
 # Re-export for callers that import helpers from this module.

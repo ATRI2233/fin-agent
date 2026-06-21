@@ -64,12 +64,12 @@ export function useConversations() {
 export function useConversation(id: string | null) {
   const fetcher = useCallback(
     (_signal: AbortSignal) => {
-      if (!id) return Promise.resolve(null as unknown as { conversation: Conversation; messages: Message[] });
+      if (!id) return Promise.resolve<{ conversation: Conversation; messages: Message[] } | null>(null);
       return getConversation(id);
     },
     [id],
   );
-  return useFetch<{ conversation: Conversation; messages: Message[] }>(fetcher, [id]);
+  return useFetch<{ conversation: Conversation; messages: Message[] } | null>(fetcher, [id]);
 }
 
 /* ─── Write hooks (2) ──────────────────────────────────────────────── */

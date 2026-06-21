@@ -26,17 +26,3 @@ export async function getAgent(name: string): Promise<AgentDetail> {
   return apiGet<AgentDetail>(ROUTES.agents.get(name));
 }
 
-/**
- * Fetch the tools whitelist for an agent.
- *
- * Backed by the MCP registry endpoint (`/api/v1/mcp/agents/{name}/allowed-tools`),
- * not the legacy `/agents/{name}/tools-whitelist` route.
- */
-export async function getAgentToolsWhitelist(name: string): Promise<string[]> {
-  try {
-    const res = await apiGet<{ tools_whitelist: string[] }>(ROUTES.mcp.allowedTools(name));
-    return res.tools_whitelist || [];
-  } catch {
-    return [];
-  }
-}

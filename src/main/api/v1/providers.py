@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import threading
 from pathlib import Path
 from typing import Any
@@ -126,7 +127,7 @@ def _get_active_from_data(data: dict[str, Any]) -> dict[str, str]:
 async def get_providers(request: Request) -> dict:
     """GET /api/v1/providers - list providers + active"""
     path = _get_opencode_path(request)
-    data = _get_provider_data(path)
+    data = await asyncio.to_thread(_get_provider_data, path)
     providers = _get_provider_section(data)
     active = _get_active_from_data(data)
     return ApiResponse.success(
@@ -139,7 +140,7 @@ async def get_providers(request: Request) -> dict:
 async def get_active_provider(request: Request) -> dict:
     """GET /api/v1/providers/active"""
     path = _get_opencode_path(request)
-    data = _get_provider_data(path)
+    data = await asyncio.to_thread(_get_provider_data, path)
     active = _get_active_from_data(data)
     return ApiResponse.success(active, current_trace_id()).to_dict()
 
@@ -155,7 +156,7 @@ async def set_active_provider(body: ActiveProviderUpdate, request: Request) -> d
     with lock:
         # Re-read inside lock so a concurrent DELETE of ``body.provider``
         # cannot race with us writing the active pointer (Bug 10).
-        data = _get_provider_data(path)
+        data = await asyncio.to_thread(_get_provider_data, path)
         providers = _get_provider_section(data)
 
         if body.provider not in providers:
@@ -168,7 +169,7 @@ async def set_active_provider(body: ActiveProviderUpdate, request: Request) -> d
             data["provider"] = {}
         data["provider"]["active"] = {"provider": body.provider, "model": body.model or ""}
 
-        _write_json(path, data)
+        await asyncio.to_thread(_write_json, path, data)
 
     return ApiResponse.success(
         SetActiveResult(
@@ -187,14 +188,14 @@ async def upsert_provider(key: str, body: ProviderConfig, request: Request) -> d
         raise HTTPException(status_code=422, detail="Provider name is required")
 
     path = _get_opencode_path(request)
-    data = _get_provider_data(path)
+    data = await asyncio.to_thread(_get_provider_data, path)
 
     if "provider" not in data or not isinstance(data["provider"], dict):
         data["provider"] = {}
 
     data["provider"][key] = body.model_dump()
 
-    _write_json(path, data)
+    await asyncio.to_thread(_write_json, path, data)
 
     return ApiResponse.success(
         UpsertProviderResult(
@@ -213,7 +214,7 @@ async def delete_provider(name: str, request: Request) -> dict:
         raise HTTPException(status_code=422, detail="Provider name is required")
 
     path = _get_opencode_path(request)
-    data = _get_provider_data(path)
+    data = await asyncio.to_thread(_get_provider_data, path)
     providers = _get_provider_section(data)
 
     if name not in providers:
@@ -223,7 +224,7 @@ async def delete_provider(name: str, request: Request) -> dict:
         )
 
     del data["provider"][name]
-    _write_json(path, data)
+    await asyncio.to_thread(_write_json, path, data)
 
     return ApiResponse.success(
         DeleteProviderResult(success=True, deleted=name).model_dump(),

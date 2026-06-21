@@ -78,6 +78,7 @@ class NodeContext(TypedDict):
     edges: list["Edge"]
     trace_id: TraceId
     chain_sessions: Mapping[NodeId, SessionId]
+    failed_nodes: set[NodeId]  # ← 修订 T-5: 让 output executor 区分"失败 vs 缺失"
 
 
 class NodeResult(TypedDict):

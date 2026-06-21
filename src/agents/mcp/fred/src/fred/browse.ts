@@ -1,9 +1,9 @@
 /**
  * FRED Browse API Client
- * 
+ *
  * Provides comprehensive browsing of FRED categories, releases, and sources
  */
-import { makeRequest } from "../common/request.js";
+import { makeRequest, FREDConfigError } from "../common/request.js";
 import { z } from "zod";
 
 /**
@@ -73,6 +73,18 @@ export async function browseCategories(categoryId?: number) {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to browse categories: ${error.message}`);
     }
@@ -124,6 +136,18 @@ export async function getCategorySeries(categoryId: number, options: {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to get category series: ${error.message}`);
     }
@@ -175,6 +199,18 @@ export async function browseReleases(options: {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to browse releases: ${error.message}`);
     }
@@ -222,6 +258,18 @@ export async function getReleaseSeries(releaseId: number, options: {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to get release series: ${error.message}`);
     }
@@ -272,6 +320,18 @@ export async function browseSources(options: {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to browse sources: ${error.message}`);
     }

@@ -22,7 +22,10 @@ class Settings(BaseSettings):
 
     # ── Database ──
     DATABASE_URL: str = "sqlite:///./data/finagent.db"
-    DB_POOL_SIZE: int = 5
+    DB_POOL_SIZE: int = 10
+    DB_POOL_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_PRE_PING: bool = True
     DB_BUSY_TIMEOUT_MS: int = 30000
     DB_JOURNAL_MODE: Literal["WAL", "DELETE"] = "WAL"
 
@@ -102,6 +105,14 @@ class Settings(BaseSettings):
                     "DB_POOL_SIZE": self.DB_POOL_SIZE,
                     "MAX_PARALLEL_NODES": self.MAX_PARALLEL_NODES,
                 },
+            )
+        # API_KEY must be non-empty and meet minimum length when auth is enforced.
+        # Empty default is permitted so localhost-only deployments can still
+        # boot, but anything explicitly configured must be at least 32 chars.
+        if self.API_KEY and len(self.API_KEY) < 32:
+            raise ConfigError(
+                "API_KEY must be at least 32 characters",
+                details={"length": len(self.API_KEY)},
             )
 
 

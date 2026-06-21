@@ -235,40 +235,64 @@ class DefaultAgentDispatcher(AgentDispatcher):
             )
             for a, t in zip(agents, per_worker)
         ]
-        gathered = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Collect session ids from successful dispatches for cleanup.
-        # reuse_session=True prevents per-worker dispatch() from aborting
-        # them, so we must clean up here.
-        session_ids_to_cleanup: list[SessionId] = []
+        # Track each worker's session_id as it becomes available, so that
+        # on failure we can abort only the failed worker's session while
+        # preserving successful ones (debate-style contract).
+        session_ids: list[SessionId | None] = [None] * len(tasks)
+
+        async def _track_session(task_index: int, coro):
+            """Run dispatch and remember its session_id for cleanup on failure."""
+            try:
+                result = await coro
+            except BaseException:
+                # Re-raise so gather records the exception; we cannot record
+                # a session_id here because dispatch() never returned.
+                raise
+            session_ids[task_index] = result.get("session_id")
+            return result
+
+        tracked_tasks = [
+            _track_session(i, t) for i, t in enumerate(tasks)
+        ]
+        gathered = await asyncio.gather(*tracked_tasks, return_exceptions=True)
+
+        # Separate successful dispatches from failed ones. Only failed
+        # workers' sessions must be aborted; successful sessions stay alive.
+        results: list[DispatchResult] = []
         for item in gathered:
-            if isinstance(item, dict) and item.get("session_id") is not None:
-                session_ids_to_cleanup.append(item["session_id"])
+            if isinstance(item, BaseException):
+                # Worker raised — skip it; it will not appear in results.
+                continue
+            results.append(item)
 
-        try:
-            # Check for exceptions and re-raise the first one
-            exceptions = [item for item in gathered if isinstance(item, BaseException)]
-            if exceptions:
-                raise exceptions[0]
+        # Revision T-3: default implementation never opens follow-up
+        # sessions, so ``extra_session_ids`` is always empty and
+        # therefore trivially disjoint with ``results[i].session_id``.
+        extra_session_ids: list[SessionId] = []
 
-            results: list[DispatchResult] = []
-            for item in gathered:
-                results.append(item)
-
-            # Revision T-3: default implementation never opens follow-up
-            # sessions, so ``extra_session_ids`` is always empty and
-            # therefore trivially disjoint from ``results[i].session_id``.
-            extra_session_ids: list[SessionId] = []
-            return results, extra_session_ids
-        finally:
-            # Cleanup: abort all sessions created by this parallel fan-out.
-            for sid in session_ids_to_cleanup:
+        # Cleanup: abort ONLY sessions whose worker failed. Successful
+        # sessions are preserved for debate-style follow-up dispatches.
+        for idx, item in enumerate(gathered):
+            if isinstance(item, BaseException):
+                sid = session_ids[idx]
+                if sid is None:
+                    # dispatch() raised before producing a session_id, so
+                    # there is nothing to abort on the backend side.
+                    logger.warning(
+                        "Parallel dispatch worker failed before session creation: %s",
+                        item,
+                        exc_info=item,
+                    )
+                    continue
                 try:
                     await self.backend.abort_session(sid)
                 except Exception:
                     logger.warning(
-                        "Failed to abort parallel session %s", sid, exc_info=True
+                        "Failed to abort failed parallel session %s", sid, exc_info=True
                     )
+
+        return results, extra_session_ids
 
     # ───────────────────────────────────────────────────────────────────
     # Helpers

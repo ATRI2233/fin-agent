@@ -38,13 +38,18 @@ class ConversationORM(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     agent_name: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, index=True
+    )
 
     messages: Mapped[list["MessageORM"]] = relationship(
         "MessageORM",
         back_populates="conversation",
         cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 
@@ -59,12 +64,17 @@ class MessageORM(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     conversation_id: Mapped[str] = mapped_column(
-        String, ForeignKey("conversations.id"), nullable=False
+        String,
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     conversation: Mapped["ConversationORM"] = relationship(
-        "ConversationORM", back_populates="messages"
+        "ConversationORM",
+        back_populates="messages",
+        lazy="selectin",
     )

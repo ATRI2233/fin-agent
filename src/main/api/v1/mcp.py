@@ -16,6 +16,7 @@ TASK-408 §3.3.5 端点定义:
 
 from __future__ import annotations
 
+import asyncio
 import threading
 from pathlib import Path
 from typing import Any
@@ -85,12 +86,12 @@ class McpMoveRequest(BaseModel):
 # ── Helpers ──
 
 
-def _read_mcp_data(request: Request) -> tuple[dict[str, Any], Path]:
+async def _read_mcp_data(request: Request) -> tuple[dict[str, Any], Path]:
     """读取 opencode.json（自动发现 global → project），返回 (data, path)。"""
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
-    path, _ = _resolve_file_path("opencode", None, project_root)
-    data = _read_json_or_jsonc(path)
+    path, _ = await asyncio.to_thread(_resolve_file_path, "opencode", None, project_root)
+    data = await asyncio.to_thread(_read_json_or_jsonc, path)
     return data, path
 
 
@@ -159,7 +160,7 @@ async def list_mcp_servers(request: Request) -> dict:
 
     读取 opencode.json 的 mcp 字段，返回 Record<string, McpServerConfig> 裸字典。
     """
-    data, _ = _read_mcp_data(request)
+    data, _ = await _read_mcp_data(request)
     mcp = data.get("mcp", {})
     if not isinstance(mcp, dict):
         mcp = {}
@@ -169,14 +170,14 @@ async def list_mcp_servers(request: Request) -> dict:
 @router.put("/{name}")
 async def upsert_mcp_server(name: str, body: McpServerConfig, request: Request) -> dict:
     """PUT /api/v1/mcp/:name - upsert mcp server."""
-    data, path = _read_mcp_data(request)
+    data, path = await _read_mcp_data(request)
     mcp = data.get("mcp", {})
     if not isinstance(mcp, dict):
         mcp = {}
     config_dict = body.model_dump(exclude_none=True)
     mcp[name] = config_dict
     data["mcp"] = mcp
-    _write_json(path, data)
+    await asyncio.to_thread(_write_json, path, data)
     return ApiResponse.success(
         {"success": True, "name": name, "config": config_dict},
         current_trace_id(),
@@ -186,7 +187,7 @@ async def upsert_mcp_server(name: str, body: McpServerConfig, request: Request) 
 @router.delete("/{name}")
 async def delete_mcp_server(name: str, request: Request) -> dict:
     """DELETE /api/v1/mcp/:name."""
-    data, path = _read_mcp_data(request)
+    data, path = await _read_mcp_data(request)
     mcp = data.get("mcp", {})
     if not isinstance(mcp, dict):
         mcp = {}
@@ -194,7 +195,7 @@ async def delete_mcp_server(name: str, request: Request) -> dict:
         raise HTTPException(status_code=404, detail=f"MCP server '{name}' not found")
     del mcp[name]
     data["mcp"] = mcp
-    _write_json(path, data)
+    await asyncio.to_thread(_write_json, path, data)
     return ApiResponse.success(
         {"success": True, "deleted": name},
         current_trace_id(),
@@ -204,11 +205,11 @@ async def delete_mcp_server(name: str, request: Request) -> dict:
 @router.post("/{name}/toggle")
 async def toggle_mcp_server(name: str, request: Request) -> dict:
     """POST /api/v1/mcp/:name/toggle."""
-    data, path = _read_mcp_data(request)
+    data, path = await _read_mcp_data(request)
     lock = _get_mcp_lock(path)
     with lock:
         # Re-read inside lock to avoid TOCTOU with concurrent deletes/upserts
-        data = _read_json_or_jsonc(path)
+        data = await asyncio.to_thread(_read_json_or_jsonc, path)
         mcp = data.get("mcp", {})
         if not isinstance(mcp, dict):
             mcp = {}
@@ -217,7 +218,7 @@ async def toggle_mcp_server(name: str, request: Request) -> dict:
         current_enabled = mcp[name].get("enabled", True)
         mcp[name]["enabled"] = not current_enabled
         data["mcp"] = mcp
-        _write_json(path, data)
+        await asyncio.to_thread(_write_json, path, data)
     return ApiResponse.success(
         {"success": True, "name": name, "enabled": mcp[name]["enabled"]},
         current_trace_id(),
@@ -234,9 +235,9 @@ async def move_mcp_server(name: str, body: McpMoveRequest, request: Request) -> 
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
 
-    source_path, _ = _resolve_file_path("opencode", from_scope, project_root)
+    source_path, _ = await asyncio.to_thread(_resolve_file_path, "opencode", from_scope, project_root)
     to_scope = "project" if from_scope == "global" else "global"
-    target_path, _ = _resolve_file_path("opencode", to_scope, project_root)
+    target_path, _ = await asyncio.to_thread(_resolve_file_path, "opencode", to_scope, project_root)
 
     # Lock both source and target paths in deterministic order to avoid
     # deadlocks when two concurrent moves swap between scopes.
@@ -249,7 +250,7 @@ async def move_mcp_server(name: str, body: McpMoveRequest, request: Request) -> 
     with first:
         with second:
             # Read source
-            source_data = _read_json_or_jsonc(source_path)
+            source_data = await asyncio.to_thread(_read_json_or_jsonc, source_path)
             source_mcp = source_data.get("mcp", {})
             if not isinstance(source_mcp, dict):
                 source_mcp = {}
@@ -262,16 +263,16 @@ async def move_mcp_server(name: str, body: McpMoveRequest, request: Request) -> 
             config_to_move = source_mcp[name]
             del source_mcp[name]
             source_data["mcp"] = source_mcp
-            _write_json(source_path, source_data)
+            await asyncio.to_thread(_write_json, source_path, source_data)
 
             # Write target
-            target_data = _read_json_or_jsonc(target_path)
+            target_data = await asyncio.to_thread(_read_json_or_jsonc, target_path)
             target_mcp = target_data.get("mcp", {})
             if not isinstance(target_mcp, dict):
                 target_mcp = {}
             target_mcp[name] = config_to_move
             target_data["mcp"] = target_mcp
-            _write_json(target_path, target_data)
+            await asyncio.to_thread(_write_json, target_path, target_data)
 
     return ApiResponse.success(
         {"success": True, "name": name, "to": to_scope},

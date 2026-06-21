@@ -37,6 +37,9 @@ Phase 3 / TASK-309 核心卡。
 
 from __future__ import annotations
 
+import asyncio
+import logging
+
 from structlog.contextvars import bind_contextvars, unbind_contextvars
 
 from src.main.infra.domain import (
@@ -68,6 +71,8 @@ from src.main.modules.workflow.protocol import (
     WorkflowRunner,
 )
 
+
+_LOGGER = logging.getLogger(__name__)
 
 # ExecutionStatus 字符串 forward ref(具体枚举在 TASK-202/ExecutionStatus)。
 # 本类只消费字符串值,不使用具体枚举类型(避免循环 import)。
@@ -114,6 +119,62 @@ class DefaultWorkflowRunner(WorkflowRunner):
         self._registry = executor_registry
         self._uow = uow_factory
         self._settings = settings
+        # Concurrency guard: this runner is single-use per instance.
+        # Multiple concurrent calls to run() on the same instance would
+        # corrupt _results / _failed_nodes / _skipped_nodes / _chain_sessions
+        # (lost updates + interleaved node results). Callers MUST create
+        # a new WorkflowRunner instance per execution.
+        self._run_lock = asyncio.Lock()
+        self._started = False
+
+    # ──────────────────────────────────────────────────────────────────
+    # 内部辅助方法
+    # ──────────────────────────────────────────────────────────────────
+
+    async def _mark_execution_with_retry(
+        self,
+        execution_id: ExecutionId,
+        status: str,
+        trace_id: TraceId,
+    ) -> None:
+        """标记 execution 终态，带 3 次指数退避重试。
+
+        若 3 次重试均失败，记录 critical 日志并抛出原异常，
+        避免 execution 永久卡在 RUNNING / PENDING。
+        """
+        max_retries = self._settings.MAX_AGENT_RETRIES  # 3
+        base_delay = self._settings.RETRY_BASE_DELAY_SECONDS  # 1.0
+        backoff_factor = self._settings.RETRY_BACKOFF_FACTOR  # 2.0
+
+        for attempt in range(max_retries + 1):
+            try:
+                await self._recorder.mark_execution(
+                    execution_id=execution_id,
+                    status=status,
+                    trace_id=trace_id,
+                )
+                return
+            except Exception as exc:  # pragma: no cover
+                if attempt == max_retries:
+                    _LOGGER.critical(
+                        "mark_execution failed after %d retries: "
+                        "execution_id=%s status=%s error=%s",
+                        max_retries,
+                        execution_id,
+                        status,
+                        exc,
+                    )
+                    raise
+                delay = base_delay * (backoff_factor ** attempt)
+                _LOGGER.warning(
+                    "mark_execution attempt %d/%d failed: %s. "
+                    "Retrying in %.1fs...",
+                    attempt + 1,
+                    max_retries,
+                    exc,
+                    delay,
+                )
+                await asyncio.sleep(delay)
 
     # ──────────────────────────────────────────────────────────────────
     # 主入口
@@ -177,129 +238,139 @@ class DefaultWorkflowRunner(WorkflowRunner):
         # 同步代码段,不需要嵌套 token 模式;finally 块无条件 unbind。
         bind_contextvars(trace_id=str(trace_id))
         try:
-            # ── Step 2: 读 workflow ──
-            workflow = self._reader.get(workflow_id)
-            if workflow is None:
-                raise WorkflowNotFoundError(
-                    f"Workflow {workflow_id} not found",
-                    details={"workflow_id": str(workflow_id)},
+            # Concurrency guard: ensure single-use semantics. A WorkflowRunner
+            # instance must not be reused across coroutines because its mutable
+            # state (_results, _failed_nodes, etc.) is not coroutine-safe.
+            if self._started:
+                raise RuntimeError(
+                    "WorkflowRunner 实例不可复用,每次 run() 需创建新实例"
                 )
+            self._started = True
+            async with self._run_lock:
+                # ── Step 2: 读 workflow ──
+                workflow = self._reader.get(workflow_id)
+                if workflow is None:
+                    raise WorkflowNotFoundError(
+                        f"Workflow {workflow_id} not found",
+                        details={"workflow_id": str(workflow_id)},
+                    )
 
-            # ── Step 3: 初始化 runner 独占执行状态(Do Not #19) ──
-            self._results: dict[NodeId, NodeResult] = {}
-            self._failed_nodes: set[NodeId] = set()
-            self._skipped_nodes: set[NodeId] = set()
-            self._chain_sessions: dict[NodeId, SessionId] = {}
+                # ── Step 3: 初始化 runner 独占执行状态(Do Not #19) ──
+                self._results: dict[NodeId, NodeResult] = {}
+                self._failed_nodes: set[NodeId] = set()
+                self._skipped_nodes: set[NodeId] = set()
+                self._chain_sessions: dict[NodeId, SessionId] = {}
 
-            # ── Step 4: 创建 execution(显式传入则跳过) ──
-            if execution_id is None:
-                execution_id = await self._recorder.create_execution(
-                    workflow_id=workflow_id,
-                    params=params,
-                    trace_id=trace_id,
-                )
-
-            # ── Step 5: DAG 计算 ──
-            order = topological_sort(workflow.nodes, workflow.edges)
-            if not order:
-                # 拓扑排序返回空 = 存在环,ValidationError(由 recorder 上层处理)
-                from src.main.infra.errors import ValidationError
-
-                raise ValidationError(
-                    "Failed to compute topological order — possible cycle",
-                    details={"workflow_id": str(workflow_id)},
-                )
-
-            # ── Step 6: 前驱映射 ──
-            preds_map = build_predecessors(workflow.edges)
-
-            # ── Step 7: 拓扑驱动执行 ──
-            for node_id in order:
-                # 7a. 已失败 / 已跳过 → 跳过本节点
-                if node_id in self._failed_nodes or node_id in self._skipped_nodes:
-                    continue
-
-                # 7b. record_node_started(必调契约,PENDING → RUNNING)
-                await self._recorder.record_node_started(
-                    execution_id=execution_id,
-                    node_id=node_id,
-                    trace_id=trace_id,
-                )
-
-                # 7c. 创建 executor(每次新实例,Do Not #11)
-                node_obj = next(n for n in workflow.nodes if n.id == node_id)
-                executor = self._registry.create(
-                    node_obj.type,
-                    dispatcher=self._dispatcher,
-                    execution_recorder=self._recorder,
-                    trace_id=trace_id,
-                )
-
-                # 7d. 构造 NodeContext 只读快照
-                # results / chain_sessions 用 dict() 浅拷贝,执行器无法写回本 runner 状态
-                ctx: NodeContext = {
-                    "node": node_obj,
-                    "execution_id": execution_id,
-                    "predecessor_ids": preds_map.get(node_id, []),
-                    "params": params,
-                    "results": dict(self._results),
-                    "edges": workflow.edges,
-                    "trace_id": trace_id,
-                    "chain_sessions": dict(self._chain_sessions),
-                }
-
-                # 7e. 执行 + 记录
-                try:
-                    result = await executor.execute(ctx)
-                except FinAgentError as e:
-                    # 失败:记录 + 级联(Do Not #3:不静默吞)
-                    self._failed_nodes.add(node_id)
-                    await self._recorder.record_node_failed(
-                        execution_id=execution_id,
-                        node_id=node_id,
-                        error=e,
+                # ── Step 4: 创建 execution(显式传入则跳过) ──
+                if execution_id is None:
+                    execution_id = await self._recorder.create_execution(
+                        workflow_id=workflow_id,
+                        params=params,
                         trace_id=trace_id,
                     )
-                    # cascade skip(走 workflow.edges 而非 workflow,纯函数契约)
-                    for dn in find_downstream(node_id, workflow.edges):
-                        if dn not in self._failed_nodes:
-                            self._skipped_nodes.add(dn)
-                            await self._recorder.record_node_skipped(
-                                execution_id=execution_id,
-                                node_id=dn,
-                                trace_id=trace_id,
-                            )
-                    continue
 
-                # 成功:写 runner 状态 + 持久化
-                self._results[node_id] = result
-                if result.get("session_id"):
-                    self._chain_sessions[node_id] = result["session_id"]
-                await self._recorder.record_node_completed(
+                # ── Step 5: DAG 计算 ──
+                order = topological_sort(workflow.nodes, workflow.edges)
+                if not order:
+                    # 拓扑排序返回空 = 存在环,ValidationError(由 recorder 上层处理)
+                    from src.main.infra.errors import ValidationError
+
+                    raise ValidationError(
+                        "Failed to compute topological order — possible cycle",
+                        details={"workflow_id": str(workflow_id)},
+                    )
+
+                # ── Step 6: 前驱映射 ──
+                preds_map = build_predecessors(workflow.edges)
+
+                # ── Step 7: 拓扑驱动执行 ──
+                for node_id in order:
+                    # 7a. 已失败 / 已跳过 → 跳过本节点
+                    if node_id in self._failed_nodes or node_id in self._skipped_nodes:
+                        continue
+
+                    # 7b. record_node_started(必调契约,PENDING → RUNNING)
+                    await self._recorder.record_node_started(
+                        execution_id=execution_id,
+                        node_id=node_id,
+                        trace_id=trace_id,
+                    )
+
+                    # 7c. 创建 executor(每次新实例,Do Not #11)
+                    node_obj = next(n for n in workflow.nodes if n.id == node_id)
+                    executor = self._registry.create(
+                        node_obj.type,
+                        dispatcher=self._dispatcher,
+                        execution_recorder=self._recorder,
+                        trace_id=trace_id,
+                    )
+
+                    # 7d. 构造 NodeContext 只读快照
+                    # results / chain_sessions / failed_nodes 用浅拷贝,执行器无法写回。
+                    ctx: NodeContext = {
+                        "node": node_obj,
+                        "execution_id": execution_id,
+                        "predecessor_ids": preds_map.get(node_id, []),
+                        "params": params,
+                        "results": dict(self._results),
+                        "edges": workflow.edges,
+                        "trace_id": trace_id,
+                        "chain_sessions": dict(self._chain_sessions),
+                        "failed_nodes": set(self._failed_nodes),  # T-5
+                    }
+
+                    # 7e. 执行 + 记录
+                    try:
+                        result = await executor.execute(ctx)
+                    except FinAgentError as e:
+                        # 失败:记录 + 级联(Do Not #3:不静默吞)
+                        self._failed_nodes.add(node_id)
+                        await self._recorder.record_node_failed(
+                            execution_id=execution_id,
+                            node_id=node_id,
+                            error=e,
+                            trace_id=trace_id,
+                        )
+                        # cascade skip(走 workflow.edges 而非 workflow,纯函数契约)
+                        for dn in find_downstream(node_id, workflow.edges):
+                            if dn not in self._failed_nodes:
+                                self._skipped_nodes.add(dn)
+                                await self._recorder.record_node_skipped(
+                                    execution_id=execution_id,
+                                    node_id=dn,
+                                    trace_id=trace_id,
+                                )
+                        continue
+
+                    # 成功:写 runner 状态 + 持久化
+                    self._results[node_id] = result
+                    if result.get("session_id"):
+                        self._chain_sessions[node_id] = result["session_id"]
+                    await self._recorder.record_node_completed(
+                        execution_id=execution_id,
+                        node_id=node_id,
+                        output={"result": result["output"]},
+                        session_id=result.get("session_id"),
+                        trace_id=trace_id,
+                    )
+
+                # ── Step 8: 标记 execution 终态（带 3 次指数退避重试）──
+                final_status = _STATUS_FAILED if self._failed_nodes else _STATUS_COMPLETED
+                await self._mark_execution_with_retry(
                     execution_id=execution_id,
-                    node_id=node_id,
-                    output={"result": result["output"]},
-                    session_id=result.get("session_id"),
+                    status=final_status,
                     trace_id=trace_id,
                 )
 
-            # ── Step 8: 标记 execution 终态 ──
-            final_status = _STATUS_FAILED if self._failed_nodes else _STATUS_COMPLETED
-            await self._recorder.mark_execution(
-                execution_id=execution_id,
-                status=final_status,
-                trace_id=trace_id,
-            )
-
-            # ── Step 9: 返回 ExecutionSummary ──
-            return {
-                "execution_id": execution_id,
-                "workflow_id": workflow_id,
-                "status": final_status,
-                "results": self._results,
-                "failed_nodes": list(self._failed_nodes),
-                "skipped_nodes": list(self._skipped_nodes),
-            }
+                # ── Step 9: 返回 ExecutionSummary ──
+                return {
+                    "execution_id": execution_id,
+                    "workflow_id": workflow_id,
+                    "status": final_status,
+                    "results": self._results,
+                    "failed_nodes": list(self._failed_nodes),
+                    "skipped_nodes": list(self._skipped_nodes),
+                }
         finally:
             # ── Step 10: unbind contextvars ──
             unbind_contextvars("trace_id")

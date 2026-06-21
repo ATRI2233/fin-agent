@@ -26,9 +26,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+from functools import partial
 from pathlib import Path
 from typing import Any, Literal
 
@@ -235,7 +237,7 @@ async def get_scope_prefs(request: Request) -> dict:
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
     prefs_path = project_root / ".opencode" / ".scope_prefs.json"
-    data = _read_json_or_jsonc(prefs_path)
+    data = await asyncio.to_thread(_read_json_or_jsonc, prefs_path)
     return ApiResponse.success(data, current_trace_id()).to_dict()
 
 
@@ -252,9 +254,9 @@ async def put_scope_prefs(body: ScopePrefsUpdate, request: Request) -> dict:
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
     prefs_path = project_root / ".opencode" / ".scope_prefs.json"
-    existing = _read_json_or_jsonc(prefs_path)
+    existing = await asyncio.to_thread(_read_json_or_jsonc, prefs_path)
     merged = {**existing, **body.model_dump()}
-    _write_json(prefs_path, merged)
+    await asyncio.to_thread(_write_json, prefs_path, merged)
     return ApiResponse.success(
         WriteResult(success=True, path=str(prefs_path)).model_dump(),
         current_trace_id(),
@@ -278,8 +280,8 @@ async def get_config(
     """
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
-    target_path, source = _resolve_file_path(file, scope, project_root)
-    data = _read_json_or_jsonc(target_path)
+    target_path, source = await asyncio.to_thread(_resolve_file_path, file, scope, project_root)
+    data = await asyncio.to_thread(_read_json_or_jsonc, target_path)
     payload = {**data, "_meta": {"source": source, "path": str(target_path)}}
     return ApiResponse.success(payload, current_trace_id()).to_dict()
 
@@ -309,10 +311,10 @@ async def put_config(
 
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
-    target_path, source = _resolve_file_path(
-        file, scope, project_root, require_scope=True
+    target_path, source = await asyncio.to_thread(
+        partial(_resolve_file_path, file, scope, project_root, require_scope=True)
     )
-    _write_json(target_path, body)
+    await asyncio.to_thread(_write_json, target_path, body)
     return ApiResponse.success(
         WriteResult(success=True, path=str(target_path), source=source).model_dump(),
         current_trace_id(),

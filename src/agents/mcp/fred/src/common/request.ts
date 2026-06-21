@@ -3,6 +3,26 @@ import { z } from "zod";
 const BASE_URL = "https://api.stlouisfed.org/fred";
 
 /**
+ * Custom error thrown when FRED_API_KEY is not configured.
+ * Callers can catch this specific error type to return a friendly
+ * user-facing response instead of an unhandled exception.
+ */
+export class FREDConfigError extends Error {
+  readonly name = "FREDConfigError";
+  constructor(message: string = "FRED_API_KEY not configured") {
+    super(message);
+  }
+}
+
+// Warn once at module load if API key is missing, but do not crash the process.
+if (!process.env.FRED_API_KEY) {
+  console.warn(
+    "[FRED] FRED_API_KEY not set. Tools will return error responses; " +
+    "set FRED_API_KEY in .env or opencode config to enable."
+  );
+}
+
+/**
  * Utility for making requests to the FRED API
  */
 export const makeRequest = async <T>(
@@ -10,7 +30,9 @@ export const makeRequest = async <T>(
   queryParams: Record<string, string | number | boolean> = {}
 ): Promise<T> => {
   if (!process.env.FRED_API_KEY) {
-    throw new Error("FRED_API_KEY not set. Set it in .env or opencode config (fred-mcp-server env).");
+    throw new FREDConfigError(
+      "FRED_API_KEY not set. Set it in .env or opencode config (fred-mcp-server env)."
+    );
   }
   const apiKey = process.env.FRED_API_KEY;
 
@@ -171,7 +193,19 @@ export async function fetchFREDSeriesData(
       }]
     };
   } catch (error) {
-    // Handle all error types uniformly for better error messages
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
+    // Handle all other error types uniformly for better error messages
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to retrieve ${seriesId} data: ${errorMessage}`);
   }

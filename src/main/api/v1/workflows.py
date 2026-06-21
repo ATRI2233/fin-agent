@@ -56,23 +56,23 @@ class WorkflowCreate(BaseModel):
         status: 工作流状态字符串。
     """
 
-    name: str
-    nodes: list[dict] = Field(default_factory=list)
-    edges: list[dict] = Field(default_factory=list)
-    trigger_type: str = "manual"
-    config: dict = Field(default_factory=dict)
-    status: str = "draft"
+    name: str = Field(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_\-\.]+$")
+    nodes: list[dict] = Field(default_factory=list, max_length=500)
+    edges: list[dict] = Field(default_factory=list, max_length=500)
+    trigger_type: str = Field(default="manual", max_length=64)
+    config: dict = Field(default_factory=dict, max_length=100)
+    status: str = Field(default="draft", max_length=64)
 
 
 class WorkflowUpdate(BaseModel):
     """更新工作流的请求体(部分字段)。"""
 
-    name: str | None = None
-    nodes: list[dict] | None = None
-    edges: list[dict] | None = None
-    trigger_type: str | None = None
-    config: dict | None = None
-    status: str | None = None
+    name: str | None = Field(default=None, max_length=64)
+    nodes: list[dict] | None = Field(default=None, max_length=500)
+    edges: list[dict] | None = Field(default=None, max_length=500)
+    trigger_type: str | None = Field(default=None, max_length=64)
+    config: dict | None = Field(default=None, max_length=100)
+    status: str | None = Field(default=None, max_length=64)
 
 
 class WorkflowTrigger(BaseModel):
@@ -83,7 +83,7 @@ class WorkflowTrigger(BaseModel):
             业务字段由调用方契约保证。
     """
 
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict, max_length=100)
 
 
 # ── Helpers ──

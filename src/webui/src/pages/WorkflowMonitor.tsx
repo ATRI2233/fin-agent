@@ -74,19 +74,20 @@ interface Props {
  * envelope (we only know `workflow_id` after the first poll).
  */
 function MonitorCanvas({
+  workflowId,
   execNodes,
   selectedNodeId,
   onSelectNode,
 }: {
+  workflowId: string | null;
   execNodes: ApiNodeExec[];
   selectedNodeId: string | null;
   onSelectNode: (id: string | null) => void;
 }) {
-  const firstNode = execNodes[0];
-  // The workflow_id is on the ApiNodeExec in the wire payload; use the first
-  // node's workflow binding if present, otherwise fall back to a static id
-  // derived from node_id. The hook is best-effort here.
-  const { data: workflow } = useWorkflow(firstNode?.node_id ?? null);
+  // useWorkflow expects a workflow UUID (→ GET /workflows/{id}). The parent
+  // passes the resolved workflow_id from the execution envelope; falling back
+  // to a node_id here would 404 since the workflow router keys on workflow id.
+  const { data: workflow } = useWorkflow(workflowId);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -291,6 +292,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
         <div style={{ flex: 1, position: 'relative' }}>
           {view === 'dag' ? (
             <MonitorCanvas
+              workflowId={execution.workflow_id ?? null}
               execNodes={execNodes}
               selectedNodeId={selectedNodeId}
               onSelectNode={setSelectedNodeId}

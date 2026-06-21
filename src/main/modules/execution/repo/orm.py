@@ -35,7 +35,9 @@ class WorkflowExecutionORM(Base):
     __tablename__ = "workflow_executions"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    workflow_id: Mapped[str] = mapped_column(String, nullable=False)
+    workflow_id: Mapped[str] = mapped_column(
+        String, nullable=False, index=True
+    )
     status: Mapped[str] = mapped_column(String, nullable=False)
     params: Mapped[dict] = mapped_column(JSON, nullable=False)
     trace_id: Mapped[str] = mapped_column(Text, nullable=False)
@@ -55,9 +57,14 @@ class ExecutionNodeORM(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     execution_id: Mapped[str] = mapped_column(
-        String, ForeignKey("workflow_executions.id"), nullable=False
+        String,
+        ForeignKey("workflow_executions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    node_id: Mapped[str] = mapped_column(String, nullable=False)
+    node_id: Mapped[str] = mapped_column(
+        String, nullable=False, index=True
+    )
     agent: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     input: Mapped[dict] = mapped_column(JSON, nullable=False)
@@ -81,12 +88,17 @@ class ExecutionLogORM(Base):
     __tablename__ = "execution_logs"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    execution_id: Mapped[str] = mapped_column(
-        String, ForeignKey("workflow_executions.id"), nullable=False
+    execution_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("workflow_executions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     node_id: Mapped[str | None] = mapped_column(String, nullable=True)
     agent_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    event: Mapped[str] = mapped_column(String, nullable=False)
+    event: Mapped[str] = mapped_column(
+        String, nullable=False, index=True
+    )
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     trace_id: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

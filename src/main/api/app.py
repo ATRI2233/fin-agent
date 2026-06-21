@@ -23,10 +23,13 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from src.main.infra.api_envelope import ApiResponse
 from src.main.infra.di import Registry
 from src.main.infra.logging import configure_logging, get_logger
 from src.main.infra.settings import Settings
+from src.main.infra.tracing import current_trace_id
 
 
 # ── Lifespan ──
@@ -80,10 +83,17 @@ def create_app(
     from src.main.api.middleware.trace import register_trace_middleware
     from src.main.api.v1 import (
         agents,
+        config,
         conversations,
         executions,
         mcp,
+        skills,
         workflows,
+        # 新增4个router
+        rules,
+        providers,
+        permissions,
+        tools,
     )
     from src.main.api.v1._legacy_compat import LegacyEnvelopeMiddleware
 
@@ -96,6 +106,14 @@ def create_app(
     app.state.registry = registry
 
     # ── Middleware (注册顺序敏感) ──
+    # 0. CORS — 放最外层,允许所有 origin (前端 dev server: 5173, 9876 等)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     # 1. TracingMiddleware 先注入 trace_id
     register_trace_middleware(app, settings)
     # 2. ExceptionHandlers 包装 FinAgentError / Validation / Exception
@@ -104,10 +122,24 @@ def create_app(
     app.add_middleware(LegacyEnvelopeMiddleware)
 
     # ── v1 routers ──
+    @app.get("/api/v1/health")
+    def _health():
+        return ApiResponse.success(
+            data={"status": "ok", "version": "2.1"},
+            trace_id=current_trace_id(),
+        )
+
     app.include_router(workflows.router)
     app.include_router(executions.router)
     app.include_router(agents.router)
     app.include_router(mcp.router)
     app.include_router(conversations.router)
+    app.include_router(config.router)
+    app.include_router(skills.router)
+    # 新增4个router
+    app.include_router(rules.router)
+    app.include_router(providers.router)
+    app.include_router(permissions.router)
+    app.include_router(tools.router)
 
     return app

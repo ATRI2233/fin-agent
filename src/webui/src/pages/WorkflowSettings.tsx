@@ -29,10 +29,10 @@ interface WorkflowSettings {
   id: string;
   name: string;
   description?: string;
-  triggerType: WorkflowTriggerType;
-  commandString?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  trigger_type: WorkflowTriggerType;
+  config?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
@@ -116,17 +116,17 @@ export default function WorkflowSettings() {
 function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings; onSaved: () => void }) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
-  const [triggerType, setTriggerType] = useState<WorkflowTriggerType>(w.triggerType || 'manual');
+  const [triggerType, setTriggerType] = useState<WorkflowTriggerType>(w.trigger_type || 'manual');
   const updateMutation = useUpdateWorkflow();
 
   useEffect(() => {
     form.setFieldsValue({
       name: w.name,
-      triggerType: w.triggerType,
-      commandString: w.commandString,
+      trigger_type: w.trigger_type,
+      config: w.config,
     });
-    setTriggerType(w.triggerType || 'manual');
-  }, [w.id, w.name, w.triggerType, w.commandString, form]);
+    setTriggerType(w.trigger_type || 'manual');
+  }, [w.id, w.name, w.trigger_type, w.config, form]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -151,7 +151,7 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
       title={
         <Space>
           <span>{w.name}</span>
-          {w.triggerType === 'command' && (
+          {w.trigger_type === 'command' && (
             <Tag color="processing" icon={<ThunderboltOutlined />}>
               命令触发
             </Tag>
@@ -187,20 +187,20 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
 
         {triggerType === 'command' && (
           <Form.Item
-            name="commandString"
+            name={['config', 'command']}
             label="命令字符串"
-            initialValue={w.commandString}
+            initialValue={w.config?.command as string | undefined}
           >
             <Input placeholder="e.g. /workflow/my-workflow" />
           </Form.Item>
         )}
 
         <Descriptions column={1} size="small" style={{ marginTop: 8 }}>
-          {w.createdAt && (
-            <Descriptions.Item label="创建时间">{w.createdAt}</Descriptions.Item>
+          {w.created_at && (
+            <Descriptions.Item label="创建时间">{w.created_at}</Descriptions.Item>
           )}
-          {w.updatedAt && (
-            <Descriptions.Item label="更新时间">{w.updatedAt}</Descriptions.Item>
+          {w.updated_at && (
+            <Descriptions.Item label="更新时间">{w.updated_at}</Descriptions.Item>
           )}
         </Descriptions>
       </Form>

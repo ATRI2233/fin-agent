@@ -1,9 +1,9 @@
 /**
  * FRED Series Data API Client
- * 
+ *
  * Provides functionality for fetching series data and metadata
  */
-import { makeRequest, SeriesObservationsResponse } from "../common/request.js";
+import { makeRequest, FREDConfigError, SeriesObservationsResponse } from "../common/request.js";
 import { getSeriesInfo } from "./search.js";
 
 /**
@@ -93,6 +93,18 @@ export async function getSeriesData(options: FREDSeriesOptions) {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to retrieve series data: ${error.message}`);
     }

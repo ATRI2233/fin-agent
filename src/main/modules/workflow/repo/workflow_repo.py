@@ -10,6 +10,8 @@ domain 层对象。
 
 from __future__ import annotations
 
+from typing import Callable
+
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.main.infra.domain import NodeId, WorkflowId
@@ -28,7 +30,7 @@ class SqlAlchemyWorkflowRepository(WorkflowReader):
         session_factory: ``sessionmaker`` 工厂,用于创建 Session 实例。
     """
 
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(self, session_factory: Callable[[], Session] | sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
     def get(self, workflow_id: WorkflowId) -> Workflow | None:
@@ -43,16 +45,13 @@ class SqlAlchemyWorkflowRepository(WorkflowReader):
         Raises:
             WorkflowNotFoundError: 工作流不存在。
         """
-        session: Session = self._session_factory()
-        try:
+        with self._session_factory() as session:
             row = session.query(WorkflowORM).filter_by(id=str(workflow_id)).first()
             if row is None:
                 raise WorkflowNotFoundError(
                     f"workflow {workflow_id} not found",
                 )
             return self._to_domain(row)
-        finally:
-            session.close()
 
     def list(
         self,
@@ -69,8 +68,7 @@ class SqlAlchemyWorkflowRepository(WorkflowReader):
         Returns:
             ``Workflow`` 领域对象列表。
         """
-        session: Session = self._session_factory()
-        try:
+        with self._session_factory() as session:
             rows = (
                 session.query(WorkflowORM)
                 .order_by(WorkflowORM.updated_at.desc())
@@ -79,8 +77,6 @@ class SqlAlchemyWorkflowRepository(WorkflowReader):
                 .all()
             )
             return [self._to_domain(r) for r in rows]
-        finally:
-            session.close()
 
     @staticmethod
     def _to_domain(row: WorkflowORM) -> Workflow:

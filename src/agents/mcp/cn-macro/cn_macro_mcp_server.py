@@ -43,14 +43,14 @@ TOOLS = [
     },
     {
         "name": "cn_macro_rates",
-        "description": "中国利率数据：10年期国债收益率、LPR、MLF、公开市场操作",
+        "description": "中国利率数据：10年期国债收益率、LPR、公开市场操作",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "indicator": {
                     "type": "string",
-                    "enum": ["bond_yield_10y", "lpr", "mlf", "omo"],
-                    "description": "指标类型：bond_yield_10y=10年期国债, lpr=LPR, mlf=MLF利率, omo=公开市场操作",
+                    "enum": ["bond_yield_10y", "lpr", "omo"],
+                    "description": "指标类型：bond_yield_10y=10年期国债, lpr=LPR, omo=公开市场操作",
                 },
                 "periods": {
                     "type": "number",
@@ -103,14 +103,14 @@ TOOLS = [
     },
     {
         "name": "cn_macro_industry",
-        "description": "中国工业数据：工业增加值、粗钢产量",
+        "description": "中国工业数据：工业增加值",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "indicator": {
                     "type": "string",
-                    "enum": ["industrial_output", "crude_steel"],
-                    "description": "指标类型：industrial_output=工业增加值, crude_steel=粗钢产量",
+                    "enum": ["industrial_output"],
+                    "description": "指标类型：industrial_output=工业增加值",
                 },
                 "periods": {
                     "type": "number",
@@ -224,14 +224,7 @@ def get_cn_macro_rates(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "mlf":
-            df = ak.macro_china_lpr()
-            df = df.tail(periods)
-            return {
-                "indicator": "MLF/LPR利率",
-                "unit": "%",
-                "note": "akshare 无独立 MLF 接口，返回 LPR 数据（LPR 以 MLF 利率为定价基准）。RATE_1/RATE_2 为历史贷款基准利率",
-                "data": df.to_dict(orient="records"),
-            }
+            raise ValueError("MLF 数据源不可用，已从工具列表中移除")
         elif indicator == "omo":
             df = ak.macro_china_shibor_all()
             df = df.tail(periods)
@@ -314,9 +307,7 @@ def get_cn_macro_industry(indicator, periods=12):
                 "data": df.to_dict(orient="records"),
             }
         elif indicator == "crude_steel":
-            return {
-                "error": "粗钢产量数据源不可用：akshare 未提供粗钢产量专用接口（macro_china_gdp 返回的是 GDP 而非粗钢数据）。建议使用国家统计局或 Wind 数据源获取粗钢产量。",
-            }
+            raise ValueError("粗钢产量数据源已下线")
         else:
             return {"error": f"Unknown indicator: {indicator}"}
     except Exception as e:

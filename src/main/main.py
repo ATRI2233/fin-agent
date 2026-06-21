@@ -11,6 +11,7 @@ from __future__ import annotations
 from src.main.infra.settings import Settings
 from src.main.infra.di import Registry
 from src.main.infra.db import Base, create_engine, get_session_local
+from src.main.infra.db_migration import check_and_apply_migrations  # TASK-013-migration
 from src.main.infra.uow import SqlAlchemyUoWFactory, UoWFactory
 from src.main.infra.errors import ConfigError
 
@@ -64,12 +65,11 @@ def build_registry(settings: Settings) -> Registry:
 
     reg = Registry()
     engine = create_engine(settings)
-    # Auto-create tables for fresh databases.
-    # NOTE: If you have an existing dev database with old schema columns
-    # (e.g. hapi_session_id / current_agent), delete the .db file and
-    # restart so tables are recreated with the current ORM definition.
-    # This call is idempotent for tables that already exist.
-    Base.metadata.create_all(bind=engine)
+    # ── Database migration check (replaces DEV DROP + create_all) ──
+    # Alembic manages schema evolution safely. New DBs are stamped to baseline
+    # then upgraded; stale DBs raise ConfigError unless FIN_AGENT_AUTO_MIGRATE=1.
+    # If alembic is not installed, falls back to Base.metadata.create_all().
+    check_and_apply_migrations(engine)
     session_local = get_session_local(engine)
 
     reg.register_singleton(Settings, lambda r: settings)
@@ -101,7 +101,10 @@ def build_registry(settings: Settings) -> Registry:
     reg.register_singleton(ExecutionStateReader, lambda r: SqlAlchemyExecutionReader(session_local))
 
     # ── workflow ──
-    reg.register_singleton(WorkflowReader, lambda r: SqlAlchemyWorkflowRepository(session_local))
+    # SqlAlchemyWorkflowRepository 同时实现 WorkflowReader;WorkflowQueryService
+    # 内部既需要 reader(读)也需要 repo(写),复用同一实例保证 session 生命周期一致。
+    workflow_repo_factory = SqlAlchemyWorkflowRepository
+    reg.register_singleton(WorkflowReader, lambda r: workflow_repo_factory(session_local))
     reg.register_singleton(NodeExecutorFactory, lambda r: NodeExecutorRegistry())
     reg.register_singleton(WorkflowRunner, lambda r: DefaultWorkflowRunner(
         reader=r.resolve(WorkflowReader),
@@ -119,15 +122,26 @@ def build_registry(settings: Settings) -> Registry:
         dispatcher=r.resolve(AgentDispatcher),
         settings=settings,
         circuit_breaker=r.resolve(CircuitBreaker)))  # 修订 T-2: 第 5 个必填参数
+    # 修订 T-3: 注册 WorkflowQueryService —— 之前漏注册导致
+    # /api/v1/workflows/{id}/trigger 报 500 (Depends 找不到 service)。
+    # __init__ 签名: (reader, repo, uow_factory)
+    # WorkflowReader 协议 + SqlAlchemyWorkflowRepository 实现 + UoWFactory
+    from src.main.modules.workflow.service.workflow_query_service import WorkflowQueryService
+    reg.register_singleton(WorkflowQueryService, lambda r: WorkflowQueryService(
+        reader=r.resolve(WorkflowReader),
+        repo=workflow_repo_factory(session_local),
+        uow_factory=r.resolve(UoWFactory),
+    ))
 
     # ── conversation ──
     reg.register_singleton(ConversationService, lambda r: DefaultConversationService(
-        repo=SqlAlchemyConversationRepository(r.resolve(UoWFactory))))
+        repo=SqlAlchemyConversationRepository(session_local)))
 
     # ── monitoring (修订 T-10) ──
     reg.register_singleton(DBHealthProbe, lambda r: DBHealthProbe(settings))
 
     return reg
+
 
 
 def main() -> None:

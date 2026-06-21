@@ -82,7 +82,12 @@ else { Write-Host " Not found" -ForegroundColor Red; exit 1 }
 
 # Check opencode binary
 Write-Host "[Check] opencode..." -NoNewline
-$ocBin = Join-Path $PROJECT_ROOT "src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+if ($IsWindows) {
+    $ocBinName = "opencode.exe"
+} else {
+    $ocBinName = "opencode"
+}
+$ocBin = Join-Path $PROJECT_ROOT "src/agents/opencode/node_modules/opencode-ai/bin/$ocBinName"
 if (Test-Path $ocBin) { Write-Host " OK" -ForegroundColor Green }
 else { Write-Host " Not found at $ocBin" -ForegroundColor Red }
 
@@ -90,7 +95,12 @@ Write-Host ""
 
 # Start opencode serve
 Write-Host "[1/3] opencode serve (port 4096)..." -ForegroundColor Yellow
-$ocBin = Join-Path $PROJECT_ROOT "src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+if ($IsWindows) {
+    $ocBinName = "opencode.exe"
+} else {
+    $ocBinName = "opencode"
+}
+$ocBin = Join-Path $PROJECT_ROOT "src/agents/opencode/node_modules/opencode-ai/bin/$ocBinName"
 if (Test-Path $ocBin) {
     $p = Start-Process -FilePath $ocBin -ArgumentList "serve", "--port", "4096" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
     $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8

@@ -120,6 +120,47 @@ export type WorkflowNode =
   | InputNode
   | OutputNode;
 
+/* ─── Type guards / adapters (editor ↔ domain) ────────────────────────── */
+
+/**
+ * Type guard for editor-side `WorkflowNode` (the ReactFlow discriminated
+ * union declared above). The canonical domain `WorkflowNode` (see
+ * `domain/workflow.ts`) is a permissive record with `[key: string]: unknown`,
+ * so we narrow it on the editor's strict shape at the hydration boundary.
+ */
+function isWorkflowNode(n: unknown): n is WorkflowNode {
+  if (typeof n !== 'object' || n === null) return false;
+  const obj = n as Record<string, unknown>;
+  if (typeof obj.id !== 'string') return false;
+  const t = obj.type;
+  return (
+    t === 'agent' ||
+    t === 'debate' ||
+    t === 'workflow-block' ||
+    t === 'input' ||
+    t === 'output'
+  );
+}
+
+/** Narrow a `unknown[]` (or `undefined`) to `WorkflowNode[]`. */
+function toWorkflowNodes(raw: unknown): WorkflowNode[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isWorkflowNode);
+}
+
+/** Type guard for editor-side `WorkflowEdge`. */
+function isWorkflowEdge(e: unknown): e is WorkflowEdge {
+  if (typeof e !== 'object' || e === null) return false;
+  const obj = e as Record<string, unknown>;
+  return typeof obj.source === 'string' && typeof obj.target === 'string';
+}
+
+/** Narrow a `unknown[]` (or `undefined`) to `WorkflowEdge[]`. */
+function toWorkflowEdges(raw: unknown): WorkflowEdge[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isWorkflowEdge);
+}
+
 /* ─── Orchestrator ─────────────────────────────────────────────────────── */
 
 export default function WorkflowEditor() {
@@ -172,7 +213,7 @@ function WorkflowEditorInner() {
     }
     if (!workflow) return;
     // Deduplicate nodes by id (safety net for legacy data with duplicates)
-    const rawNodes = (workflow.nodes ?? []) as unknown as WorkflowNode[];
+    const rawNodes = toWorkflowNodes(workflow.nodes);
     const seenIds = new Set<string>();
     const dedupedNodes = rawNodes.filter((n) => {
       if (seenIds.has(n.id)) return false;
@@ -180,7 +221,7 @@ function WorkflowEditorInner() {
       return true;
     });
     setNodes(dedupedNodes);
-    setEdges((workflow.edges ?? []) as unknown as WorkflowEdge[]);
+    setEdges(toWorkflowEdges(workflow.edges));
     setWorkflowName(workflow.name ?? 'Workflow');
   }, [workflow, id, setNodes, setEdges]);
 

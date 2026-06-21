@@ -24,10 +24,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.main.api.deps import service_dep
 from src.main.api.v1.config import (
@@ -53,18 +54,18 @@ class ToolConfig(BaseModel):
     对应 ``9876-shape-snapshot.md`` 中的 ToolConfig 定义。
     """
 
-    name: str
-    description: str | None = None
+    name: str = Field(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_\-\.]+$")
+    description: str | None = Field(default=None, max_length=500)
     enabled: bool
     source: Literal["builtin", "mcp", "custom"]
-    mcpServer: str | None = None
+    mcpServer: str | None = Field(default=None, max_length=500)
 
 
 class ToolUpdateResult(BaseModel):
     """更新工具配置响应结构。"""
 
     success: bool
-    name: str
+    name: str = Field(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_\-\.]+$")
     config: ToolConfig
 
 
@@ -80,8 +81,8 @@ async def get_tools(request: Request) -> dict:
     """
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
-    target_path, _source = _resolve_file_path("opencode", None, project_root)
-    data = _read_json_or_jsonc(target_path)
+    target_path, _source = await asyncio.to_thread(_resolve_file_path, "opencode", None, project_root)
+    data = await asyncio.to_thread(_read_json_or_jsonc, target_path)
     tools = data.get("tools")
     if not isinstance(tools, dict):
         tools = {}
@@ -105,8 +106,8 @@ async def update_tool(name: str, body: ToolConfig, request: Request) -> dict:
 
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
-    target_path, _source = _resolve_file_path("opencode", None, project_root)
-    data = _read_json_or_jsonc(target_path)
+    target_path, _source = await asyncio.to_thread(_resolve_file_path, "opencode", None, project_root)
+    data = await asyncio.to_thread(_read_json_or_jsonc, target_path)
 
     # 确保 tools 字段存在且为 dict
     if not isinstance(data.get("tools"), dict):
@@ -115,7 +116,7 @@ async def update_tool(name: str, body: ToolConfig, request: Request) -> dict:
     # 合并配置，强制使用路径参数中的 name（与 Express 行为一致）
     merged_config = {**body.model_dump(), "name": name}
     data["tools"][name] = merged_config
-    _write_json(target_path, data)
+    await asyncio.to_thread(_write_json, target_path, data)
 
     result = ToolUpdateResult(
         success=True,
@@ -128,7 +129,7 @@ async def update_tool(name: str, body: ToolConfig, request: Request) -> dict:
 # ── Catalog-derived endpoints ──
 
 
-def _collect_allowed_names_from_config(request: Request) -> set[str]:
+async def _collect_allowed_names_from_config(request: Request) -> set[str]:
     """直接读 opencode.json 的 ``agent.*.tools`` 字段,汇总所有被允许的工具全名。
 
     这是 ``tools/allowed`` 和 ``tools/allowed-tools`` 的统一数据源,避免
@@ -142,8 +143,8 @@ def _collect_allowed_names_from_config(request: Request) -> set[str]:
     """
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
-    target_path, _source = _resolve_file_path("opencode", None, project_root)
-    data = _read_json_or_jsonc(target_path)
+    target_path, _source = await asyncio.to_thread(_resolve_file_path, "opencode", None, project_root)
+    data = await asyncio.to_thread(_read_json_or_jsonc, target_path)
     agent_section = data.get("agent", {})
     if not isinstance(agent_section, dict):
         return set()
@@ -169,7 +170,7 @@ async def list_allowed_tools(request: Request) -> dict:
     Returns:
         ``ApiResponse`` 信封，``data`` 为 ``list[str]``（已排序）。
     """
-    allowed = _collect_allowed_names_from_config(request)
+    allowed = await _collect_allowed_names_from_config(request)
     return ApiResponse.success(sorted(allowed), current_trace_id()).to_dict()
 
 
@@ -203,7 +204,7 @@ async def list_allowed_tools_detailed(
     Returns:
         ``ApiResponse`` 信封，``data`` 为 ``list[dict]``。
     """
-    allowed = _collect_allowed_names_from_config(request)
+    allowed = await _collect_allowed_names_from_config(request)
     if not allowed:
         return ApiResponse.success([], current_trace_id()).to_dict()
     # 构造 (server, tool_name) → description 反查表

@@ -16,14 +16,23 @@ import type { Agent } from '../../../domain/agent';
  *
  * Mirrors the original `AgentMeta` declaration in `AgentsPage.tsx`,
  * with the additional `filePath` field that the framework summary does
- * not surface. The `as unknown as AgentMeta[]` cast at the bottom of
- * this file preserves the existing column shape without forcing a
- * refactor of the table props; a follow-up can either drop the column
- * or extend the framework summary to include the source path.
+ * not surface.
  */
 export interface AgentMeta extends Pick<Agent, 'name' | 'description' | 'mode'> {
   /** Local source path; framework summary does not include this. */
   filePath?: string;
+}
+
+/**
+ * Adapter: canonical `Agent` → page-level `AgentMeta`.
+ * Drops the optional registry-only fields the table does not display.
+ */
+function toAgentMeta(agent: Agent): AgentMeta {
+  return {
+    name: agent.name,
+    description: agent.description,
+    mode: agent.mode,
+  };
 }
 
 export interface UseAgentsResult {
@@ -44,7 +53,7 @@ export function useAgentsPage(): UseAgentsResult {
       list.map((agent) =>
         fetchAllowedTools(agent.name)
           .then((whitelist) => ({ name: agent.name, count: whitelist.length }))
-          .catch(() => ({ name: agent.name, count: undefined as unknown as number })),
+          .catch(() => ({ name: agent.name, count: undefined as number | undefined })),
       ),
     );
     const counts: Record<string, number> = {};
@@ -61,7 +70,7 @@ export function useAgentsPage(): UseAgentsResult {
   }, [data, fetchAllWhitelistCounts]);
 
   return {
-    agents: (data as unknown as AgentMeta[]) ?? [],
+    agents: (data ?? []).map(toAgentMeta),
     loading,
     error: error?.message ?? null,
     refetch,

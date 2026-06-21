@@ -298,19 +298,29 @@ class ServeBackend(AgentBackend):
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
-            error_msg = f"HTTP {e.response.status_code}: {e.response.text[:300]}"
-            self._history[session_id].append({
-                "role": "assistant",
-                "content": f"[Error: {error_msg}]",
-            })
-            raise RuntimeError(f"Agent '{agent}' error: {error_msg}") from e
+            sanitized_msg = f"HTTP {e.response.status_code}: opencode returned an error"
+            logger.warning(
+                "send_message HTTP error for session=%s agent=%s: %s (raw body: %r)",
+                session_id,
+                active_agent,
+                e.response.status_code,
+                e.response.text[:300],
+            )
+            raise RuntimeError(
+                f"Agent '{active_agent}' request failed (HTTP {e.response.status_code}). "
+                "See server logs for details."
+            ) from e
         except httpx.RequestError as e:
-            error_msg = f"Request failed: {e}"
-            self._history[session_id].append({
-                "role": "assistant",
-                "content": f"[Error: {error_msg}]",
-            })
-            raise RuntimeError(f"Agent '{agent}' error: {error_msg}") from e
+            logger.warning(
+                "send_message request error for session=%s agent=%s: %s",
+                session_id,
+                active_agent,
+                e,
+            )
+            raise RuntimeError(
+                f"Agent '{active_agent}' request could not reach opencode serve. "
+                "See server logs for details."
+            ) from e
 
         # Parse response
         try:

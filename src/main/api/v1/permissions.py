@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 from pathlib import Path
@@ -110,7 +111,7 @@ async def get_permissions(request: Request) -> dict:
     """
     settings = request.app.state.settings
     project_root = _resolve_project_root(settings)
-    permissions = _get_permissions_config(project_root)
+    permissions = await asyncio.to_thread(_get_permissions_config, project_root)
     return ApiResponse.success(permissions, current_trace_id()).to_dict()
 
 
@@ -123,7 +124,7 @@ async def update_permissions(body: PermissionsConfig, request: Request) -> dict:
     """
     settings = request.app.state.settings
     project_root = _resolve_project_root(settings)
-    _save_permissions_config(project_root, body)
+    await asyncio.to_thread(_save_permissions_config, project_root, body)
     result = UpdateResult(success=True, permissions=body)
     return ApiResponse.success(
         result.model_dump(exclude_none=True), current_trace_id()

@@ -27,6 +27,9 @@ const TRACE_ID_HEADER = "X-Trace-Id";
 /** HTTP status code that indicates an empty body (RFC 7231 §6.3.5). */
 const HTTP_NO_CONTENT = 204;
 
+/** Default request timeout in milliseconds. */
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 /**
  * Join a base URL with a relative path, normalising duplicate or trailing
  * slashes so we never emit `//` segments or drop a meaningful leading slash.
@@ -113,16 +116,26 @@ async function request<T>(
     payload = JSON.stringify(body);
   }
 
-  const init: RequestInit = { method, headers };
+  // ── Default timeout: caller may override via their own AbortSignal ──
+  let effectiveSignal = signal;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let ctrl: AbortController | undefined;
+  if (!effectiveSignal) {
+    ctrl = new AbortController();
+    effectiveSignal = ctrl.signal;
+    timeoutId = setTimeout(() => {
+      ctrl!.abort();
+    }, DEFAULT_TIMEOUT_MS);
+  }
+
+  const init: RequestInit = { method, headers, signal: effectiveSignal };
   if (payload !== undefined) {
     init.body = payload;
   }
-  if (signal) {
-    init.signal = signal;
-  }
 
-  const response = await fetch(url, init);
-  const traceId = response.headers.get(TRACE_ID_HEADER) ?? undefined;
+  try {
+    const response = await fetch(url, init);
+    const traceId = response.headers.get(TRACE_ID_HEADER) ?? undefined;
 
   if (!response.ok) {
     const body = await readApiError(response);
@@ -131,6 +144,25 @@ async function request<T>(
 
   if (response.status === HTTP_NO_CONTENT) {
     return undefined as T;
+  }
+
+  // Strict content-type check — a 2xx response without a JSON
+  // Content-Type is almost always a misrouted proxy (HTML error page,
+  // plain-text 200 from a stale backend, etc.). Surfacing this as an
+  // ApiError prevents the silent "fall through and return rawJson as
+  // T" path below from masking routing bugs the way it did when
+  // `/api/skills` was being served by the OpenCode proxy instead of
+  // FastAPI. Anything expecting a JSON envelope should fail loudly
+  // here rather than return a non-object (e.g. a 4-element string)
+  // that the caller cannot parse.
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!contentType.toLowerCase().includes(JSON_CONTENT_TYPE)) {
+    throw new ApiError(response.status, {
+      code: -2,
+      message: `Unexpected Content-Type "${contentType}" — expected ${JSON_CONTENT_TYPE}`,
+      data: undefined,
+      trace_id: traceId ?? "unknown",
+    });
   }
 
   // 2xx with a body — parse envelope and unwrap.
@@ -245,6 +277,10 @@ export async function apiPutText(url: string, body: string, signal?: AbortSignal
   if (!response.ok) {
     const body = await readApiError(response);
     throw new ApiError(response.status, body);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 

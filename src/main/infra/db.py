@@ -44,6 +44,9 @@ def create_engine(settings: Settings) -> Engine:
     The engine is configured with:
 
     - ``pool_size`` from *settings*.
+    - ``max_overflow`` from *settings*.
+    - ``pool_timeout`` from *settings*.
+    - ``pool_pre_ping`` from *settings*.
     - ``check_same_thread=False`` (SQLite requirement for shared-thread access).
     - ``timeout`` from ``settings.DB_BUSY_TIMEOUT_MS``, converted to seconds.
     - A ``connect`` event listener that applies WAL + busy_timeout + synchronous
@@ -53,6 +56,7 @@ def create_engine(settings: Settings) -> Engine:
     ----------
     settings : Settings
         Application settings containing ``DATABASE_URL``, ``DB_POOL_SIZE``,
+        ``DB_POOL_MAX_OVERFLOW``, ``DB_POOL_TIMEOUT``, ``DB_POOL_PRE_PING``,
         and ``DB_BUSY_TIMEOUT_MS``.
 
     Returns
@@ -65,6 +69,9 @@ def create_engine(settings: Settings) -> Engine:
     engine = _sa_create_engine(
         settings.DATABASE_URL,
         pool_size=settings.DB_POOL_SIZE,
+        max_overflow=settings.DB_POOL_MAX_OVERFLOW,
+        pool_timeout=settings.DB_POOL_TIMEOUT,
+        pool_pre_ping=settings.DB_POOL_PRE_PING,
         connect_args={
             "check_same_thread": False,
             "timeout": timeout_seconds,

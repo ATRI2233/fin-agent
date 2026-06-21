@@ -48,34 +48,20 @@ export function useDashboardData(): DashboardData {
       {
         queryKey: ["opencode", "skills", "count"],
         queryFn: async () => {
-          // Single FastAPI round-trip — `/api/v1/skills/count` resolves
-          // the active scope server-side from `.scope_prefs.json`, so
-          // the dashboard no longer has to chain
-          // `/v1/config/scope` → `/skills?scope=...` (which used to
-          // bounce through the 9876 Express proxy and return a
-          // non-envelope JSON shape).
-          try {
-            const data = await apiGet<{ count: number; scope: string }>(
-              `${API_V1_BASE}/skills/count`,
-            );
-            return data.count;
-          } catch {
-            return 0;
-          }
+          const data = await apiGet<{ count: number; scope: string }>(
+            `${API_V1_BASE}/skills/count`,
+          );
+          return data.count;
         },
         refetchInterval: 30_000,
       },
       {
         queryKey: ["system", "health"],
         queryFn: async () => {
-          try {
-            await apiGet<{ status: string; version: string }>(
-              `${API_V1_BASE}/health`,
-            );
-            return true;
-          } catch {
-            return false;
-          }
+          await apiGet<{ status: string; version: string }>(
+            `${API_V1_BASE}/health`,
+          );
+          return true;
         },
         refetchInterval: 10_000,
       },

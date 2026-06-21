@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Layout, Menu, ConfigProvider, theme, Tooltip, Spin } from 'antd';
 import type { MenuProps } from 'antd';
@@ -18,7 +18,6 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   SendOutlined,
-  DatabaseOutlined,
 } from '@ant-design/icons';
 import './styles/theme.css';
 
@@ -60,11 +59,6 @@ const menuItems: MenuItem[] = [
     label: <Link to="/chat">Chat</Link>,
   },
   {
-    key: '/info',
-    icon: <DatabaseOutlined />,
-    label: <Link to="/info">信息中心</Link>,
-  },
-  {
     key: 'agents-group',
     label: 'Configuration',
     icon: <SettingOutlined />,
@@ -103,7 +97,20 @@ const AppLayout: React.FC = () => {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
   const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows'];
-  const openKeys = agentsPaths.includes(location.pathname) ? ['agents-group'] : [];
+  // Sidebar submenu state: follow the current route by default, but
+  // also let the user click to expand/collapse (so navigating from
+  // `/` (Dashboard) into the Configuration submenu actually opens it).
+  // The previous `openKeys` was a derived constant that re-collapsed on
+  // every render, and the empty `onOpenChange` swallowed clicks — so
+  // users landing on Dashboard could never open the submenu by clicking.
+  const [openKeys, setOpenKeys] = useState<string[]>(
+    agentsPaths.includes(location.pathname) ? ['agents-group'] : [],
+  );
+  useEffect(() => {
+    if (agentsPaths.includes(location.pathname) && !openKeys.includes('agents-group')) {
+      setOpenKeys((prev) => (prev.includes('agents-group') ? prev : [...prev, 'agents-group']));
+    }
+  }, [location.pathname]);
   const SIDEBAR_WIDTH = 260;
   const SIDEBAR_COLLAPSED_WIDTH = 72;
 
@@ -121,8 +128,6 @@ const AppLayout: React.FC = () => {
     if (path === '/config') return 'Config';
     if (path === '/rules') return 'Rules';
     if (path.startsWith('/workflows')) return 'Workflows';
-    if (path === '/info') return '信息中心';
-    if (path === '/info/settings') return '维护设置';
     const SLICE_START = 2;
     return path.replace('/', '').charAt(0).toUpperCase() + path.slice(SLICE_START);
   };
@@ -213,9 +218,7 @@ const AppLayout: React.FC = () => {
             mode="inline"
             selectedKeys={[location.pathname]}
             openKeys={openKeys}
-            onOpenChange={() => {
-              /* keep submenus controlled by route; no user-toggle needed */
-            }}
+            onOpenChange={(keys) => setOpenKeys(keys as string[])}
             items={menuItems}
             style={{
               background: 'transparent',

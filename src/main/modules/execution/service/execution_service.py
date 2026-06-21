@@ -461,56 +461,59 @@ class SqlAlchemyExecutionRecorder(ExecutionRecorder):
         with self._uow.begin() as uow:
             try:
                 # Candidate nodes = everything in this execution whose
-                # status is still PENDING (RUNNING nodes are also
-                # candidates; COMPLETED/FAILED/SKIPPED/CLEANED_UP are
-                # not — they are terminal and we must not resurrect
-                # them). Filter further by whether their ``input`` field
-                # references the failed node.
-                rows = (
+                # status is still PENDING. COMPLETED/FAILED/SKIPPED/CLEANED_UP
+                # are terminal — we must not resurrect them. We load ALL
+                # PENDING rows in a single query (BFS used to re-query
+                # inside the loop → O(N²)); BFS now runs in memory.
+                pending_rows = (
                     uow.session.query(ExecutionNodeORM)
                     .filter(
                         ExecutionNodeORM.execution_id == str(execution_id),
-                        ExecutionNodeORM.node_id != str(failed_node_id),
-                        ExecutionNodeORM.status.in_(
-                            [
-                                ExecutionStatus.PENDING.value,
-                            ]
-                        ),
+                        ExecutionNodeORM.status == ExecutionStatus.PENDING.value,
                     )
                     .all()
                 )
+
+                # Build node_id -> row lookup for O(1) access during BFS.
+                nodes_by_id: dict[str, ExecutionNodeORM] = {
+                    str(row.node_id): row for row in pending_rows
+                }
+
                 skipped_ids: list[NodeId] = []
-                to_process = [str(failed_node_id)]
+                # Use a deque for proper BFS order; ``processed`` guards
+                # against revisits if the input payload references the
+                # same node more than once (defensive — input refs are
+                # normally a DAG, but we don't trust that).
+                from collections import deque
+                queue: deque[str] = deque([str(failed_node_id)])
                 processed: set[str] = set()
 
-                while to_process:
-                    current = to_process.pop()
+                while queue:
+                    current = queue.popleft()
                     if current in processed:
                         continue
                     processed.add(current)
 
-                    # Find all PENDING nodes whose input references current
-                    rows = (
-                        uow.session.query(ExecutionNodeORM)
-                        .filter(
-                            ExecutionNodeORM.execution_id == str(execution_id),
-                            ExecutionNodeORM.node_id != str(failed_node_id),
-                            ExecutionNodeORM.node_id.notin_(set(skipped_ids)),
-                            ExecutionNodeORM.status == ExecutionStatus.PENDING.value,
+                    # Walk all PENDING nodes once; mark those whose
+                    # ``input`` references ``current`` as SKIPPED and
+                    # enqueue them for further downstream traversal.
+                    for row in pending_rows:
+                        nid_str = str(row.node_id)
+                        if nid_str in processed:
+                            continue
+                        if nid_str == str(failed_node_id):
+                            continue
+                        if not _input_references(row.input, current):
+                            continue
+                        transition(
+                            ExecutionStatus(row.status),
+                            ExecutionStatus.SKIPPED,
                         )
-                        .all()
-                    )
-                    for row in rows:
-                        if _input_references(row.input, current):
-                            transition(
-                                ExecutionStatus(row.status),
-                                ExecutionStatus.SKIPPED,
-                            )
-                            row.status = ExecutionStatus.SKIPPED.value
-                            row.completed_at = _now()
-                            nid = NodeId(row.node_id)
-                            skipped_ids.append(nid)
-                            to_process.append(str(nid))
+                        row.status = ExecutionStatus.SKIPPED.value
+                        row.completed_at = _now()
+                        skipped_ids.append(NodeId(nid_str))
+                        queue.append(nid_str)
+                        processed.add(nid_str)
 
                 # Stable order: sort by node_id so the returned list is
                 # deterministic regardless of DB row order.

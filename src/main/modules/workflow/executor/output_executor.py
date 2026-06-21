@@ -51,17 +51,41 @@ class OutputNodeExecutor(BaseNodeExecutor):
 
         Args:
             ctx: 节点执行上下文(只读快照)。使用 ``ctx["predecessor_ids"]``
-                与 ``ctx["results"]``。
+                与 ``ctx["results"]`` 以及 ``ctx["failed_nodes"]``。
 
         Returns:
             ``NodeResult``: ``output = {"inputs": [...]}``,
             ``session_id = None``,``extra_data = {}``。
+
+        Raises:
+            ValidationError: 当某个 predecessor 既不在 ``results`` 中也不
+                在 ``failed_nodes`` 中时 —— 表明 WorkflowRunner 存在 bug
+                (漏执行了某个前驱且未标记为失败)。
         """
-        inputs = [
-            ctx["results"][pid].get("output") if isinstance(ctx["results"][pid], dict) else ctx["results"][pid]
-            for pid in ctx["predecessor_ids"]
-            if pid in ctx["results"]
-        ]
+        from src.main.infra.errors import ValidationError
+
+        inputs: list = []
+        for pid in ctx["predecessor_ids"]:
+            if pid in ctx["results"]:
+                val = ctx["results"][pid]
+                inputs.append(
+                    val.get("output") if isinstance(val, dict) else val
+                )
+            elif pid in ctx.get("failed_nodes", set()):
+                # 前驱已失败(被级联跳过或显式失败),允许缺失。
+                continue
+            else:
+                # predecessor 既不在 results 也不在 failed_nodes — runner bug
+                raise ValidationError(
+                    "output node encountered a predecessor that is neither "
+                    "completed nor failed",
+                    details={
+                        "missing_predecessor": str(pid),
+                        "node_id": str(ctx["node"].id),
+                        "execution_id": str(ctx["execution_id"]),
+                    },
+                )
+
         return {
             "output": {"inputs": inputs},
             "session_id": None,

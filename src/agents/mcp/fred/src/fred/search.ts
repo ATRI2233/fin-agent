@@ -3,7 +3,7 @@
  *
  * Provides search functionality for discovering FRED series
  */
-import { makeRequest } from "../common/request.js";
+import { makeRequest, FREDConfigError } from "../common/request.js";
 import { z } from "zod";
 
 /**
@@ -108,6 +108,18 @@ export async function searchSeries(options: FREDSearchOptions = {}) {
       }]
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            error: "FRED_API_KEY 未配置,请联系管理员",
+            detail: error.message
+          }, null, 2)
+        }],
+        isError: true
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to search FRED series: ${error.message}`);
     }
@@ -148,6 +160,12 @@ export async function getSeriesInfo(seriesId: string) {
       notes: series.notes
     };
   } catch (error) {
+    if (error instanceof FREDConfigError) {
+      return {
+        error: "FRED_API_KEY 未配置,请联系管理员",
+        detail: error.message
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Failed to get series info: ${error.message}`);
     }

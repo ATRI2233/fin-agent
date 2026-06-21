@@ -60,7 +60,7 @@ export default function ChatPage() {
     sendMessage,
     processingMessage,
     sendingMessage,
-    stopStream,
+    stopPolling,
   } = useMessages();
 
   // Registry data (hooks — read-only). `useFetch` returns
@@ -128,7 +128,7 @@ export default function ChatPage() {
               onRefresh={() => {
                 void loadMessages(currentConversation.id);
               }}
-              onCancelStream={() => stopStream()}
+              onCancelStream={() => stopPolling()}
             />
 
             <MessageThread

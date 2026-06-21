@@ -819,7 +819,13 @@ html, body {
   background: var(--accent-danger);
 }
 
-/* Page fade-in (staggered) */
+/* Page fade-in (staggered)
+   IMPORTANT: 不要在 .fade-in-N 静态属性里写 `opacity: 0`。
+   keyframe `from { opacity: 0 }` 已设起始状态;静态 `opacity:0` 会在
+   React StrictMode 双挂载 / animation-delay 期间留下不可见状态,
+   配合 animation:forwards 在第二次 mount 时不重放而永久透明。
+   正确做法: 只设 animation-delay,初始 opacity 由 keyframe from 提供。
+*/
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -827,11 +833,11 @@ html, body {
 .fade-in {
   animation: fadeIn 0.35s ease-out forwards;
 }
-.fade-in-1 { animation-delay: 0.06s; opacity: 0; }
-.fade-in-2 { animation-delay: 0.12s; opacity: 0; }
-.fade-in-3 { animation-delay: 0.18s; opacity: 0; }
-.fade-in-4 { animation-delay: 0.24s; opacity: 0; }
-.fade-in-5 { animation-delay: 0.30s; opacity: 0; }
+.fade-in-1 { animation-delay: 0.06s; }
+.fade-in-2 { animation-delay: 0.12s; }
+.fade-in-3 { animation-delay: 0.18s; }
+.fade-in-4 { animation-delay: 0.24s; }
+.fade-in-5 { animation-delay: 0.30s; }
 
 /* ═══════════════════════════════════════════════════════════════════
    PAGE LAYOUT UTILITIES — redesigned spacing & typography

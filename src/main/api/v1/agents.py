@@ -15,10 +15,11 @@ TASK-408 §3.3.4 端点定义:
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.main.api.deps import service_dep
 from src.main.api.v1.config import _get_settings, _read_json_or_jsonc, _resolve_project_root, _write_json
@@ -73,7 +74,7 @@ async def list_agents(
 
 
 class BatchModelBody(BaseModel):
-    model: str
+    model: str = Field(..., min_length=1, max_length=128)
 
 
 @router.get("/models")
@@ -88,7 +89,7 @@ async def get_agent_models(request: Request) -> dict:
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
     config_path = project_root / ".opencode" / "opencode.json"
-    config = _read_json_or_jsonc(config_path)
+    config = await asyncio.to_thread(_read_json_or_jsonc, config_path)
     agent_section = config.get("agent", {})
     models: dict[str, str] = {}
     if isinstance(agent_section, dict):
@@ -113,14 +114,16 @@ async def batch_set_agent_model(
     settings = _get_settings(request)
     project_root = _resolve_project_root(settings)
     agents_dir = project_root / ".opencode" / "agents"
-    agent_files = (
-        [f for f in agents_dir.iterdir() if f.suffix == ".md"]
-        if agents_dir.exists()
-        else []
-    )
+
+    def _list_md_files() -> list:
+        if not agents_dir.exists():
+            return []
+        return [f for f in agents_dir.iterdir() if f.suffix == ".md"]
+
+    agent_files = await asyncio.to_thread(_list_md_files)
 
     config_path = project_root / ".opencode" / "opencode.json"
-    config = _read_json_or_jsonc(config_path)
+    config = await asyncio.to_thread(_read_json_or_jsonc, config_path)
 
     if not isinstance(config.get("agent"), dict):
         config["agent"] = {}
@@ -134,7 +137,7 @@ async def batch_set_agent_model(
         agent_section[name]["model"] = body.model
         agent_count += 1
 
-    _write_json(config_path, config)
+    await asyncio.to_thread(_write_json, config_path, config)
     return ApiResponse.success(
         {"success": True, "agentCount": agent_count},
         current_trace_id(),

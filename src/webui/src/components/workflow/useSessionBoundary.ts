@@ -62,13 +62,12 @@ export function useSessionBoundary(options: UseSessionBoundaryOptions = DEFAULT_
   // subsequent call (or unmount) can cancel it. The signal is forwarded
   // into `apiPost` through the mutator closure below.
   const abortRef = useRef<AbortController | null>(null);
-  useEffect(
-    () => (): void => {
+  useEffect(() => {
+    return (): void => {
       abortRef.current?.abort();
       abortRef.current = null;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const createBoundaryMutation = useMutation<CreateBoundaryRequest, SessionBoundary>(
     (input) => {

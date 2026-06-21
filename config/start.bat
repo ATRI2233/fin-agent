@@ -31,7 +31,16 @@ echo.
 
 rem -- [1/3] opencode -----------------------------------------------
 powershell -NoProfile -Command "Write-Host '[1/3]' -ForegroundColor Cyan -NoNewline; Write-Host ' opencode (port 4096)...'"
-set "OC_BIN=%CD%\src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+rem -- Detect OS-specific binary (opencode.exe on Windows, opencode on Linux/Mac via Git-Bash/WSL) --
+if exist "%CD%\src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe" (
+    set "OC_BIN=%CD%\src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
+) else if exist "%CD%\src\agents\opencode\node_modules\opencode-ai\bin\opencode" (
+    set "OC_BIN=%CD%\src\agents\opencode\node_modules\opencode-ai\bin\opencode"
+) else (
+    echo        [ERROR] opencode binary not found. Run: cd src\agents\opencode ^&^& npm install
+    pause
+    exit /b 1
+)
 if exist "%OC_BIN%" (
     start /b "" cmd /c "cd /d %CD%\src\agents\opencode && \"%OC_BIN%\" serve --port 4096 > %CD%\config\logs\opencode.log 2>&1"
     call :wait_tcp 127.0.0.1 4096 30

@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -97,14 +98,14 @@ async def get_rules(request: Request) -> dict:
     project_root = _resolve_project_root(settings)
     rules_path = project_root / "AGENTS.md"
 
-    if not rules_path.exists():
+    if not await asyncio.to_thread(rules_path.exists):
         return ApiResponse.success(
             RulesContent(content="").model_dump(),
             current_trace_id(),
         ).to_dict()
 
     try:
-        content = rules_path.read_text(encoding="utf-8")
+        content = await asyncio.to_thread(rules_path.read_text, encoding="utf-8")
     except FileNotFoundError:
         return ApiResponse.success(
             RulesContent(content="").model_dump(),
@@ -140,14 +141,14 @@ async def update_rules(body: RulesUpdate, request: Request) -> dict:
     # 原子写：先写临时文件再 rename，避免中途崩溃导致文件损坏
     tmp_path = rules_path.with_suffix(rules_path.suffix + ".tmp")
     try:
-        tmp_path.write_text(body.content, encoding="utf-8")
-        tmp_path.replace(rules_path)
+        await asyncio.to_thread(lambda: tmp_path.write_text(body.content, encoding="utf-8"))
+        await asyncio.to_thread(tmp_path.replace, rules_path)
     except (PermissionError, OSError) as e:
         _log.error("rules_write_failed", path=str(rules_path), error=str(e))
         # 清理可能残留的 tmp 文件
-        if tmp_path.exists():
+        if await asyncio.to_thread(tmp_path.exists):
             try:
-                tmp_path.unlink()
+                await asyncio.to_thread(tmp_path.unlink)
             except OSError:
                 pass
         raise HTTPException(
