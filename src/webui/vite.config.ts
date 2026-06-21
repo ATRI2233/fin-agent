@@ -7,16 +7,25 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Python FastAPI framework (main/)
+      // Python FastAPI framework (main/) — single backend
+      // All API traffic routes through /api/v1 → FastAPI on port 8000.
       '/api/v1': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
-      // OpenCode API (agents/)
-      '/api': {
-        target: 'http://localhost:9876',
-        changeOrigin: true,
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'antd-vendor': ['antd', '@ant-design/icons'],
+          'flow-vendor': ['@xyflow/react'],
+          'query-vendor': ['@tanstack/react-query'],
+        },
       },
     },
+    chunkSizeWarningLimit: 600,
   },
 });

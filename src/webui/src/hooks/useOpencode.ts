@@ -1,4 +1,4 @@
-/**
+﻿/**
  * React Query hooks wrapping `api/opencode.ts` for the OpenCode
  * configuration surface.
  *
@@ -30,6 +30,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
+import { message } from "antd";
 
 import * as opencodeApi from "../api/opencode";
 
@@ -57,7 +58,9 @@ export const opencodeKeys = {
 /**
  * `GET /config/scope` — returns the active scope for each subsystem
  * (e.g. `{ mcp: "user" | "project" }`). Used by MCPServersPage and
- * SkillsPage on mount.
+ * SkillsPage on mount. Routed to FastAPI 8000 (the prefix `/v1` is
+ * baked into `OPENCODE_API_BASE = "/api/v1"` in `api/opencode.ts`,
+ * so the path omits `/v1`).
  */
 export function useOpencodeConfigScope() {
   return useQuery({
@@ -123,10 +126,14 @@ export function useOpencodeMcpServers<TConfig>(
 ) {
   return useQuery({
     queryKey: opencodeKeys.mcpServers(scope),
-    queryFn: ({ signal }: { signal: AbortSignal }) =>
-      opencodeApi.opencodeGet<Record<string, TConfig>>(
+    queryFn: async () => {
+      const data = await opencodeApi.opencodeGet<Record<string, TConfig>>(
         `/mcp?scope=${scope}`,
-      ),
+      );
+      return Object.entries(data).map(
+        ([name, config]) => ({ name, ...config }),
+      ) as Array<{ name: string } & TConfig>;
+    },
   });
 }
 
@@ -137,10 +144,12 @@ export function useOpencodeMcpServers<TConfig>(
 export function useOpencodeSkills<TMeta>(scope: string) {
   return useQuery({
     queryKey: opencodeKeys.skills(scope),
-    queryFn: ({ signal }: { signal: AbortSignal }) =>
-      opencodeApi.opencodeGet<{ skills?: TMeta[] }>(
+    queryFn: async () => {
+      const data = await opencodeApi.opencodeGet<{ skills?: TMeta[] }>(
         `/skills?scope=${scope}`,
-      ),
+      );
+      return (data.skills ?? []) as TMeta[];
+    },
   });
 }
 
@@ -201,6 +210,9 @@ export function useSetOpencodeConfigScope() {
     mutationFn: (body: Record<string, string>) =>
       opencodeApi.opencodePut<void>("/config/scope", body),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to set config scope");
+    },
   });
 }
 
@@ -221,6 +233,9 @@ export function useUpdateOpencodeConfigRaw() {
         vars.data,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to update raw config");
+    },
   });
 }
 
@@ -237,6 +252,9 @@ export function useUpsertOpencodeProvider() {
     }) =>
       opencodeApi.opencodePut(`/providers/${vars.key}`, vars.body),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to upsert provider");
+    },
   });
 }
 
@@ -250,6 +268,9 @@ export function useSetOpencodeActiveProvider() {
     mutationFn: (vars: { provider: string; model: string }) =>
       opencodeApi.opencodePut("/providers/active", vars),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to set active provider");
+    },
   });
 }
 
@@ -262,6 +283,9 @@ export function useDeleteOpencodeProvider() {
     mutationFn: (name: string) =>
       opencodeApi.opencodeDelete(`/providers/${name}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to delete provider");
+    },
   });
 }
 
@@ -277,6 +301,9 @@ export function useUpdateOpencodePermissions() {
       defaultAction: string;
     }) => opencodeApi.opencodePut("/permissions", body),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to update permissions");
+    },
   });
 }
 
@@ -293,6 +320,9 @@ export function useToggleOpencodeMcpServer() {
         {},
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to toggle MCP server");
+    },
   });
 }
 
@@ -308,6 +338,9 @@ export function useMoveOpencodeMcpServer() {
         { from: vars.from },
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to move MCP server");
+    },
   });
 }
 
@@ -328,6 +361,9 @@ export function useUpsertOpencodeMcpServer() {
         vars.body,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to upsert MCP server");
+    },
   });
 }
 
@@ -342,6 +378,9 @@ export function useDeleteOpencodeMcpServer() {
         `/mcp/${vars.name}?scope=${vars.scope}`,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to delete MCP server");
+    },
   });
 }
 
@@ -362,6 +401,9 @@ export function useUpdateOpencodeSkillContent() {
         { content: vars.content },
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to update skill content");
+    },
   });
 }
 
@@ -378,6 +420,9 @@ export function useToggleOpencodeSkill() {
         {},
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to toggle skill");
+    },
   });
 }
 
@@ -393,6 +438,9 @@ export function useMoveOpencodeSkill() {
         { from: vars.from },
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to move skill");
+    },
   });
 }
 
@@ -407,6 +455,9 @@ export function useDeleteOpencodeSkill() {
         `/skills/${vars.name}?scope=${vars.scope}`,
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to delete skill");
+    },
   });
 }
 
@@ -419,6 +470,9 @@ export function useUpdateOpencodeRules() {
     mutationFn: (content: string) =>
       opencodeApi.opencodePut("/rules", { content }),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to update rules");
+    },
   });
 }
 
@@ -435,5 +489,8 @@ export function useBatchSetOpencodeAgentModel() {
         { model },
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: opencodeKeys.all }),
+    onError: (err: Error) => {
+      message.error(err.message || "Failed to batch-set agent model");
+    },
   });
 }

@@ -6,6 +6,19 @@ $PROJECT_ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.P
 $pidFile = Join-Path $PROJECT_ROOT ".pids"
 $script:processes = @()
 
+# ── Detect non-interactive mode (bash background / scheduled task / CI) ─────
+$IsNonInteractive = ($Host.Name -eq 'ServerCore') -or `
+                    (-not [Environment]::UserInteractive) -or `
+                    ($env:CI -eq 'true') -or `
+                    ($env:OPENCODE_NONINTERACTIVE -eq '1') -or `
+                    ([Console]::IsInputRedirected) -or `
+                    ([Console]::IsOutputRedirected)
+
+if ($IsNonInteractive) {
+    Write-Host "[start.ps1] Non-interactive mode detected (Host=$($Host.Name), Interactive=[Environment]::UserInteractive=$([Environment]::UserInteractive), InputRedirected=$([Console]::IsInputRedirected))." -ForegroundColor Yellow
+    Write-Host "[start.ps1] Skipping interactive prompts and Read-Host calls. Services will keep running after this script exits." -ForegroundColor Yellow
+}
+
 # ── Cleanup: kill all tracked child processes ───────────────
 function Stop-ChildProcesses {
     if (Test-Path $pidFile) {
@@ -76,7 +89,7 @@ else { Write-Host " Not found at $ocBin" -ForegroundColor Red }
 Write-Host ""
 
 # Start opencode serve
-Write-Host "[1/4] opencode serve (port 4096)..." -ForegroundColor Yellow
+Write-Host "[1/3] opencode serve (port 4096)..." -ForegroundColor Yellow
 $ocBin = Join-Path $PROJECT_ROOT "src\agents\opencode\node_modules\opencode-ai\bin\opencode.exe"
 if (Test-Path $ocBin) {
     $p = Start-Process -FilePath $ocBin -ArgumentList "serve", "--port", "4096" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
@@ -89,25 +102,22 @@ if (Test-Path $ocBin) {
 }
 
 # Start FastAPI
-Write-Host "[2/4] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
+Write-Host "[2/3] FastAPI Framework (port 8000)..." -ForegroundColor Yellow
 $p = Start-Process -FilePath "python" -ArgumentList "-m src.main.main" -WorkingDirectory $PROJECT_ROOT -WindowStyle Hidden -PassThru
 $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
 $script:processes += $p
 Start-Sleep -Seconds 2
 Write-Host "  FastAPI started (PID $($p.Id))" -ForegroundColor Green
 
-# Start WebUI Server
-Write-Host "[3/4] WebUI Server (port 9876)..." -ForegroundColor Yellow
-$webuiServerDir = Join-Path $PROJECT_ROOT "src\webui\server"
-$p = Start-Process -FilePath "node" -ArgumentList "node_modules/tsx/dist/cli.mjs watch index.ts" -WorkingDirectory $webuiServerDir -WindowStyle Hidden -PassThru
-$p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
-$script:processes += $p
-Start-Sleep -Seconds 2
-Write-Host "  WebUI Server started (PID $($p.Id))" -ForegroundColor Green
-
 # Start WebUI Frontend
-Write-Host "[4/4] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
+Write-Host "[3/3] WebUI Frontend (port 5173)..." -ForegroundColor Yellow
 $webuiDir = Join-Path $PROJECT_ROOT "src\webui"
+if (!(Test-Path "src\webui\node_modules")) {
+    Write-Host "[WebUI] node_modules not found, running npm install..." -ForegroundColor Yellow
+    Push-Location "src\webui"
+    npm install
+    Pop-Location
+}
 $p = Start-Process -FilePath "cmd" -ArgumentList "/c npm run dev" -WorkingDirectory $webuiDir -WindowStyle Hidden -PassThru
 $p.Id.ToString() | Out-File -FilePath $pidFile -Append -Encoding utf8
 $script:processes += $p
@@ -120,7 +130,6 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  opencode serve:     http://localhost:4096" -ForegroundColor White
 Write-Host "  FastAPI Framework:  http://localhost:8000/api/v1/health" -ForegroundColor White
-Write-Host "  WebUI Server:       http://localhost:9876/api/health" -ForegroundColor White
 Write-Host "  WebUI Frontend:     http://localhost:5173" -ForegroundColor White
 Write-Host ""
 
@@ -134,8 +143,7 @@ $retryDelay = 3
 
 $checks = @(
     @{ Name = "opencode";  Url = "http://localhost:4096/session" },
-    @{ Name = "FastAPI";   Url = "http://localhost:8000/api/v1/health" },
-    @{ Name = "WebUI";     Url = "http://localhost:9876/api/health" }
+    @{ Name = "FastAPI";   Url = "http://localhost:8000/api/v1/health" }
 )
 
 foreach ($check in $checks) {
@@ -181,18 +189,26 @@ try { [System.Console]::TreatControlCAsInput = $false } catch { }
 })
 
 # Keep window open
-try {
-    Read-Host "Press Enter to exit"
-} catch {
-    # Non-interactive mode — wait for a key press differently
-    Write-Host "Press any key to exit..." -ForegroundColor Gray
-    $null = [System.Console]::ReadKey($true)
-} finally {
-    if (-not $cleanupDone) {
-        $cleanupDone = $true
-        Write-Host ""
-        Write-Host "[Shutdown] Stopping all services..." -ForegroundColor Yellow
-        Stop-ChildProcesses
-        Write-Host "[Shutdown] All services stopped." -ForegroundColor Green
+if ($IsNonInteractive) {
+    Write-Host ""
+    Write-Host "[start.ps1] Non-interactive mode — skipping 'Press Enter to exit' and cleanup." -ForegroundColor DarkGray
+    Write-Host "[start.ps1] Services will continue running in the background. Use stop.bat or Ctrl+C in a new session to terminate them." -ForegroundColor DarkGray
+    # Exit cleanly without killing children
+    exit 0
+} else {
+    try {
+        Read-Host "Press Enter to exit"
+    } catch {
+        # Non-interactive fallback (should not trigger since $IsNonInteractive handles it)
+        Write-Host "Press any key to exit..." -ForegroundColor Gray
+        $null = [System.Console]::ReadKey($true)
+    } finally {
+        if (-not $cleanupDone) {
+            $cleanupDone = $true
+            Write-Host ""
+            Write-Host "[Shutdown] Stopping all services..." -ForegroundColor Yellow
+            Stop-ChildProcesses
+            Write-Host "[Shutdown] All services stopped." -ForegroundColor Green
+        }
     }
 }

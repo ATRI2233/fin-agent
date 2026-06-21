@@ -1,16 +1,12 @@
 /**
  * Typed wrappers for the OpenCode CLI proxy API.
  *
- * The webui talks to two backends:
- *
- * - the Fin-Agent framework (FastAPI, mounted at `API_V1_BASE`), and
- * - the OpenCode CLI proxy (mounted at `OPENCODE_API_BASE`).
+ * The webui talks to a single backend (FastAPI on `/api/v1`).
  *
  * Resource modules in `webui/src/api/` own the framework routes. This
  * module owns the *proxy* routes: agent registry CRUD, MCP tool
  * listing, tools-whitelist management, batch-model updates, etc.
- * None of those routes have a formal controller on the framework side
- * — they are served directly by the OpenCode proxy on `localhost:9876`
+ * These routes are served by FastAPI v1 router on `localhost:8000`
  * and shaped by the opencode.json registry.
  *
  * The helpers are intentionally thin. They:
@@ -33,8 +29,13 @@
  * @see ../config/env for the base URL configuration.
  */
 
-import { OPENCODE_API_BASE } from '../config/env';
 import { apiGet, apiPost, apiPut, apiDelete, buildUrl } from './http';
+
+/**
+ * Base path for the unified FastAPI v1 router.
+ * All OpenCode-related CRUD lives here (replaces the legacy 9876 proxy).
+ */
+const OPENCODE_API_BASE = "/api/v1";
 
 /**
  * Issue a `GET` request to the OpenCode proxy.
