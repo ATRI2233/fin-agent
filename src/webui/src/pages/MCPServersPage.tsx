@@ -56,9 +56,7 @@ export default function MCPServersPage() {
     }
   }, [scopeQuery.data?.mcp]);
 
-  const servers: McpServerRow[] = mcpServers.data
-    ? Object.entries(mcpServers.data).map(([name, cfg]) => ({ ...cfg, name }))
-    : [];
+  const servers: McpServerRow[] = mcpServers.data ?? [];
   const loading = mcpServers.isLoading;
   const error = mcpServers.error?.message ?? null;
 

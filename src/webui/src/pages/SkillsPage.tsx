@@ -83,7 +83,7 @@ export default function SkillsPage() {
     error: skillsError,
     refetch: refetchSkills,
   } = useOpencodeSkills<SkillMeta>(scope);
-  const skills = skillsData?.skills ?? [];
+  const skills = skillsData ?? [];
 
   // View modal content fetch
   const {
