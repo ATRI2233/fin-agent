@@ -48,8 +48,8 @@ import '@xyflow/react/dist/style.css';
 import { Typography } from 'antd';
 
 import DebateNodeComponent from '../../components/workflow/nodes/DebateNode';
-import InputNodeComponent, { type InputNodeData } from '../../components/workflow/nodes/InputNode';
-import OutputNodeComponent, { type OutputNodeData } from '../../components/workflow/nodes/OutputNode';
+import InputNodeComponent from '../../components/workflow/nodes/InputNode';
+import OutputNodeComponent from '../../components/workflow/nodes/OutputNode';
 import type {
   AgentNodeData,
   WorkflowBlockNodeData,

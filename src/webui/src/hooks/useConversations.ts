@@ -30,7 +30,6 @@ import {
 } from '../api/conversations';
 import type {
   Conversation,
-  ConversationCreate,
   Message,
   MessageCreate,
 } from '../domain/conversation';

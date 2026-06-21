@@ -12,7 +12,6 @@ import {
   CloseCircleOutlined,
   DeleteOutlined,
   ForwardOutlined,
-  PauseCircleOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import type { ComponentType } from 'react';

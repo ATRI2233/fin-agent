@@ -48,9 +48,6 @@ import WorkflowBlockNodePropertiesPanel, {
   type WorkflowBlockNode,
 } from './properties/WorkflowBlockNodePropertiesPanel';
 
-import type { InputNodeData } from '../../components/workflow/nodes/InputNode';
-import type { OutputNodeData } from '../../components/workflow/nodes/OutputNode';
-
 /* ─── Shared edge / union types (re-declared to keep this file the
  * single import surface for the property panels) ─────────────────── */
 

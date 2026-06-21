@@ -25,7 +25,7 @@
  * the navigate-to-new-id branch (which only matters on the "new" path).
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Typography, Button, Space, Spin, Alert, message, Modal } from 'antd';
 import {
   SaveOutlined,
@@ -141,7 +141,7 @@ function WorkflowEditorInner() {
     useWorkflow(id ?? null);
 
   // Selection state — owned by the React Context (WorkflowProvider).
-  const { selectedNodeId, setSelectedNode, selectedEdgeId, setSelectedEdge, isDirty, setDirty } = useWorkflowContext();
+  const { selectedNodeId, setSelectedNode, selectedEdgeId, setSelectedEdge, setDirty } = useWorkflowContext();
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
 
@@ -246,7 +246,7 @@ function WorkflowEditorInner() {
       );
       setDirty(true);
     },
-    [setNodes],
+    [setNodes, setDirty],
   );
 
   const onDeleteNode = useCallback(
@@ -256,7 +256,7 @@ function WorkflowEditorInner() {
       setSelectedNode(null);
       setDirty(true);
     },
-    [setNodes, setEdges, setSelectedNode],
+    [setNodes, setEdges, setSelectedNode, setDirty],
   );
 
   const onUpdateEdge = useCallback(
@@ -269,7 +269,7 @@ function WorkflowEditorInner() {
       );
       setDirty(true);
     },
-    [setEdges],
+    [setEdges, setDirty],
   );
 
   const onCloseEdge = useCallback(() => {
@@ -282,7 +282,7 @@ function WorkflowEditorInner() {
       setSelectedEdge(null);
       setDirty(true);
     },
-    [setEdges, setSelectedEdge],
+    [setEdges, setSelectedEdge, setDirty],
   );
 
   const onDeleteBlock = useCallback(
@@ -296,7 +296,7 @@ function WorkflowEditorInner() {
       setSelectedNode(null);
       setDirty(true);
     },
-    [nodes, setNodes, setEdges, setSelectedNode],
+    [nodes, setNodes, setEdges, setSelectedNode, setDirty],
   );
 
   const onUngroupBlock = useCallback(
@@ -306,7 +306,7 @@ function WorkflowEditorInner() {
       setSelectedNode(null);
       setDirty(true);
     },
-    [setNodes, setEdges, setSelectedNode],
+    [setNodes, setEdges, setSelectedNode, setDirty],
   );
 
   const handleSave = async (isAuto = false) => {
@@ -420,7 +420,7 @@ function WorkflowEditorInner() {
       }
       setDirty(true);
     },
-    [setNodes, paletteAgents],
+    [setNodes, paletteAgents, setDirty],
   );
 
   // Surface fetch errors from the typed `useWorkflow` hook.
