@@ -9,7 +9,9 @@ test("view framework page and execution monitor", async ({ page }) => {
 
 test("navigate to workflow monitor", async ({ page }) => {
   await page.goto("/");
-  // 找 Workflows 菜单
-  await page.getByRole("link", { name: /workflow/i }).first().click();
+  // "Workflows" 菜单项嵌套在 AntD "Configuration" 子菜单下，默认收起
+  // AntD MenuItem 的 ARIA role 是 "menuitem"（不是 "link"），且仅在子菜单展开后可见
+  await page.getByRole("menuitem", { name: "Configuration" }).click();
+  await page.getByRole("menuitem", { name: "Workflows" }).click();
   await expect(page).toHaveURL(/.*workflow/);
 });
