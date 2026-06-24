@@ -1,0 +1,3 @@
+packages:
+  - src/webui
+  - src/agents

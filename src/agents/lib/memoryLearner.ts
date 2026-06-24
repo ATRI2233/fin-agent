@@ -266,6 +266,21 @@ function computeWeightUpdates(accuracy: MemoryLearnerResult["accuracy_report"]):
     for (const agent of Object.keys(updates)) {
       updates[agent].new = Math.round((updates[agent].new / totalNew) * 1000) / 1000;
     }
+  } else {
+    // 冷启动：所有 new 权重为 0，回退到 old 字段的比例归一化 (M4)。
+    const totalOld = Object.values(updates).reduce((sum, u) => sum + u.old, 0);
+    if (totalOld > 0) {
+      for (const agent of Object.keys(updates)) {
+        updates[agent].new = Math.round((updates[agent].old / totalOld) * 1000) / 1000;
+      }
+    } else {
+      // 更极端冷启动：old 也为 0，均分。
+      const count = Object.keys(updates).length;
+      const even = count > 0 ? Math.round((1 / count) * 1000) / 1000 : 0;
+      for (const agent of Object.keys(updates)) {
+        updates[agent].new = even;
+      }
+    }
   }
 
   return updates;

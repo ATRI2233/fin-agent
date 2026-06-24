@@ -83,6 +83,9 @@ coverage/
 !.omo/plans/
 !.omo/evidence/
 
+# Python backend archive
+config/_archive_python/
+
 # IDE
 .idea/
 

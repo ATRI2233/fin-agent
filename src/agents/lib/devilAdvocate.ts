@@ -301,7 +301,7 @@ function detectDangerousPattern(
 
   // 检测模式2：高估值 + 高增长预期
   const hasHighGrowthExpectation = Object.values(signals).some(s =>
-    s.assumptions?.some(a => a.includes("增长") || a.includes("盈利"))
+    s.assumptions?.some(a => a.includes("增长") || a.includes("盈利")) ?? false
   );
 
   if (hasHighGrowthExpectation && avgBullish > 0.6) {

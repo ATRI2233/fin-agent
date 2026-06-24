@@ -1,6 +1,11 @@
 import { ToolRegistration } from "./types.js";
 import { getJudgments } from "./dataHub.js";
 
+/** Parse an ISO-ish timestamp, normalising missing 'Z' suffix. */
+function _parseDate(ts: string): Date {
+  return new Date(ts.endsWith("Z") ? ts : ts + "Z");
+}
+
 interface ConsistencyReport {
   symbol: string;
   timestamp: string;
@@ -73,11 +78,11 @@ export function registerConsistencyCheck(): ToolRegistration {
           timestamp: j.created_at || j.timestamp,
           direction: j.direction,
           confidence: j.confidence,
-          age_days: Math.round((Date.now() - new Date((j.created_at || j.timestamp) + "Z").getTime()) / 86400000),
+          age_days: Math.round((Date.now() - _parseDate(j.created_at || j.timestamp).getTime()) / 86400000),
         }));
 
         const recentFlips = previousDirections.filter(
-          (d: any) => new Date(d.timestamp + "Z").getTime() > thirtyDaysAgo
+          (d: any) => _parseDate(d.timestamp).getTime() > thirtyDaysAgo
         );
         let flipCount30d = 0;
         for (let i = 1; i < recentFlips.length; i++) {

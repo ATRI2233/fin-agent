@@ -137,62 +137,54 @@ async function request<T>(
     const response = await fetch(url, init);
     const traceId = response.headers.get(TRACE_ID_HEADER) ?? undefined;
 
-  if (!response.ok) {
-    const body = await readApiError(response);
-    throw new ApiError(response.status, body);
-  }
-
-  if (response.status === HTTP_NO_CONTENT) {
-    return undefined as T;
-  }
-
-  // Strict content-type check — a 2xx response without a JSON
-  // Content-Type is almost always a misrouted proxy (HTML error page,
-  // plain-text 200 from a stale backend, etc.). Surfacing this as an
-  // ApiError prevents the silent "fall through and return rawJson as
-  // T" path below from masking routing bugs the way it did when
-  // `/api/skills` was being served by the OpenCode proxy instead of
-  // FastAPI. Anything expecting a JSON envelope should fail loudly
-  // here rather than return a non-object (e.g. a 4-element string)
-  // that the caller cannot parse.
-  const contentType = response.headers.get("Content-Type") ?? "";
-  if (!contentType.toLowerCase().includes(JSON_CONTENT_TYPE)) {
-    throw new ApiError(response.status, {
-      code: -2,
-      message: `Unexpected Content-Type "${contentType}" — expected ${JSON_CONTENT_TYPE}`,
-      data: undefined,
-      trace_id: traceId ?? "unknown",
-    });
-  }
-
-  // 2xx with a body — parse envelope and unwrap.
-  const rawJson = (await response.json()) as unknown;
-  // 信封格式: {code, data, trace_id} 或 {code, message, data, trace_id}
-  if (
-    rawJson &&
-    typeof rawJson === "object" &&
-    typeof (rawJson as Record<string, unknown>).code === "number" &&
-    "data" in (rawJson as Record<string, unknown>)
-  ) {
-    const envelope = rawJson as {
-      code: number;
-      data?: unknown;
-      message?: string;
-      trace_id?: string;
-    };
-    if (envelope.code === 0) {
-      return (envelope.data ?? undefined) as T;
+    if (!response.ok) {
+      const body = await readApiError(response);
+      throw new ApiError(response.status, body);
     }
-    // 业务/系统错误:抛 ApiError(协议层成功但业务失败)
-    throw new ApiError(response.status, {
-      code: envelope.code,
-      message: envelope.message ?? "Request failed",
-      data: envelope.data,
-      trace_id: envelope.trace_id ?? "unknown",
-    });
+
+    if (response.status === HTTP_NO_CONTENT) {
+      return undefined as T;
+    }
+
+    const contentType = response.headers.get("Content-Type") ?? "";
+    if (!contentType.toLowerCase().includes(JSON_CONTENT_TYPE)) {
+      throw new ApiError(response.status, {
+        code: -2,
+        message: `Unexpected Content-Type "${contentType}" — expected ${JSON_CONTENT_TYPE}`,
+        data: undefined,
+        trace_id: traceId ?? "unknown",
+      });
+    }
+
+    const rawJson = (await response.json()) as unknown;
+    if (
+      rawJson &&
+      typeof rawJson === "object" &&
+      typeof (rawJson as Record<string, unknown>).code === "number" &&
+      "data" in (rawJson as Record<string, unknown>)
+    ) {
+      const envelope = rawJson as {
+        code: number;
+        data?: unknown;
+        message?: string;
+        trace_id?: string;
+      };
+      if (envelope.code === 0) {
+        return (envelope.data ?? undefined) as T;
+      }
+      throw new ApiError(response.status, {
+        code: envelope.code,
+        message: envelope.message ?? "Request failed",
+        data: envelope.data,
+        trace_id: envelope.trace_id ?? "unknown",
+      });
+    }
+    return rawJson as T;
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
   }
-  // 非信封格式(向后兼容):原样返回
-  return rawJson as T;
 }
 
 /**
@@ -271,12 +263,25 @@ export async function apiPutText(url: string, body: string, signal?: AbortSignal
     "X-Trace-Id": generateRequestId(),
   };
   const init: RequestInit = { method: "PUT", headers, body };
-  if (signal) init.signal = signal;
 
-  const response = await fetch(url, init);
-  if (!response.ok) {
-    const body = await readApiError(response);
-    throw new ApiError(response.status, body);
+  let effectiveSignal = signal;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let ctrl: AbortController | undefined;
+  if (!effectiveSignal) {
+    ctrl = new AbortController();
+    effectiveSignal = ctrl.signal;
+    timeoutId = setTimeout(() => {
+      ctrl!.abort();
+    }, DEFAULT_TIMEOUT_MS);
+  }
+  init.signal = effectiveSignal;
+
+  try {
+    const response = await fetch(url, init);
+    if (!response.ok) {
+      const errBody = await readApiError(response);
+      throw new ApiError(response.status, errBody);
+    }
   } finally {
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
