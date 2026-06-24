@@ -2,6 +2,7 @@
 node_modules/
 npm-debug.log*
 *.log
+config/logs/
 
 # Build outputs
 dist/
@@ -85,6 +86,9 @@ coverage/
 
 # Python backend archive
 config/_archive_python/
+
+# Screenshots (documentation, not source code)
+src/webui/screenshots/
 
 # IDE
 .idea/
