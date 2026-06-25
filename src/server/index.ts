@@ -3,11 +3,13 @@ import { Registry } from "./infra/registry.js";
 import { validateSettings, settings } from "./infra/settings.js";
 import { createLogger } from "./infra/logging.js";
 import { runMigrations } from "./infra/db.js";
-import { WorkflowRepo } from "./modules/workflow/repo.js";
-import { ExecutionRepo } from "./modules/execution/repo.js";
-import { WorkflowRunner, ExecutorRegistry, type AgentDispatcher } from "./modules/workflow/service/workflow_runner.js";
-import { createAgentDispatcher } from "./modules/agent/dispatcher.js";
-import { ConversationRepo } from "./modules/conversation/repo.js";
+import { WorkflowRepo, workflowRepo } from "./modules/workflow/repo.js";
+import { ExecutionRepo, executionRepo } from "./modules/execution/repo.js";
+import { ExecutionDomainService } from "./modules/execution/domain-service.js";
+import { WorkflowRunner, ExecutorRegistry } from "./modules/workflow/service/workflow_runner.js";
+import { OpenClawAdapter } from "./infra/agent/OpenClawAdapter.js";
+import type { AgentPort } from "./infra/agent/AgentPort.js";
+import { conversationRepo } from "./modules/conversation/repo.js";
 
 const log = createLogger("index");
 
@@ -23,25 +25,32 @@ async function main() {
   const registry = new Registry();
 
   // Register repositories
-  registry.register("WorkflowRepo", () => WorkflowRepo);
-  registry.register("ExecutionRepo", () => ExecutionRepo);
-  registry.register("ConversationRepo", () => ConversationRepo);
+  registry.register("WorkflowRepo", () => workflowRepo);
+  registry.register("ExecutionRepo", () => executionRepo);
+  registry.register("ConversationRepo", () => conversationRepo);
 
-  // Register agent dispatcher
-  registry.register("AgentDispatcher", () => createAgentDispatcher());
+  // Register agent port (OpenClaw adapter)
+  registry.register("AgentPort", () => new OpenClawAdapter());
+
+  // Register execution domain service
+  registry.register("ExecutionDomainService", (r) => {
+    const repo = r.resolve<ExecutionRepo>("ExecutionRepo");
+    return new ExecutionDomainService(repo);
+  });
 
   // Register executor registry
   registry.register("ExecutorRegistry", (r) => {
-    const dispatcher = r.resolve<AgentDispatcher>("AgentDispatcher");
-    return new ExecutorRegistry(dispatcher);
+    const port = r.resolve<AgentPort>("AgentPort");
+    return new ExecutorRegistry(port);
   });
 
   // Register workflow runner
   registry.register("WorkflowRunner", (r) => {
-    const workflowRepo = r.resolve<typeof WorkflowRepo>("WorkflowRepo");
-    const executionRepo = r.resolve<typeof ExecutionRepo>("ExecutionRepo");
-    const executorRegistry = r.resolve<ExecutorRegistry>("ExecutorRegistry");
-    return new WorkflowRunner(workflowRepo, executionRepo, executorRegistry);
+    const wfRepo = r.resolve<WorkflowRepo>("WorkflowRepo");
+    const execRepo = r.resolve<ExecutionRepo>("ExecutionRepo");
+    const execDomainSvc = r.resolve<ExecutionDomainService>("ExecutionDomainService");
+    const execReg = r.resolve<ExecutorRegistry>("ExecutorRegistry");
+    return new WorkflowRunner(wfRepo, execRepo, execDomainSvc, execReg);
   });
 
   // Create app

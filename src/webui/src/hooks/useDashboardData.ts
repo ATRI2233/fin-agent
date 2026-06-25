@@ -13,7 +13,7 @@ import { useQueries } from "@tanstack/react-query";
 import { listAgents } from "../api/agents";
 import { listTools, listServers } from "../api/mcp";
 import { API_V1_BASE } from "../config/env";
-import { apiGet } from "../api/http";
+import { apiGet, ApiError } from "../api/http";
 import type { Agent, ToolItem } from "../domain/agent";
 
 export interface DashboardData {
@@ -46,16 +46,6 @@ export function useDashboardData(): DashboardData {
         refetchInterval: 30_000,
       },
       {
-        queryKey: ["opencode", "skills", "count"],
-        queryFn: async () => {
-          const data = await apiGet<{ count: number; scope: string }>(
-            `${API_V1_BASE}/skills/count`,
-          );
-          return data.count;
-        },
-        refetchInterval: 30_000,
-      },
-      {
         queryKey: ["system", "health"],
         queryFn: async () => {
           await apiGet<{ status: string; version: string }>(
@@ -70,8 +60,8 @@ export function useDashboardData(): DashboardData {
       agents: (results[0].data as Agent[] | undefined) ?? [],
       tools: (results[1].data as ToolItem[] | undefined) ?? [],
       servers: (results[2].data as unknown[] | undefined) ?? [],
-      skillsCount: (results[3].data as number | undefined) ?? 0,
-      systemOnline: (results[4].data as boolean | undefined) ?? false,
+      skillsCount: 0, // OpenClaw Control UI 接管 Skills 管理
+      systemOnline: (results[3].data as boolean | undefined) ?? false,
       isLoading: results.some((r) => r.isLoading),
       isError: results.some((r) => r.isError),
       refetch: () => results.forEach((r) => r.refetch()),

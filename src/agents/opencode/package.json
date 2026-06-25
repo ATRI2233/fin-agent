@@ -1,9 +1,0 @@
-{
-  "name": "fin-agent-opencode",
-  "version": "1.0.0",
-  "private": true,
-  "description": "OpenCode installation for fin-agent",
-  "dependencies": {
-    "opencode-ai": "latest"
-  }
-}

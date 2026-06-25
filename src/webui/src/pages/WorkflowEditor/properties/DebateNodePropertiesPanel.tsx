@@ -22,21 +22,9 @@ import {
   PlusOutlined,
   MinusCircleOutlined,
 } from '@ant-design/icons';
-import type { Node } from '@xyflow/react';
 
 import type { PaletteAgent } from '../AgentPalettePanel';
-
-/* ─── Domain types ─────────────────────────────────────────────────────── */
-
-export interface DebateNodeData {
-  label: string;
-  agents: string[];
-  judge: string;
-  prompt: string;
-  [key: string]: unknown;
-}
-
-export type DebateNode = Node<DebateNodeData, 'debate'>;
+import type { DebateNodeData, DebateNode } from '../index';
 
 /* ─── Component ────────────────────────────────────────────────────────── */
 

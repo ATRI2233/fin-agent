@@ -2,10 +2,11 @@ import { FastifyPluginAsync } from "fastify";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { ValidationError } from "../../../infra/errors.js";
+import { settings } from "../../../infra/settings.js";
 
-/** Load the MCP tool manifest from .opencode/opencode.json. */
+/** Load the MCP tool manifest from the configured MCP config path. */
 function loadMcpConfig(): any {
-  const path = resolve(process.cwd(), ".opencode", "opencode.json");
+  const path = resolve(process.cwd(), settings.MCP_CONFIG_PATH);
   try {
     const raw = readFileSync(path, "utf-8");
     return JSON.parse(raw);
@@ -27,7 +28,7 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
         });
       }
     }
-    return { data: tools, trace_id: (req as any).traceId };
+    return { data: tools, trace_id: req.traceId };
   });
 
   app.get("/mcp/servers", async (req, reply) => {
@@ -37,7 +38,7 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
       description: s.description,
       toolCount: (s.tools || []).length,
     }));
-    return { data: servers, trace_id: (req as any).traceId };
+    return { data: servers, trace_id: req.traceId };
   });
 
   app.get("/mcp/servers/:name/tools", async (req, reply) => {
@@ -49,7 +50,7 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
     }
     return {
       data: server.tools || [],
-      trace_id: (req as any).traceId,
+      trace_id: req.traceId,
     };
   });
 
@@ -57,7 +58,6 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
     const { name } = req.params as { name: string };
     const body = req.body as any || {};
     const toolName = body?.tool;
-    const args = body?.arguments || {};
 
     const config = loadMcpConfig();
     const server = (config.servers || []).find((s: any) => s.name === name);
@@ -70,11 +70,15 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
       throw new ValidationError(`Tool '${toolName}' not found in server '${name}'`);
     }
 
-    // TODO: Actually invoke the tool via AgentDispatcher when direct call is available
-    const dispatcher = (req as any).registry.resolve("AgentDispatcher");
-    const result = await dispatcher.dispatch(toolName, args, (req as any).traceId);
-
-    return { data: result, trace_id: (req as any).traceId };
+    // MCP tool invocation is not yet implemented: routing a tool call through
+    // the agent dispatcher would silently invoke a non-existent agent. Until a
+    // dedicated MCP client invoker is wired up, fail explicitly so the caller
+    // gets a clear error instead of a bogus success.
+    const traceId = req.traceId;
+    throw new ValidationError(
+      `MCP tool invocation is not implemented (server='${name}', tool='${toolName}')`,
+      { server: name, tool: toolName, traceId }
+    );
   });
 };
 

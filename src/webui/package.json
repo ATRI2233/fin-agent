@@ -1,7 +1,7 @@
 {
-  "name": "opencode-fin-agent-web",
+  "name": "fin-agent-web",
   "version": "1.0.0",
-  "description": "Web UI for OpenCode Financial Analysis Agent",
+  "description": "Web UI for Fin-Agent Financial Analysis Multi-Agent System",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "@tanstack/react-query": "^5.101.0",
     "@xyflow/react": "^12.11.0",
     "antd": "^5.20.0",
+    "dayjs": "^1.11.21",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",

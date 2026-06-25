@@ -16,10 +16,7 @@
  *
  * Note: Vite only exposes variables prefixed with `VITE_` to the client.
  *
- * The webui talks to a single FastAPI backend on `/api/v1` — both framework
- * and opencode CRUD routes live there. `OPENCODE_API_BASE` was a legacy alias
- * for `/api` (the 9876 Express proxy); it was removed in stage 4 since the
- * proxy is gone.
+ * The webui talks to a single Fastify backend on `/api/v1`.
  */
 
 export const API_V1_BASE = import.meta.env.VITE_API_V1_BASE ?? '/api/v1'

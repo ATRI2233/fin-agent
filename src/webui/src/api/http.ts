@@ -160,24 +160,28 @@ async function request<T>(
     if (
       rawJson &&
       typeof rawJson === "object" &&
-      typeof (rawJson as Record<string, unknown>).code === "number" &&
       "data" in (rawJson as Record<string, unknown>)
     ) {
       const envelope = rawJson as {
-        code: number;
+        code?: number;
         data?: unknown;
         message?: string;
         trace_id?: string;
       };
-      if (envelope.code === 0) {
-        return (envelope.data ?? undefined) as T;
+      // 后端带 code 字段的响应：code === 0 为成功，否则抛错误
+      if (typeof envelope.code === "number") {
+        if (envelope.code === 0) {
+          return (envelope.data ?? undefined) as T;
+        }
+        throw new ApiError(response.status, {
+          code: envelope.code,
+          message: envelope.message ?? "Request failed",
+          data: envelope.data,
+          trace_id: envelope.trace_id ?? "unknown",
+        });
       }
-      throw new ApiError(response.status, {
-        code: envelope.code,
-        message: envelope.message ?? "Request failed",
-        data: envelope.data,
-        trace_id: envelope.trace_id ?? "unknown",
-      });
+      // 后端无 code 字段的响应（如 { data: ..., trace_id: ... }）— 直接拆 data
+      return (envelope.data ?? undefined) as T;
     }
     return rawJson as T;
   } finally {

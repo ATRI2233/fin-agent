@@ -5,6 +5,7 @@ import { resolve } from "path";
 import { existsSync, readdirSync } from "fs";
 import { settings } from "./settings.js";
 import * as schema from "./schema.js";
+import { DatabaseError } from "./errors.js";
 
 const dbPath = settings.DATABASE_URL.replace("sqlite:///", "");
 const absolutePath = resolve(dbPath);
@@ -37,4 +38,13 @@ export function runMigrations(): void {
   
   migrate(db, { migrationsFolder: migrationsPath });
   console.log(`[DB] Applied ${files.length} migration(s)`);
+}
+
+/** Wrap a database call with a try-catch that throws DatabaseError on failure. */
+export function wrapDbCall<T>(operation: string, fn: () => T): T {
+  try {
+    return fn();
+  } catch (e) {
+    throw new DatabaseError(`Database operation failed: ${operation}`, { cause: String(e) });
+  }
 }

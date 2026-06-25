@@ -6,12 +6,12 @@
  * 启动三个服务：
  *   1. backend   — Fastify TS 后端 (port 8000)
  *   2. frontend  — Vite React 前端 (port 5173)
- *   3. opencode  — opencode serve (port 4096，可选)
+ *   3. openclaw  — openclaw gateway (port 18789)
  *
  * 用法：
  *   cd project && node config/start-all.mjs
  */
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
@@ -20,11 +20,37 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
 const isWin = process.platform === "win32";
 const reset = "\x1b[0m";
-const colors = ["\x1b[36m", "\x1b[32m", "\x1b[35m"]; // cyan, green, magenta
+const colors = ["\x1b[36m", "\x1b[32m", "\x1b[35m", "\x1b[33m"]; // cyan, green, magenta, yellow
+
+// ── 端口清理：启动前杀掉占用目标端口的旧进程 ──
+const PORTS = { backend: 8000, frontend: 5173, openclaw: 18789 };
+
+function cleanupPorts() {
+  const portList = Object.values(PORTS);
+  try {
+    // 直接执行 netstat（无 pipe），JS 侧解析输出
+    const output = execSync("netstat -aon -p TCP", { encoding: "utf8", timeout: 5000 });
+    const killed = new Set();
+    for (const line of output.split(/\r?\n/)) {
+      const m = line.match(/^\s*TCP\s+.*?:(\d+)\s+.*?LISTENING\s+(\d+)$/im);
+      if (m && portList.includes(Number(m[1]))) {
+        const pid = m[2];
+        if (!killed.has(pid)) {
+          try {
+            execSync(isWin ? `taskkill /F /PID ${pid}` : `kill -9 ${pid}`, { stdio: "ignore", timeout: 3000 });
+            const port = m[1];
+            console.log(`  Killed old process on port ${port} (PID ${pid})`);
+          } catch {}
+          killed.add(pid);
+        }
+      }
+    }
+  } catch {} // 无进程在监听、netstat 本身失败等情形一律静默
+}
 
 import { createRequire } from "module";
 
-// ── 工具函数：解析 tsx / vite / opencode 的入口 ──
+// ── 工具函数：解析 tsx / vite / openclaw 的入口 ──
 const requireRoot = createRequire(resolve(projectRoot, "package.json"));
 const requireWebui = createRequire(resolve(projectRoot, "src/webui/package.json"));
 
@@ -46,13 +72,8 @@ function vitePath() {
   }
 }
 
-function opencodeCmd() {
-  // 优先使用 .opencode/node_modules 中的 opencode
-  const local = resolve(projectRoot, ".opencode", "node_modules", ".bin", isWin ? "opencode.cmd" : "opencode");
-  if (existsSync(local)) return { cmd: local, args: [] };
-
-  // 其次全局 opencode
-  return { cmd: isWin ? "opencode.cmd" : "opencode", args: [] };
+function openclawCmd() {
+  return { cmd: isWin ? "openclaw.cmd" : "openclaw", args: [] };
 }
 
 // ── 服务定义 ──
@@ -70,11 +91,10 @@ const services = [
     cwd: resolve(projectRoot, "src", "webui"),
   },
   {
-    name: "opencode",
-    ...opencodeCmd(),
-    args: ["serve", "--port", "4096"],
+    name: "openclaw",
+    ...openclawCmd(),
+    args: ["gateway"],
     cwd: projectRoot,
-    optional: true, // 若未安装 opencode 则跳过
   },
 ];
 
@@ -84,6 +104,9 @@ const pidMap = {};
 mkdirSync(resolve(projectRoot, "config", "logs"), { recursive: true });
 
 console.log("Starting all services...\n");
+
+// 启动前自动清理占用端口的老进程
+cleanupPorts();
 
 for (let i = 0; i < services.length; i++) {
   const svc = services[i];
@@ -139,7 +162,7 @@ for (const [name, pid] of Object.entries(pidMap)) {
 console.log("\nAll services started.");
 console.log("  Backend : http://localhost:8000  (PID " + (pidMap.backend || "N/A") + ")");
 console.log("  Frontend: http://localhost:5173  (PID " + (pidMap.frontend || "N/A") + ")");
-console.log("  Opencode: http://localhost:4096  (PID " + (pidMap.opencode || "N/A") + ")");
+console.log("  OpenClaw: http://localhost:18789  (PID " + (pidMap.openclaw || "N/A") + ")");
 console.log("\nPress Ctrl+C to stop all.\n");
 
 const cleanup = () => {

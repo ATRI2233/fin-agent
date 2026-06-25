@@ -13,6 +13,7 @@ import type { ServerGroup } from '../components/dashboard/McpServersPanel';
  * "unknown".
  */
 export function groupToolsByServer(tools: ToolItem[]): ServerGroup[] {
+  if (!Array.isArray(tools) || tools.length === 0) return [];
   const map: Record<string, ServerGroup> = {};
   for (const tool of tools) {
     const key = tool.server || 'unknown';

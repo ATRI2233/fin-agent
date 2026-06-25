@@ -27,18 +27,16 @@ const settingsSchema = z.object({
   // Database
   DATABASE_URL: z.string().default("sqlite:///./data/finagent.db"),
   DB_POOL_SIZE: z.coerce.number().int().default(10),
-  DB_POOL_MAX_OVERFLOW: z.coerce.number().int().default(10),
-  DB_POOL_TIMEOUT: z.coerce.number().int().default(30),
-  DB_POOL_PRE_PING: z.boolean().default(true),
   DB_BUSY_TIMEOUT_MS: z.coerce.number().int().default(30000),
   DB_JOURNAL_MODE: z.enum(["WAL", "DELETE"]).default("WAL"),
 
-  // Opencode
-  OPENCODE_BIN: z.string().default(""),
-  OPENCODE_SERVE_HOST: z.string().default("127.0.0.1"),
-  OPENCODE_SERVE_PORT: z.coerce.number().int().default(4096),
-  OPENCODE_AGENTS_DIR: z.string().default(".opencode/agents"),
-  OPENCODE_MCP_CONFIG: z.string().default(".opencode/opencode.json"),
+  // OpenClaw
+  OPENCLAW_GATEWAY_HOST: z.string().default("127.0.0.1"),
+  OPENCLAW_GATEWAY_PORT: z.coerce.number().int().default(18789),
+  OPENCLAW_API_BASE: z.string().default("https://opencode.ai/zen/go/v1"),
+  OPENCLAW_API_KEY: z.string().default(""),
+  OPENCLAW_AUTH_TOKEN: z.string().default(""),
+  MCP_CONFIG_PATH: z.string().default(".opencode/opencode.json"),
 
   // Workflow
   NODE_TIMEOUT_SECONDS: z.coerce.number().default(600.0),
@@ -60,9 +58,17 @@ const settingsSchema = z.object({
   API_KEY: z.string().default(""),
   AUTH_SKIP_LOCALHOST: z.boolean().default(false),
 
+  // CORS — comma-separated allow-list of origins permitted to send credentialed
+  // requests. The wildcard "*" is intentionally NOT used: per the CORS spec,
+  // `Access-Control-Allow-Origin: *` is forbidden together with
+  // `Access-Control-Allow-Credentials: true`. The default covers the Vite dev
+  // server and the production origin behind which the webui is served.
+  CORS_ALLOWED_ORIGINS: z
+    .string()
+    .default("http://localhost:5173,http://127.0.0.1:5173"),
+
   // Logging
   LOG_LEVEL: z.enum(["DEBUG", "INFO", "WARNING", "ERROR"]).default("INFO"),
-  LOG_FORMAT: z.enum(["json", "console"]).default("json"),
 });
 
 // ── 解析 ──
@@ -74,7 +80,6 @@ const rawEnv = Object.fromEntries(
 // 手动处理 boolean 字段，避免 z.coerce.boolean 的 bug
 const envWithBooleans = {
   ...rawEnv,
-  DB_POOL_PRE_PING: parseBoolean(rawEnv.FIN_AGENT_DB_POOL_PRE_PING, true),
   AUTH_SKIP_LOCALHOST: parseBoolean(rawEnv.FIN_AGENT_AUTH_SKIP_LOCALHOST, false),
 };
 
@@ -95,9 +100,9 @@ export const settings: Settings = parsed.data;
 // ── 运行时校验（与 Python validate() 等效）──
 
 export function validateSettings(s: Settings): void {
-  if (s.OPENCODE_SERVE_PORT === s.API_PORT) {
-    throw new ConfigError("OPENCODE_SERVE_PORT must differ from API_PORT", {
-      OPENCODE_SERVE_PORT: s.OPENCODE_SERVE_PORT,
+  if (s.OPENCLAW_GATEWAY_PORT === s.API_PORT) {
+    throw new ConfigError("OPENCLAW_GATEWAY_PORT must differ from API_PORT", {
+      OPENCLAW_GATEWAY_PORT: s.OPENCLAW_GATEWAY_PORT,
       API_PORT: s.API_PORT,
     });
   }
@@ -116,6 +121,6 @@ export function validateSettings(s: Settings): void {
   }
 }
 
-export function getOpencodeServeUrl(s: Settings): string {
-  return `http://${s.OPENCODE_SERVE_HOST}:${s.OPENCODE_SERVE_PORT}`;
+export function getOpenclawGatewayUrl(s: Settings): string {
+  return `http://${s.OPENCLAW_GATEWAY_HOST}:${s.OPENCLAW_GATEWAY_PORT}`;
 }

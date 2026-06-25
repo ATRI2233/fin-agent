@@ -7,13 +7,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   DashboardOutlined,
   RobotOutlined,
-  ThunderboltOutlined,
-  CloudServerOutlined,
-  ApiOutlined,
   ToolOutlined,
-  SafetyOutlined,
   SettingOutlined,
-  FileTextOutlined,
   BranchesOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -24,14 +19,8 @@ import './styles/theme.css';
 /* ─── Lazy-loaded page chunks ───────────────────────────────────────── */
 const FrameworkPage = React.lazy(() => import('./pages/FrameworkPage'));
 const AgentsPage = React.lazy(() => import('./pages/AgentsPage'));
-const SkillsPage = React.lazy(() => import('./pages/SkillsPage'));
-const MCPServersPage = React.lazy(() => import('./pages/MCPServersPage'));
-const ProvidersPage = React.lazy(() => import('./pages/ProvidersPage'));
 const ToolsPage = React.lazy(() => import('./pages/ToolsPage'));
-const PermissionsPage = React.lazy(() => import('./pages/PermissionsPage'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const ConfigRawEditor = React.lazy(() => import('./pages/ConfigRawEditor'));
-const RulesEditor = React.lazy(() => import('./pages/RulesEditor'));
 const WorkflowList = React.lazy(() => import('./pages/WorkflowList'));
 const WorkflowEditor = React.lazy(() => import('./pages/WorkflowEditor'));
 const WorkflowSettings = React.lazy(() => import('./pages/WorkflowSettings'));
@@ -64,13 +53,7 @@ const menuItems: MenuItem[] = [
     icon: <SettingOutlined />,
     children: [
       { key: '/agents', icon: <RobotOutlined />, label: <Link to="/agents">Agents</Link> },
-      { key: '/skills', icon: <ThunderboltOutlined />, label: <Link to="/skills">Skills</Link> },
-      { key: '/mcp', icon: <CloudServerOutlined />, label: <Link to="/mcp">MCP Servers</Link> },
-      { key: '/providers', icon: <ApiOutlined />, label: <Link to="/providers">Providers</Link> },
       { key: '/tools', icon: <ToolOutlined />, label: <Link to="/tools">Tools</Link> },
-      { key: '/permissions', icon: <SafetyOutlined />, label: <Link to="/permissions">Permissions</Link> },
-      { key: '/config', icon: <FileTextOutlined />, label: <Link to="/config">Config</Link> },
-      { key: '/rules', icon: <FileTextOutlined />, label: <Link to="/rules">Rules</Link> },
       { key: '/workflows', icon: <BranchesOutlined />, label: <Link to="/workflows">Workflows</Link> },
     ],
   },
@@ -96,7 +79,7 @@ const AppLayout: React.FC = () => {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
 
-  const agentsPaths = ['/agents', '/skills', '/mcp', '/providers', '/tools', '/permissions', '/config', '/rules', '/workflows'];
+  const agentsPaths = ['/agents', '/tools', '/workflows'];
   // Sidebar submenu state: follow the current route by default, but
   // also let the user click to expand/collapse (so navigating from
   // `/` (Dashboard) into the Configuration submenu actually opens it).
@@ -120,13 +103,7 @@ const AppLayout: React.FC = () => {
     if (path === '/framework') return 'Framework';
     if (path === '/chat') return 'Chat';
     if (path === '/agents') return 'Agents';
-    if (path === '/skills') return 'Skills';
-    if (path === '/mcp') return 'MCP Servers';
-    if (path === '/providers') return 'Providers';
     if (path === '/tools') return 'Tools';
-    if (path === '/permissions') return 'Permissions';
-    if (path === '/config') return 'Config';
-    if (path === '/rules') return 'Rules';
     if (path.startsWith('/workflows')) return 'Workflows';
     const SLICE_START = 2;
     return path.replace('/', '').charAt(0).toUpperCase() + path.slice(SLICE_START);
@@ -360,18 +337,13 @@ const AppLayout: React.FC = () => {
               <Route path="/framework" element={<FrameworkPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/agents" element={<AgentsPage />} />
-              <Route path="/skills" element={<SkillsPage />} />
-              <Route path="/mcp" element={<MCPServersPage />} />
-              <Route path="/providers" element={<ProvidersPage />} />
               <Route path="/tools" element={<ToolsPage />} />
-              <Route path="/permissions" element={<PermissionsPage />} />
-              <Route path="/config" element={<ConfigRawEditor />} />
-              <Route path="/rules" element={<RulesEditor />} />
               <Route path="/workflows" element={<WorkflowList />} />
               <Route path="/workflows/new/edit" element={<WorkflowEditor />} />
               <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
               <Route path="/workflows/settings" element={<WorkflowSettings />} />
-              <Route path="/workflows/:executionId?" element={<WorkflowMonitor />} />
+              <Route path="/workflows/monitor" element={<WorkflowMonitor />} />
+              <Route path="/workflows/monitor/:executionId" element={<WorkflowMonitor />} />
             </Routes>
           </Suspense>
         </Content>

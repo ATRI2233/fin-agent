@@ -6,9 +6,7 @@ export const ErrorCode = {
   // 1xxx: BizError
   WORKFLOW_NOT_FOUND: 1001,
   EXECUTION_NOT_FOUND: 1002,
-  NODE_NOT_FOUND: 1003,
-  AGENT_NOT_DEFINED: 1004,
-  AGENT_NOT_SPECIFIED: 1005,
+  CONVERSATION_NOT_FOUND: 1006,
   VALIDATION_FAILED: 1100,
 
   // 2xxx: SystemError
@@ -20,9 +18,9 @@ export const ErrorCode = {
   DATABASE_FAILURE: 3001,
   AGENT_TIMEOUT: 3002,
   AGENT_UPSTREAM_5XX: 3003,
-  OPENCODE_UNAVAILABLE: 3004,
   MCP_SERVER_FAILURE: 3005,
   TRACE_LOST: 3006,
+  INTERNAL_FAILURE: 3999,
 } as const;
 
 type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -67,16 +65,46 @@ export class FinAgentError extends Error {
   }
 }
 
+/** 领域错误分类 — 用于标注错误的语义归属，在日志/监控/告警中区分责任域。 */
+export type ErrorCategory = "biz" | "system" | "infra";
+
+// ── DomainError (带分类的中间层) ──
+
+/**
+ * 带语义分类的领域错误。
+ *
+ * - `biz`    = 业务逻辑违规（状态异常、未找到、校验失败），通常对应 4xx
+ * - `system` = 系统级故障（配置错误、非法状态跃迁），通常对应 5xx
+ * - `infra`  = 外部基础设施故障（数据库、Agent 超时、MCP 不可用），通常对应 502/503/504
+ *
+ * 叶子子类（如 WorkflowNotFoundError）应通过构造函数固定 category，
+ * 调用方无需感知此分层，通过 error.code / error.category 区分即可。
+ */
+export class DomainError extends FinAgentError {
+  readonly category: ErrorCategory;
+
+  constructor(
+    message: string,
+    code: ErrorCodeValue,
+    category: ErrorCategory,
+    httpStatus: number = 500,
+    details: ErrorDetails = {}
+  ) {
+    super(message, code, httpStatus, details);
+    this.category = category;
+  }
+}
+
 // ── BizError (4xx) ──
 
-export class BizError extends FinAgentError {
+export class BizError extends DomainError {
   constructor(
     message: string,
     code: ErrorCodeValue,
     httpStatus: number = 400,
     details: ErrorDetails = {}
   ) {
-    super(message, code, httpStatus, details);
+    super(message, code, "biz", httpStatus, details);
   }
 }
 
@@ -86,21 +114,15 @@ export class WorkflowNotFoundError extends BizError {
   }
 }
 
+export class ConversationNotFoundError extends BizError {
+  constructor(message = "Conversation not found", details: ErrorDetails = {}) {
+    super(message, ErrorCode.CONVERSATION_NOT_FOUND, 404, details);
+  }
+}
+
 export class ExecutionNotFoundError extends BizError {
   constructor(message = "Execution not found", details: ErrorDetails = {}) {
     super(message, ErrorCode.EXECUTION_NOT_FOUND, 404, details);
-  }
-}
-
-export class NodeNotFoundError extends BizError {
-  constructor(message = "Node not found", details: ErrorDetails = {}) {
-    super(message, ErrorCode.NODE_NOT_FOUND, 404, details);
-  }
-}
-
-export class AgentNotFoundError extends BizError {
-  constructor(message = "Agent not defined", details: ErrorDetails = {}) {
-    super(message, ErrorCode.AGENT_NOT_DEFINED, 422, details);
   }
 }
 
@@ -112,14 +134,14 @@ export class ValidationError extends BizError {
 
 // ── SystemError (5xx) ──
 
-export class SystemError extends FinAgentError {
+export class SystemError extends DomainError {
   constructor(
     message: string,
     code: ErrorCodeValue,
     httpStatus: number = 500,
     details: ErrorDetails = {}
   ) {
-    super(message, code, httpStatus, details);
+    super(message, code, "system", httpStatus, details);
   }
 }
 
@@ -140,14 +162,14 @@ export class ConfigError extends SystemError {
 
 // ── InfraError (5xx/502/503/504) ──
 
-export class InfraError extends FinAgentError {
+export class InfraError extends DomainError {
   constructor(
     message: string,
     code: ErrorCodeValue,
     httpStatus: number = 500,
     details: ErrorDetails = {}
   ) {
-    super(message, code, httpStatus, details);
+    super(message, code, "infra", httpStatus, details);
   }
 }
 
@@ -166,29 +188,5 @@ export class AgentTimeoutError extends InfraError {
 export class AgentHttp5xxError extends InfraError {
   constructor(message = "Agent upstream 5xx", details: ErrorDetails = {}) {
     super(message, ErrorCode.AGENT_UPSTREAM_5XX, 502, details);
-  }
-}
-
-export class OpencodeUnavailableError extends InfraError {
-  constructor(message = "Opencode unavailable", details: ErrorDetails = {}) {
-    super(message, ErrorCode.OPENCODE_UNAVAILABLE, 503, details);
-  }
-}
-
-export class McpServerError extends InfraError {
-  constructor(message = "MCP server failure", details: ErrorDetails = {}) {
-    super(message, ErrorCode.MCP_SERVER_FAILURE, 502, details);
-  }
-}
-
-export class TraceLostError extends InfraError {
-  constructor(message = "Trace lost", details: ErrorDetails = {}) {
-    super(message, ErrorCode.TRACE_LOST, 500, details);
-  }
-}
-
-export class RegistryError extends SystemError {
-  constructor(message = "Registry error", details: ErrorDetails = {}) {
-    super(message, ErrorCode.PROTOCOL_VIOLATION, 500, details);
   }
 }

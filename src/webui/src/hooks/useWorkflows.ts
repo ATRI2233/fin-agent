@@ -1,8 +1,8 @@
 /**
  * React hooks wrapping `api/workflows.ts` — the workflow CRUD
- * surface. Every hook defers to the generic `useFetch` / `useMutation`
- * primitives so loading / error / abort semantics stay
- * uniform across the app.
+ * surface. Every hook defers to `@tanstack/react-query`'s `useQuery` /
+ * `useMutation` so caching, loading, and error semantics stay uniform
+ * across the app.
  *
  * Mount points are documented in `api/workflows.ts`; types come from
  * `domain/workflow.ts`. Consumers should import hooks from this module
@@ -12,13 +12,13 @@
  * - Read hooks return `{ data, loading, error, refetch }` and re-run
  * when any of their argument dependencies change.
  * - Read hooks that take a nullable id (`useWorkflow`) short-circuit
- * inside the fetcher: when the id is `null` the promise resolves
- * with `null` and the hook reports `loading=false` immediately.
+ * via `enabled: !!id`: the query never fires and `data` is `null`.
  * - Mutation hooks return `{ mutate, loading, error }`; callers
- * `await mutate(...)` to surface the resolved value or throw.
+ * `await mutate(...)` to surface the resolved value or throw. On
+ * success the workflow list cache is invalidated automatically.
  */
 
-import { useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   createWorkflow,
@@ -33,8 +33,16 @@ import type {
   WorkflowMeta,
   UpdateWorkflowPayload,
 } from '../domain/workflow';
-import { useFetch } from './useFetch';
-import { useMutation } from './useMutation';
+
+/* ─── Query keys ─────────────────────────────────────────────────── */
+
+export const workflowKeys = {
+  all: ['workflows'] as const,
+  list: (skip?: number, limit?: number) =>
+    [...workflowKeys.all, 'list', skip ?? 0, limit ?? 1000] as const,
+  detail: (id: string | null) =>
+    [...workflowKeys.all, 'detail', id] as const,
+};
 
 /* ─── Read hooks (2) ───────────────────────────────────────────────── */
 
@@ -46,11 +54,16 @@ import { useMutation } from './useMutation';
  * @param limit Page size. Default 1000 (matches backend default).
  */
 export function useWorkflows(skip: number = 0, limit: number = 1000) {
-  const fetcher = useCallback(
-    (_signal: AbortSignal) => listWorkflows(skip, limit),
-    [skip, limit],
-  );
-  return useFetch<WorkflowMeta[]>(fetcher, [skip, limit]);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: workflowKeys.list(skip, limit),
+    queryFn: ({ signal }) => listWorkflows(skip, limit, signal),
+  });
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: (error as Error | null) ?? null,
+    refetch,
+  };
 }
 
 /**
@@ -61,12 +74,17 @@ export function useWorkflows(skip: number = 0, limit: number = 1000) {
  * @param id Workflow id, or `null` to skip the request.
  */
 export function useWorkflow(id: string | null) {
-  const fetcher = useCallback(
-    (_signal: AbortSignal) =>
-      id === null ? Promise.resolve(null) : getWorkflow(id),
-    [id],
-  );
-  return useFetch<Workflow | null>(fetcher, [id]);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: workflowKeys.detail(id),
+    queryFn: ({ signal }) => getWorkflow(id!, signal),
+    enabled: !!id,
+  });
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: (error as Error | null) ?? null,
+    refetch,
+  };
 }
 
 /* ─── Write hooks — CRUD + run (5) ──────────────────────────────────── */
@@ -76,9 +94,19 @@ export function useWorkflow(id: string | null) {
  * > 50 nodes) and returns 201 with the persisted row.
  */
 export function useCreateWorkflow() {
-  return useMutation<Parameters<typeof createWorkflow>[0], Workflow>(
-    (data) => createWorkflow(data),
-  );
+  const queryClient = useQueryClient();
+  const { mutateAsync, isPending, error } = useMutation({
+    mutationFn: (data: Parameters<typeof createWorkflow>[0]) =>
+      createWorkflow(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+  return {
+    mutate: mutateAsync,
+    loading: isPending,
+    error: (error as Error | null) ?? null,
+  };
 }
 
 /**
@@ -87,10 +115,24 @@ export function useCreateWorkflow() {
  * `nodes` or `edges` change.
  */
 export function useUpdateWorkflow() {
-  return useMutation<
-    { id: string; data: UpdateWorkflowPayload },
-    Workflow
-  >(({ id, data }) => updateWorkflow(id, data));
+  const queryClient = useQueryClient();
+  const { mutateAsync, isPending, error } = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateWorkflowPayload;
+    }) => updateWorkflow(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+  return {
+    mutate: mutateAsync,
+    loading: isPending,
+    error: (error as Error | null) ?? null,
+  };
 }
 
 /**
@@ -98,7 +140,18 @@ export function useUpdateWorkflow() {
  * `void`; backend returns 204 No Content.
  */
 export function useDeleteWorkflow() {
-  return useMutation<string, void>((id) => deleteWorkflow(id));
+  const queryClient = useQueryClient();
+  const { mutateAsync, isPending, error } = useMutation({
+    mutationFn: (id: string) => deleteWorkflow(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+  return {
+    mutate: mutateAsync,
+    loading: isPending,
+    error: (error as Error | null) ?? null,
+  };
 }
 
 /**
@@ -106,10 +159,24 @@ export function useDeleteWorkflow() {
  * `{ execution_id }`. Free-form `params` are forwarded to the engine.
  */
 export function useTriggerWorkflow() {
-  return useMutation<
-    { id: string; params?: Parameters<typeof triggerWorkflow>[1] },
-    Awaited<ReturnType<typeof triggerWorkflow>>
-  >(({ id, params }) => triggerWorkflow(id, params));
+  const queryClient = useQueryClient();
+  const { mutateAsync, isPending, error } = useMutation({
+    mutationFn: ({
+      id,
+      params,
+    }: {
+      id: string;
+      params?: Parameters<typeof triggerWorkflow>[1];
+    }) => triggerWorkflow(id, params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workflowKeys.all });
+    },
+  });
+  return {
+    mutate: mutateAsync,
+    loading: isPending,
+    error: (error as Error | null) ?? null,
+  };
 }
 
 /* ─── Imperative fetcher (for callbacks) ───────────────────────────── */

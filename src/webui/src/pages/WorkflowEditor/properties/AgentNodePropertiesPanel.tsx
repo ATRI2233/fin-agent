@@ -26,22 +26,9 @@ import {
   PlusOutlined,
   MinusCircleOutlined,
 } from '@ant-design/icons';
-import type { Node } from '@xyflow/react';
 import { useTools } from '../../../hooks/useMcp';
 
-/* ─── Domain types ─────────────────────────────────────────────────────── */
-
-export interface AgentNodeData {
-  label: string;
-  agentType: string;
-  prompt?: string;
-  parameters?: Record<string, string>;
-  tools?: string[];
-  inputs: Record<string, string>;
-  [key: string]: unknown;
-}
-
-export type AgentNode = Node<AgentNodeData, 'agent'>;
+import type { AgentNodeData, AgentNode } from '../index';
 
 /* ─── Component ────────────────────────────────────────────────────────── */
 

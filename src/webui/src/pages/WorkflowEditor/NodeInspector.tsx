@@ -26,47 +26,28 @@
 
 import { useState } from 'react';
 import { Form, Typography, Input, Select, Button, Space, Popconfirm } from 'antd';
-import type { Edge } from '@xyflow/react';
 
 import type { PaletteAgent } from './AgentPalettePanel';
 
-import AgentNodePropertiesPanel, {
+import {
   type AgentNode,
   type AgentNodeData,
-} from './properties/AgentNodePropertiesPanel';
-import DebateNodePropertiesPanel, {
   type DebateNode,
   type DebateNodeData,
-} from './properties/DebateNodePropertiesPanel';
-import InputNodePropertiesPanel, {
   type InputNode,
-} from './properties/InputNodePropertiesPanel';
-import OutputNodePropertiesPanel, {
   type OutputNode,
-} from './properties/OutputNodePropertiesPanel';
-import WorkflowBlockNodePropertiesPanel, {
   type WorkflowBlockNode,
-} from './properties/WorkflowBlockNodePropertiesPanel';
+  type PromptType,
+  type EdgePromptData,
+  type WorkflowEdge,
+  type WorkflowNode,
+} from './index';
 
-/* ─── Shared edge / union types (re-declared to keep this file the
- * single import surface for the property panels) ─────────────────── */
-
-export type PromptType = 'context' | 'instruction' | 'constraint' | 'data';
-
-export interface EdgePromptData {
-  prompt: string;
-  promptType: PromptType;
-  [key: string]: unknown;
-}
-
-export type WorkflowEdge = Edge<EdgePromptData>;
-
-export type WorkflowNode =
-  | AgentNode
-  | DebateNode
-  | WorkflowBlockNode
-  | InputNode
-  | OutputNode;
+import AgentNodePropertiesPanel from './properties/AgentNodePropertiesPanel';
+import DebateNodePropertiesPanel from './properties/DebateNodePropertiesPanel';
+import InputNodePropertiesPanel from './properties/InputNodePropertiesPanel';
+import OutputNodePropertiesPanel from './properties/OutputNodePropertiesPanel';
+import WorkflowBlockNodePropertiesPanel from './properties/WorkflowBlockNodePropertiesPanel';
 
 /* ─── Inspector props ─────────────────────────────────────────────────── */
 

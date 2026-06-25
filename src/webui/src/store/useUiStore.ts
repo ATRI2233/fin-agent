@@ -39,8 +39,8 @@ export const UI_STORAGE_KEY = 'fin-agent-ui';
 /**
  * Global UI store hook.
  *
- * Persisted slices: `sidebarCollapsed`, `darkMode`, `currentRoute`.
- * Actions are intentionally NOT persisted (zustand default `partialize`).
+ * Persisted slices: `sidebarCollapsed`, `darkMode` only.
+ * `currentRoute` stays in memory (react-router is the source of truth).
  */
 export const useUiStore = create<UiState>()(
   persist(
@@ -62,6 +62,10 @@ export const useUiStore = create<UiState>()(
       name: UI_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
       version: 1,
+      partialize: (state) => ({
+        sidebarCollapsed: state.sidebarCollapsed,
+        darkMode: state.darkMode,
+      }),
     },
   ),
 );

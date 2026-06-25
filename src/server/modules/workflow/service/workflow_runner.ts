@@ -1,7 +1,7 @@
 import pLimit from "p-limit";
-import { WorkflowRepo } from "../repo.js";
-import { ExecutionRepo } from "../../execution/repo.js";
+import type { WorkflowRepo } from "../repo.js";
 import { CircuitBreaker, withRetry } from "./retry.js";
+import { rootLogger } from "../../../infra/logging.js";
 import {
   buildPredecessors,
   topologicalSort,
@@ -11,7 +11,9 @@ import {
 import { type NodeContext, type NodeResult, type NodeExecutor, InputExecutor, OutputExecutor } from "../executor.js";
 import { ValidationError, WorkflowNotFoundError } from "../../../infra/errors.js";
 import { settings } from "../../../infra/settings.js";
+import { ExecutionDomainService } from "../../execution/domain-service.js";
 import type { ExecutionStatus } from "../../execution/domain.js";
+import type { AgentPort } from "../../../infra/agent/AgentPort.js";
 
 export interface ExecutionSummary {
   executionId: string;
@@ -22,12 +24,30 @@ export interface ExecutionSummary {
   skippedNodes: string[];
 }
 
-export interface AgentDispatcher {
-  dispatch(agentName: string, input: unknown, traceId: string): Promise<unknown>;
+export interface IExecutionRepo {
+  createExecution(params: {
+    workflowId: string;
+    params: Record<string, unknown>;
+    traceId: string;
+  }): string;
+  createExecutionNodes(
+    executionId: string,
+    nodes: Array<{ id: string; agent: string; input: Record<string, unknown> }>
+  ): void;
+  markExecution(executionId: string, status: ExecutionStatus): void;
+  recordNodeStarted(executionId: string, nodeId: string): void;
+  recordNodeCompleted(
+    executionId: string,
+    nodeId: string,
+    output: Record<string, unknown>,
+    sessionId?: string
+  ): void;
+  recordNodeFailed(executionId: string, nodeId: string, error: string): void;
+  recordNodeSkipped(executionId: string, nodeId: string): void;
 }
 
 export class ExecutorRegistry {
-  constructor(private dispatcher: AgentDispatcher) {}
+  constructor(private port: AgentPort) {}
 
   create(nodeType: string): NodeExecutor {
     switch (nodeType) {
@@ -36,22 +56,26 @@ export class ExecutorRegistry {
       case "output":
         return new OutputExecutor();
       case "agent":
-        return new AgentExecutor(this.dispatcher);
+        return new AgentExecutor(this.port);
       default:
         throw new ValidationError(`Unknown node type: ${nodeType}`);
     }
   }
 }
 
-/** Agent node executor — delegates to AgentDispatcher. */
+/** Agent node executor — delegates to AgentPort. */
 class AgentExecutor implements NodeExecutor {
-  constructor(private dispatcher: AgentDispatcher) {}
+  constructor(private port: AgentPort) {}
 
   async execute(ctx: NodeContext): Promise<NodeResult> {
     const agentName = ctx.node.agent ?? "default";
-    const output = await this.dispatcher.dispatch(agentName, ctx.params, ctx.traceId);
+    const output = await this.port.invoke({
+      agentName,
+      payload: ctx.params,
+      traceId: ctx.traceId,
+    });
     return {
-      output: output as any,
+      output: output.content as any,
       sessionId: null,
       extraData: {},
     };
@@ -63,8 +87,9 @@ export class WorkflowRunner {
   private limit: ReturnType<typeof pLimit>;
 
   constructor(
-    private workflowRepo: typeof WorkflowRepo,
-    private executionRepo: typeof ExecutionRepo,
+    private workflowRepo: WorkflowRepo,
+    private executionRepo: IExecutionRepo,
+    private executionDomainService: ExecutionDomainService,
     private executorRegistry: ExecutorRegistry
   ) {
     this.circuitBreaker = new CircuitBreaker(settings.CIRCUIT_BREAKER_THRESHOLD);
@@ -185,7 +210,7 @@ export class WorkflowRunner {
         this.executionRepo.recordNodeFailed(executionId, node.id, "Circuit breaker open");
         failedNodes.add(node.id);
         // Mark downstream skipped
-        const skipped = this.executionRepo.markDownstreamSkipped(executionId, node.id);
+        const skipped = this.executionDomainService.markDownstreamSkipped(executionId, node.id);
         skipped.forEach((sid) => skippedNodes.add(sid));
         return;
       }
@@ -225,7 +250,7 @@ export class WorkflowRunner {
           this.circuitBreaker.recordFailure(executionId, node.id, traceId);
 
           // Mark downstream skipped
-          const skipped = this.executionRepo.markDownstreamSkipped(executionId, node.id);
+          const skipped = this.executionDomainService.markDownstreamSkipped(executionId, node.id);
           skipped.forEach((sid) => skippedNodes.add(sid));
         }
       });
@@ -258,8 +283,7 @@ export class WorkflowRunner {
         settings.RETRY_BACKOFF_FACTOR
       );
     } catch (e) {
-      const logger = (await import("../../../infra/logging.js")).rootLogger;
-      logger.fatal(
+      rootLogger.fatal(
         { executionId, status, error: e },
         "mark_execution failed after all retries"
       );

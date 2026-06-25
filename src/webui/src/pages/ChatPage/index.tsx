@@ -63,7 +63,7 @@ export default function ChatPage() {
     stopPolling,
   } = useMessages();
 
-  // Registry data (hooks — read-only). `useFetch` returns
+  // Registry data (hooks — read-only). `useQuery`-based hooks return
   // `data: T | null`, so coalesce to [] before passing downstream.
   const { data: agentsRaw } = useAgents();
   const { data: workflowsRaw } = useWorkflows();

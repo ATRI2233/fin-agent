@@ -1,7 +1,7 @@
 /**
  * React hooks wrapping `api/agents.ts` — the agent registry surface.
- * Every hook defers to the generic `useFetch` primitive so
- * loading / error / abort semantics stay uniform across the app.
+ * Every hook uses `useQuery` from @tanstack/react-query so
+ * loading / error / cache semantics stay uniform across the app.
  *
  * Mount points and HTTP verbs are documented in `api/agents.ts:1-21`;
  * types come from `domain/agent.ts`. Consumers should import hooks
@@ -15,17 +15,22 @@
  * helpers do not yet forward it — the contract is preserved so we
  * can switch to the signal-aware client without rewriting the hooks.
  * - Read hooks that take a nullable id (`useAgent`) short-circuit when
- * the argument is `null`: the fetcher returns a never-resolving
- * promise so `loading` stays `true`, signalling "still waiting for
- * input". Callers should gate on the argument before consuming
- * `data`.
+ * the argument is `null`: the query is disabled and `data` remains
+ * `null`. Callers should gate on the argument before consuming `data`.
  */
 
-import { useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { getAgent, listAgents } from '../api/agents';
 import type { Agent, AgentDetail } from '../domain/agent';
-import { useFetch } from './useFetch';
+
+/* ─── Query keys ──────────────────────────────────────────────────── */
+
+export const agentKeys = {
+  all: ['agents'] as const,
+  list: () => [...agentKeys.all, 'list'] as const,
+  detail: (name: string) => [...agentKeys.all, 'detail', name] as const,
+};
 
 /* ─── Read hooks (2) ───────────────────────────────────────────────── */
 
@@ -35,19 +40,18 @@ import { useFetch } from './useFetch';
  * keep the agents page in sync.
  */
 export function useAgents() {
-  const fetcher = useCallback(
-    (_signal: AbortSignal) => listAgents(),
-    [],
-  );
-  return useFetch<Agent[]>(fetcher, []);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: agentKeys.list(),
+    queryFn: () => listAgents(),
+  });
+  return { data: data ?? null, loading: isLoading, error: error as Error | null, refetch };
 }
 
 /**
  * Fetch a single agent by registry name.
  *
  * Short-circuits when `name` is `null` (e.g. nothing is selected): the
- * fetcher returns a never-resolving promise so `loading` stays `true`,
- * signalling "still waiting for input". Callers should gate on the name
+ * query is disabled and `data` remains `null`. Callers should gate on the name
  * before consuming `data`. The backend raises 404 for unknown names,
  * which surfaces as `error` on the result.
  *
@@ -55,12 +59,13 @@ export function useAgents() {
  * skip the request.
  */
 export function useAgent(name: string | null) {
-  const fetcher = useCallback(
-    (_signal: AbortSignal) => {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: agentKeys.detail(name ?? ''),
+    queryFn: () => {
       if (!name) return Promise.resolve<AgentDetail | null>(null);
       return getAgent(name);
     },
-    [name],
-  );
-  return useFetch<AgentDetail | null>(fetcher, [name]);
+    enabled: !!name,
+  });
+  return { data: data ?? null, loading: isLoading, error: error as Error | null, refetch };
 }

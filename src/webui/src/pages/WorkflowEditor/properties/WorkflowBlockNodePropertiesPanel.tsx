@@ -23,18 +23,8 @@
 
 import { Form, Typography, Input, Button, Space, Popconfirm, Tag, Divider } from 'antd';
 import { DeleteOutlined, UngroupOutlined } from '@ant-design/icons';
-import type { Node } from '@xyflow/react';
 
-export interface WorkflowBlockNodeData {
-  label: string;
-  workflowId: string;
-  workflowName: string;
-  childNodeIds: string[];
-  inputs: Record<string, string>;
-  [key: string]: unknown;
-}
-
-export type WorkflowBlockNode = Node<WorkflowBlockNodeData, 'workflow-block'>;
+import type { WorkflowBlockNodeData, WorkflowBlockNode } from '../index';
 
 export interface WorkflowBlockNodePropertiesPanelProps {
   selectedNode: WorkflowBlockNode;

@@ -6,7 +6,6 @@
  * table card) and stitches together the extracted pieces:
  *
  * - `useAgentsPage` (local) — registry list + per-agent whitelist counts.
- * - `useAgentModels` — name → model map for the table column.
  * - `buildAgentColumns` — table column factory.
  *
  * Note: CRUD modals (Create / View / Edit / BatchModel) and the
@@ -26,7 +25,6 @@ import {
 import { ReloadOutlined } from '@ant-design/icons';
 
 import { useAgentsPage } from './hooks/useAgentsPage';
-import { useAgentModels } from './hooks/useAgentModels';
 import { buildAgentColumns } from './columns';
 
 export default function AgentsPage() {
@@ -39,10 +37,7 @@ export default function AgentsPage() {
     agentWhitelistCounts,
   } = useAgentsPage();
 
-  // Model state for the table column.
-  const { agentModels } = useAgentModels();
-
-  const columns = buildAgentColumns({ agentModels, agentWhitelistCounts });
+  const columns = buildAgentColumns({ agentModels: {}, agentWhitelistCounts });
 
   if (loading) {
     return (
