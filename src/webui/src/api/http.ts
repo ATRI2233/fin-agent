@@ -28,7 +28,7 @@ const TRACE_ID_HEADER = "X-Trace-Id";
 const HTTP_NO_CONTENT = 204;
 
 /** Default request timeout in milliseconds. */
-const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 /**
  * Join a base URL with a relative path, normalising duplicate or trailing
@@ -276,62 +276,6 @@ export async function apiPut<T>(url: string, body?: unknown, signal?: AbortSigna
  */
 export async function apiDelete(url: string, signal?: AbortSignal): Promise<void> {
   await request<void>("DELETE", url, undefined, signal);
-}
-
-/**
- * Issue a `GET` and return the raw response body as `string` (not JSON).
- * Useful for endpoints that return `text/plain` (e.g. agent markdown content).
- */
-export async function apiGetText(url: string, signal?: AbortSignal): Promise<string> {
-  const headers: Record<string, string> = {
-    Accept: "text/plain",
-    "X-Trace-Id": generateRequestId(),
-  };
-  const init: RequestInit = { method: "GET", headers };
-  if (signal) init.signal = signal;
-
-  const response = await fetch(url, init);
-  if (!response.ok) {
-    const body = await readApiError(response);
-    throw new ApiError(response.status, body);
-  }
-  return response.text();
-}
-
-/**
- * Issue a `PUT` with a plain-text body (Content-Type: text/plain).
- * Useful for endpoints that accept raw text (e.g. agent/skill content).
- */
-export async function apiPutText(url: string, body: string, signal?: AbortSignal): Promise<void> {
-  const headers: Record<string, string> = {
-    "Content-Type": "text/plain",
-    "X-Trace-Id": generateRequestId(),
-  };
-  const init: RequestInit = { method: "PUT", headers, body };
-
-  let effectiveSignal = signal;
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  let ctrl: AbortController | undefined;
-  if (!effectiveSignal) {
-    ctrl = new AbortController();
-    effectiveSignal = ctrl.signal;
-    timeoutId = setTimeout(() => {
-      ctrl!.abort();
-    }, DEFAULT_TIMEOUT_MS);
-  }
-  init.signal = effectiveSignal;
-
-  try {
-    const response = await fetch(url, init);
-    if (!response.ok) {
-      const errBody = await readApiError(response);
-      throw new ApiError(response.status, errBody);
-    }
-  } finally {
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-    }
-  }
 }
 
 /** Re-export the canonical error class so consumers only need this module. */

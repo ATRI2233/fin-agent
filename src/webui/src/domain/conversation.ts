@@ -120,6 +120,10 @@ export interface ConversationUpdate {
  */
 export interface MessageCreate {
   /**
+   * Message role. If omitted at send-time, the API layer fills in "user".
+   */
+  role?: 'user' | 'assistant' | 'system';
+  /**
    * Raw message text from the user. Maximum 10,000 characters.
    * Markdown is allowed and rendered in the WebUI.
    */

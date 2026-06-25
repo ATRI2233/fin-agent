@@ -79,7 +79,8 @@ export class ExecutionDomainService implements IExecutionDomainService {
       if (visited.has(input)) return false;
       visited.add(input);
       if (Array.isArray(input)) return input.some((v) => this._inputReferences(v, nodeId, visited));
-      for (const [, v] of Object.entries(input as Record<string, unknown>)) {
+      for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+        if (k === nodeId) return true;
         if (this._inputReferences(v, nodeId, visited)) return true;
       }
     }

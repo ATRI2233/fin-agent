@@ -20,8 +20,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getConversation } from '../../../api/conversations';
-import { useConversationStore } from '../../../store/useConversationStore';
 import type { Message } from '../../../domain/conversation';
+import { getExtraType } from '../utils';
 
 /** Poll cadence — must match the original `setInterval(…, 2000)`. */
 const POLL_INTERVAL_MS = 2000;
@@ -30,14 +30,9 @@ const MAX_POLLS = 600;
 
 export type PollingMode = 'agent' | 'workflow';
 
-function getExtraType(msg: Message): string | undefined {
-  const extra = msg.extra_data as Record<string, unknown> | undefined;
-  return typeof extra?.type === 'string' ? extra.type : undefined;
-}
-
 export interface UseConversationPollingResult {
   /** Begin polling. Resets the counter; safe to call when already running. */
-  startPolling: (conversationId: string, userMessageId: string, mode: PollingMode) => void;
+  startPolling: (conversationId: string, userMessageId: string, mode: PollingMode, onUpdate?: (msgs: Message[]) => void) => void;
   /** Cancel the in-flight poll. Resets `processingMessage` and `pendingMessageId`. */
   stopPolling: () => void;
   /** `true` while polling is active. */
@@ -47,7 +42,6 @@ export interface UseConversationPollingResult {
 }
 
 export function useConversationPolling(): UseConversationPollingResult {
-  const setMessages = useConversationStore((s) => s.setMessages);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevMessagesRef = useRef<Message[]>([]);
   const [processingMessage, setProcessingMessage] = useState(false);
@@ -71,7 +65,7 @@ export function useConversationPolling(): UseConversationPollingResult {
   });
 
   const startPolling = useCallback(
-    (conversationId: string, userMessageId: string, mode: PollingMode): void => {
+    (conversationId: string, userMessageId: string, mode: PollingMode, onUpdate?: (msgs: Message[]) => void): void => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
       }
@@ -100,7 +94,7 @@ export function useConversationPolling(): UseConversationPollingResult {
             (msgs.length > 0 && msgs[msgs.length - 1]?.content !== prev[prev.length - 1]?.content);
 
           if (hasChanged) {
-            setMessages(msgs);
+            onUpdate?.(msgs);
           }
           prevMessagesRef.current = msgs;
 
@@ -135,7 +129,7 @@ export function useConversationPolling(): UseConversationPollingResult {
         }
       }, POLL_INTERVAL_MS);
     },
-    [setMessages, stopPolling],
+    [stopPolling],
   );
 
   // Cleanup polling on unmount — matches the original `useEffect` cleanup.

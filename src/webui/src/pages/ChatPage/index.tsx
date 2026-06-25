@@ -20,7 +20,7 @@
  * it imperatively via `messageThreadRef.current?.requestScroll()`
  * before sending a message so the new row lands visible.
  */
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Button, Typography, message } from 'antd';
 import { MessageOutlined, PlusOutlined } from '@ant-design/icons';
 
@@ -65,8 +65,9 @@ export default function ChatPage() {
 
   // Registry data (hooks — read-only). `useQuery`-based hooks return
   // `data: T | null`, so coalesce to [] before passing downstream.
-  const { data: agentsRaw } = useAgents();
-  const { data: workflowsRaw } = useWorkflows();
+  const hasConversation = !!currentConversation;
+  const { data: agentsRaw } = useAgents(hasConversation);
+  const { data: workflowsRaw } = useWorkflows(0, 50, hasConversation);
   const agents = agentsRaw ?? [];
   const workflows = workflowsRaw ?? [];
 
@@ -97,6 +98,20 @@ export default function ChatPage() {
     });
   };
 
+  /**
+   * Derive the agent name for a new conversation from the current selection
+   * or the first registered agent. Falls back gracefully when no agents
+   * are available rather than relying on a hardcoded default.
+   */
+  const handleCreateConversation = useCallback((): void => {
+    const agentName = selectedAgent || agents[0]?.name;
+    if (!agentName) {
+      message.error('No agents available. Cannot create conversation.');
+      return;
+    }
+    void createConversation(agentName);
+  }, [selectedAgent, agents, createConversation]);
+
   return (
     <div
       style={{
@@ -110,7 +125,7 @@ export default function ChatPage() {
         conversations={conversations}
         currentId={currentConversation?.id ?? null}
         onSelect={setCurrentConversation}
-        onCreate={createConversation}
+        onCreate={handleCreateConversation}
         onDelete={deleteConversation}
       />
 
@@ -174,7 +189,7 @@ export default function ChatPage() {
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => {
-                void createConversation();
+                void handleCreateConversation();
               }}
             >
               New Conversation

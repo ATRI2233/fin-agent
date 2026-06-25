@@ -74,7 +74,9 @@ export type ExecutionStatus =
   | 'running'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'skipped'
+  | 'cleaned_up';
 
 /**
  * A single execution record (list row / detail body).
@@ -117,6 +119,8 @@ export interface Execution {
   params?: Record<string, unknown>;
   /** Final aggregated result payload (workflow-defined shape). */
   result?: Record<string, unknown>;
+  /** Node execution timeline, embedded in the execution detail response. */
+  nodes?: NodeExec[];
 }
 
 /**

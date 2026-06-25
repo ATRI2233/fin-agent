@@ -36,7 +36,7 @@ export function FredRenderer({ content }: RendererProps) {
   // Chart data (last 30 points)
   const chartData = seriesData.slice(-30).map(d => ({
     name: d.date,
-    value: d.value ?? 0,
+    value: d.value,
   }));
 
   return (

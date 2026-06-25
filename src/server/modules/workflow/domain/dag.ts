@@ -25,16 +25,6 @@ export interface Workflow {
 
 /** Build predecessor map: node_id -> list of predecessor node_ids. */
 export function buildPredecessors(nodes: Node[], edges: Edge[]): Map<string, string[]> {
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  for (const e of edges) {
-    if (!nodeIds.has(e.source)) {
-      throw new Error(`Edge references non-existent source node: ${e.source}`);
-    }
-    if (!nodeIds.has(e.target)) {
-      throw new Error(`Edge references non-existent target node: ${e.target}`);
-    }
-  }
-
   const preds = new Map<string, string[]>();
   for (const n of nodes) {
     preds.set(n.id, []);

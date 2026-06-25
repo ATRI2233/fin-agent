@@ -69,14 +69,22 @@ export function useMessages(): UseMessagesResult {
   useEffect(() => {
     stopPollingRef.current = stopPolling;
   });
+  const lastSyncedConvIdRef = useRef<string | null>(null);
 
   // Whenever the envelope resolves with a fresh conversation, push its
   // messages into the zustand store. The hook also stops any in-flight
   // stream from the previous conversation so events don't cross-pollinate.
   useEffect(() => {
-    stopPollingRef.current();
-    if (convEnvelope?.messages) {
-      setMessages(convEnvelope.messages);
+    const convId = convEnvelope?.conversation.id ?? null;
+    if (convId === null) return; // still loading or no active conversation
+
+    if (convId !== lastSyncedConvIdRef.current) {
+      // Conversation actually changed — stop any in-flight polling and sync messages
+      stopPollingRef.current();
+      if (convEnvelope?.messages) {
+        setMessages(convEnvelope.messages);
+      }
+      lastSyncedConvIdRef.current = convId;
     }
   }, [convEnvelope, setMessages]);
 
@@ -121,7 +129,7 @@ export function useMessages(): UseMessagesResult {
           });
 
           // Start polling for the assistant / workflow response.
-          startPolling(currentConversation.id, userMessageId, mode);
+          startPolling(currentConversation.id, userMessageId, mode, setMessages);
         }
       } catch (err) {
         antdMessage.error('Failed to send message');
@@ -135,6 +143,7 @@ export function useMessages(): UseMessagesResult {
       createMessageMutation,
       appendMessage,
       startPolling,
+      setMessages,
     ],
   );
 

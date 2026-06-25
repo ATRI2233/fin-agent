@@ -40,6 +40,8 @@ export interface WorkflowSettingsModalProps {
   initialTriggerType: WorkflowTriggerType;
   initialCronExpression?: string;
   initialCommandString: string;
+  /** Existing workflow config object to preserve unknown fields across saves. */
+  initialConfig?: Record<string, unknown>;
   /** Called after a successful save so the parent can update its state. */
   onSaved: (next: {
     name: string;
@@ -57,6 +59,7 @@ export default function WorkflowSettingsModal({
   initialTriggerType,
   initialCronExpression,
   initialCommandString,
+  initialConfig,
   onSaved,
 }: WorkflowSettingsModalProps) {
   const [form] = Form.useForm();
@@ -94,8 +97,9 @@ export default function WorkflowSettingsModal({
           name,
           trigger_type: nextType,
           config: {
-            ...(nextCron ? { cron_expression: nextCron } : { cron_expression: null }),
-            ...(commandString ? { command_string: commandString } : {}),
+            ...(initialConfig ?? {}),
+            cron_expression: nextCron ?? null,
+            ...(nextType === 'command' ? { command_string: commandString } : { command_string: null }),
           },
         },
       });

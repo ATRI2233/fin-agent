@@ -8,6 +8,13 @@
       "when": 1782125732738,
       "tag": "0000_tranquil_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782377790866,
+      "tag": "0001_shallow_nick_fury",
+      "breakpoints": true
     }
   ]
 }

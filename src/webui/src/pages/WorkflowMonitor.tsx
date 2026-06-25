@@ -5,7 +5,7 @@ import { ReactFlow, MiniMap, Background, BackgroundVariant, useNodesState, useEd
 import '@xyflow/react/dist/style.css';
 import { useExecution } from '../hooks/useExecutions';
 import { useWorkflow } from '../hooks/useWorkflows';
-import type { Execution, NodeExec as ApiNodeExec } from '../domain/execution';
+import type { NodeExec as ApiNodeExec } from '../domain/execution';
 import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
 import NodeDataPanel from './NodeDataPanel';
 import ExecutionTimeline from './ExecutionTimeline';
@@ -127,7 +127,7 @@ function MonitorCanvas({
       source: e.source,
       target: e.target,
       label: typeof e.label === 'string' ? e.label : undefined,
-      animated: (execNodes.find((n) => n.node_id === e.source)?.status === 'running'),
+      animated: (execNodes.find((n) => n.node_id === e.target)?.status === 'running'),
       style: { stroke: '#3d5a80', strokeWidth: 2 },
       labelStyle: { fill: '#8a8a8a', fontSize: 11, fontFamily: "'JetBrains Mono', monospace" },
     }));
@@ -165,7 +165,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
   // Hooks are unconditional — pass undefined to disable polling when no id.
   const {
     data: execution,
-    isLoading: execLoading,
+    loading: execLoading,
     error: execError,
   } = useExecution(executionId);
 
@@ -178,8 +178,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
   // Merge nodes from execution envelope (timeline data now lives in
   // getExecution().nodes after the P2-T3 endpoint consolidation).
   const execNodes: ApiNodeExec[] = useMemo(() => {
-    const env = execution as (Execution & { nodes?: ApiNodeExec[] }) | null | undefined;
-    return env?.nodes ?? [];
+    return execution?.nodes ?? [];
   }, [execution]);
 
   if (!executionId) {
@@ -235,10 +234,8 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
       })()
     : null;
 
-  const execName = (execution as Execution & { workflow_name?: string }).workflow_name
-    ?? workflow?.name
-    ?? '';
-  const execStatus = execution.status as 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  const execName = execution.workflow_name ?? workflow?.name ?? '';
+  const execStatus = execution.status;
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: 0, background: '#0d1117', borderRadius: 8, overflow: 'hidden' }}>
@@ -262,7 +259,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Tag color={({ pending: 'default', running: 'processing', completed: 'success', failed: 'error', cancelled: 'warning' })[execStatus]}>
+            <Tag color={({ pending: 'default', running: 'processing', completed: 'success', failed: 'error', cancelled: 'warning', cleaned_up: '#9e9e9e', skipped: '#ff9800' })[execStatus]}>
               {execStatus.toUpperCase()}
             </Tag>
           </div>

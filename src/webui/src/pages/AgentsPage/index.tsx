@@ -74,7 +74,6 @@ export default function AgentsPage() {
           description={error}
           showIcon
           closable
-          onClose={() => refetchAgents()}
           style={{ marginBottom: 24 }}
         />
       )}

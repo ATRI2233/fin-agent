@@ -8,20 +8,31 @@ export const executionKeys = {
 };
 
 export function useExecutions(params?: { workflow_id?: string }) {
-  return useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: executionKeys.list(params),
     queryFn: ({ signal }) => listExecutions(params, signal),
     refetchInterval: 5_000,
   });
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: (error as Error | null) ?? null,
+    refetch,
+  };
 }
 
 export function useExecution(id: string | undefined) {
-  return useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: executionKeys.detail(id ?? ""),
     queryFn: ({ signal }) => getExecution(id!, signal),
     enabled: !!id,
     refetchInterval: 3_000,
   });
+  return {
+    data: data ?? null,
+    loading: isLoading,
+    error: (error as Error | null) ?? null,
+  };
 }
 
 export function useAbortExecution() {

@@ -296,6 +296,7 @@ function generateLayeredRecommendations(timeframeGroups: Record<string, Timefram
 
 // ── 判断信号方向 ──────────────────────────────────────────
 function getSignalDirection(signal: AgentSignal): "看多" | "看空" | "中性" {
+  if (!signal.distribution) return "中性";
   const { p_bullish, p_bearish } = signal.distribution;
   if (p_bullish > p_bearish) return "看多";
   if (p_bearish > p_bullish) return "看空";

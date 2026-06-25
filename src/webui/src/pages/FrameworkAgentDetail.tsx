@@ -1,20 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Descriptions, List, Tag, Button, Spin, Alert, Space, Typography } from 'antd';
+import { Card, Descriptions, Tag, Button, Spin, Alert, Space, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useAgent } from '../hooks/useAgents';
-import type { AgentDetail } from '../domain/agent';
 
 const { Title, Text } = Typography;
-
-/**
- * Local view-model that extends `AgentDetail` with legacy optional fields
- * (`capabilities`, `tools`) the detail page renders but the canonical
- * type does not surface. Backend may include them in the payload.
- */
-type AgentDetailViewModel = AgentDetail & {
-  capabilities?: string[];
-  tools?: string[];
-};
 
 export default function FrameworkAgentDetail() {
   const { name } = useParams<{ name: string }>();
@@ -49,16 +38,6 @@ export default function FrameworkAgentDetail() {
     );
   }
 
-  // The canonical `AgentDetail` only carries execution telemetry fields;
-  // the legacy detail page also renders `capabilities` and `tools` arrays
-  // (optional in the backend payload). Use a typed view-model with
-  // optional fields so the section renderers keep working with
-  // permissive `[]` fallbacks.
-  // Defensive null guard: if the backend returns null (no error, no data)
-  // we show a spinner instead of crashing on the view-model assignment below.
-  if (!agent) return <Spin tip="加载代理详情..." />;
-  const agentVm: AgentDetailViewModel = agent;
-
   return (
     <div>
       <div
@@ -71,9 +50,9 @@ export default function FrameworkAgentDetail() {
       >
         <div>
           <Title level={4} style={{ margin: 0 }}>
-            {agentVm.name}
+            {agent.name}
           </Title>
-          <Text type="secondary">{agentVm.description || 'No description'}</Text>
+          <Text type="secondary">{agent.description || 'No description'}</Text>
         </div>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
@@ -86,40 +65,17 @@ export default function FrameworkAgentDetail() {
         <Card title="Agent Information">
           <Descriptions column={2} bordered>
             <Descriptions.Item label="Name" span={1}>
-              {agentVm.name}
+              {agent.name}
             </Descriptions.Item>
             <Descriptions.Item label="Mode" span={1}>
-              <Tag color={agentVm.mode === 'primary' ? 'blue' : 'default'}>{agentVm.mode}</Tag>
+              <Tag color={agent.mode === 'primary' ? 'blue' : 'default'}>{agent.mode}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Description" span={2}>
-              {agentVm.description || 'No description'}
+              {agent.description || 'No description'}
             </Descriptions.Item>
           </Descriptions>
         </Card>
 
-        <Card title="Capabilities">
-          <List
-            dataSource={agentVm.capabilities || []}
-            renderItem={(item: string) => (
-              <List.Item>
-                <Text>{item}</Text>
-              </List.Item>
-            )}
-            locale={{ emptyText: 'No capabilities defined' }}
-          />
-        </Card>
-
-        <Card title="Tools">
-          <List
-            dataSource={agentVm.tools || []}
-            renderItem={(item: string) => (
-              <List.Item>
-                <Tag>{item}</Tag>
-              </List.Item>
-            )}
-            locale={{ emptyText: 'No tools available' }}
-          />
-        </Card>
       </Space>
     </div>
   );

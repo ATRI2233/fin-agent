@@ -11,28 +11,17 @@ import {
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Message } from '../../domain/conversation';
 // NODE_STATUS_CONFIG / NodeStatusKey removed — node status rendering now uses msg.extra_data.nodes
 import { formatTime } from '../../utils/time';
+import { getExtraType } from './utils';
+import type { ChatMessage } from './utils';
 
 const { Text } = Typography;
-
-/** UI-only flags set by the renderer. */
-type ChatMessage = Message & {
-  _struck?: boolean;
-  /** True if this is the latest workflow_status for its execution (render node list). */
-  _latestWorkflow?: boolean;
-};
 
 export interface MessageBubbleProps {
   message: ChatMessage;
 }
 
-/** Narrow the untyped `extra_data` bag to a typed view of the `type` field. */
-function getExtraType(msg: Message): string | undefined {
-  const extra = msg.extra_data as Record<string, unknown> | undefined;
-  return typeof extra?.type === 'string' ? extra.type : undefined;
-}
 
 
 export default function MessageBubble({ message: msg }: MessageBubbleProps) {

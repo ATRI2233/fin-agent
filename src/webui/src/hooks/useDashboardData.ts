@@ -33,7 +33,7 @@ export function useDashboardData(): DashboardData {
     queries: [
       {
         queryKey: agentKeys.list(),
-        queryFn: () => listAgents(),
+        queryFn: ({ signal }) => listAgents(signal),
         refetchInterval: 10_000,
       },
       {
@@ -43,9 +43,10 @@ export function useDashboardData(): DashboardData {
       },
       {
         queryKey: ["system", "health"],
-        queryFn: async () => {
+        queryFn: async ({ signal }: { signal: AbortSignal }) => {
           await apiGet<{ status: string; version: string }>(
             `${API_V1_BASE}/health`,
+            signal,
           );
           return true;
         },

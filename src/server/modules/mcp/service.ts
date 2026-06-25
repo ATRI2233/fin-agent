@@ -98,7 +98,7 @@ export class McpService implements IMcpService {
     );
   }
 
-  async getAllowedTools(agentName: string): Promise<string[]> {
+  async getAllowedTools(_agentName: string): Promise<string[]> {
     // For now, return all tool names as the allowed tools for any agent.
     // The MCP config doesn't have per-agent tool whitelists yet.
     const config = await this.loadMcpConfig();

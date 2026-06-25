@@ -120,7 +120,7 @@ export default function FrameworkPage() {
             <Button
               type="text"
               icon={<EyeOutlined />}
-              onClick={() => navigate(`/workflows/${record.id}/edit`)}
+              onClick={() => navigate(`/workflows/${record.id}/view`)}
               style={{ color: '#B0B0B0' }}
             />
           </Tooltip>
@@ -148,7 +148,7 @@ export default function FrameworkPage() {
           </Button>
           <Button
             icon={<HistoryOutlined />}
-            onClick={() => navigate('/workflows')}
+            onClick={() => navigate('/executions')}
             size="large"
           >
             历史记录
@@ -186,11 +186,10 @@ export default function FrameworkPage() {
           </div>
         ) : (
           <Table
-            dataSource={workflows.slice(0, 10)}
+            dataSource={workflows}
             columns={columns}
             rowKey="id"
             size="middle"
-            pagination={false}
           />
         )}
       </Card>

@@ -33,22 +33,10 @@ import { CloseCircleOutlined, RobotOutlined, SyncOutlined } from '@ant-design/ic
 
 import MessageBubble from './MessageBubble';
 import type { Message } from '../../domain/conversation';
+import { getExtraType } from './utils';
+import type { ChatMessage } from './utils';
 
 const { Text } = Typography;
-
-/** UI-only flags set by the renderer. */
-type ChatMessage = Message & {
-  /** Row has been superseded by a later status for the same agent. */
-  _struck?: boolean;
-  /** This is the latest workflow_status message for its execution (should render node list). */
-  _latestWorkflow?: boolean;
-};
-
-/** Narrow the untyped `extra_data` bag to a typed view of the `type` field. */
-function getExtraType(msg: Message): string | undefined {
-  const extra = msg.extra_data as Record<string, unknown> | undefined;
-  return typeof extra?.type === 'string' ? extra.type : undefined;
-}
 
 export interface MessageThreadProps {
   messages: Message[];

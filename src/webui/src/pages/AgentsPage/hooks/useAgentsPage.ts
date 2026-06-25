@@ -45,25 +45,47 @@ export function useAgentsPage(): UseAgentsResult {
 
   const fetchAllWhitelistCounts = useCallback(async (list: Agent[]) => {
     const counts: Record<string, number> = {};
-    for (let i = 0; i < list.length; i += CHUNK_SIZE) {
-      const chunk = list.slice(i, i + CHUNK_SIZE);
-      const results = await Promise.all(
-        chunk.map((agent) =>
-          fetchAllowedTools(agent.name)
-            .then((whitelist) => ({ name: agent.name, count: whitelist.length }))
-            .catch(() => ({ name: agent.name, count: undefined as number | undefined })),
-        ),
-      );
-      for (const r of results) {
-        if (typeof r.count === 'number') counts[r.name] = r.count;
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY_MS = 300;
+
+    // Track which agents still need a successful fetch
+    const pending = new Set(list.map((a) => a.name));
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (pending.size === 0) break;
+
+      const batch = list.filter((a) => pending.has(a.name));
+      for (let i = 0; i < batch.length; i += CHUNK_SIZE) {
+        const chunk = batch.slice(i, i + CHUNK_SIZE);
+        const results = await Promise.all(
+          chunk.map((agent) =>
+            fetchAllowedTools(agent.name)
+              .then((whitelist) => ({ name: agent.name, count: whitelist.length }))
+              .catch(() => ({ name: agent.name, count: undefined as number | undefined })),
+          ),
+        );
+
+        for (const r of results) {
+          if (typeof r.count === 'number') {
+            counts[r.name] = r.count;
+            pending.delete(r.name);
+          }
+        }
+      }
+
+      if (pending.size > 0 && attempt < MAX_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       }
     }
+
     setAgentWhitelistCounts(counts);
   }, []);
 
   useEffect(() => {
     if (data && data.length > 0) {
       void fetchAllWhitelistCounts(data);
+    } else {
+      setAgentWhitelistCounts({});
     }
   }, [data, fetchAllWhitelistCounts]);
 

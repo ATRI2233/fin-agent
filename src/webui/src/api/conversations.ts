@@ -100,7 +100,7 @@ export async function createMessage(
   conversationId: string,
   data: MessageCreate,
 ): Promise<Message> {
-  return apiPost<Message>(ROUTES.conversations.messages(conversationId), data)
+  return apiPost<Message>(ROUTES.conversations.messages(conversationId), { ...data, role: 'user' })
 }
 
 /**

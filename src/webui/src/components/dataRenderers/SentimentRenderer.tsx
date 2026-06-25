@@ -30,9 +30,7 @@ interface SentimentData {
   divergence_warning?: string;
 }
 
-function ScoreGauge({ score, label }: { score: number; label?: string }) {
-  // Normalize to 0-100 range for display
-  const displayScore = Math.min(score > 1 && score <= 100 ? score : (score + 1) * 50, 100);
+function ScoreGauge({ displayScore, label }: { displayScore: number; label?: string }) {
   const color = displayScore >= 60 ? '#D47070' : displayScore <= 40 ? '#5A9E7B' : '#D4A85A';
 
   return (
@@ -76,13 +74,25 @@ export function SentimentRenderer({ content }: RendererProps) {
 
   const score = data.sentiment_score ?? data.adjusted_sentiment ?? data.stock_sentiment ?? 0;
   const label = data.sentiment_label || data.symbol || '';
+
+  // Normalize score to 0-100 display range
+  let displayScore: number;
+  if (score > 1 && score <= 100) {
+    displayScore = Math.min(score, 100);
+  } else if (score >= -1 && score <= 1) {
+    const hasNegative = (data.raw_sentiment ?? 0) < 0 || (data.market_sentiment ?? 0) < 0;
+    displayScore = hasNegative ? Math.min((score + 1) * 50, 100) : Math.min(score * 100, 100);
+  } else {
+    displayScore = score >= 100 ? 100 : 0;
+  }
+
   const newsList = data.news || [...(data.top_positive || []), ...(data.top_negative || [])];
   const newsCount = data.news_count ?? newsList.length;
 
   return (
     <div>
       {/* Score gauge */}
-      <ScoreGauge score={score} label={label} />
+      <ScoreGauge displayScore={displayScore} label={label} />
 
       {/* Market sentiment */}
       {data.market_sentiment != null && (
@@ -104,8 +114,8 @@ export function SentimentRenderer({ content }: RendererProps) {
       {newsList.length > 0 && (
         <div style={{ maxHeight: 180, overflow: 'auto' }}>
           {newsList.slice(0, 6).map((news, i) => {
-            const isNeg = news.sentiment === 'negative' || (news.sentimentScore != null && news.sentimentScore < -0.3);
-            const isPos = news.sentiment === 'positive' || (news.sentimentScore != null && news.sentimentScore > 0.3);
+            const isNeg = news.sentiment?.toLowerCase() === 'negative' || (news.sentimentScore != null && news.sentimentScore < -0.3);
+            const isPos = news.sentiment?.toLowerCase() === 'positive' || (news.sentimentScore != null && news.sentimentScore > 0.3);
             const dotColor = isNeg ? '#5A9E7B' : isPos ? '#D47070' : '#787878';
 
             return (

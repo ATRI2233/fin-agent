@@ -39,10 +39,11 @@ export const agentKeys = {
  * Re-runs on mount only; pair with `refetch` after registry changes to
  * keep the agents page in sync.
  */
-export function useAgents() {
+export function useAgents(enabled: boolean = true) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: agentKeys.list(),
     queryFn: () => listAgents(),
+    enabled,
   });
   return { data: data ?? null, loading: isLoading, error: error as Error | null, refetch };
 }

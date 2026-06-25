@@ -418,9 +418,6 @@ html, body {
   background: var(--accent-dim) !important;
   color: var(--accent) !important;
 }
-.ant-select-selection-item {
-  color: var(--text-primary) !important;
-}
 .ant-input-group-addon {
   background: var(--bg-elevated) !important;
   border-color: var(--border-default) !important;
@@ -806,18 +803,7 @@ html, body {
   display: inline-block;
   flex-shrink: 0;
 }
-.status-dot.online {
-  background: var(--accent-muted);
-}
-.status-dot.offline {
-  background: var(--text-tertiary);
-}
-.status-dot.warning {
-  background: var(--accent-warm);
-}
-.status-dot.error {
-  background: var(--accent-danger);
-}
+/* D23: .status-dot.online, .offline, .warning, .error — zero consumers */
 
 /* Page fade-in (staggered)
    IMPORTANT: 不要在 .fade-in-N 静态属性里写 `opacity: 0`。
@@ -922,26 +908,9 @@ html, body {
   white-space: nowrap;
 }
 
-/* Action button row */
-.actions-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
+/* D19: .actions-row — zero consumers */
 
-/* Custom scrollbar container */
-.custom-scroll {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-.custom-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-}
+/* D20: .custom-scroll — zero consumers */
 
 /* ═══════════════════════════════════════════════════════════════════
    PULSE ANIMATION — breathing status dots
@@ -1000,96 +969,11 @@ html, body {
   padding-top: var(--space-2);
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   ACTIVITY FEED — recent agent activity stream
-   ═══════════════════════════════════════════════════════════════════ */
+/* D17: .activity-feed-* — zero consumers */
 
-.activity-feed-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-1);
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background var(--transition-fast);
-  border-radius: var(--radius-sm);
-  cursor: default;
-}
-.activity-feed-item:last-child {
-  border-bottom: none;
-}
-.activity-feed-item:hover {
-  background: var(--bg-elevated);
-}
-.activity-feed-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  margin-top: 6px;
-}
-.activity-feed-dot.success { background: var(--accent-muted); }
-.activity-feed-dot.warning { background: var(--accent-warm); }
-.activity-feed-dot.error   { background: var(--accent-danger); }
-.activity-feed-dot.info    { background: var(--accent); }
-.activity-feed-body {
-  flex: 1;
-  min-width: 0;
-}
-.activity-feed-agent {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  letter-spacing: -0.01em;
-}
-.activity-feed-action {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.activity-feed-time {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-  margin-top: 2px;
-  white-space: nowrap;
-}
+/* D14: .btn-gradient — zero consumers */
 
-/* ═══════════════════════════════════════════════════════════════════
-   GRADIENT BUTTON — subtle accent gradient
-   ═══════════════════════════════════════════════════════════════════ */
-
-.btn-gradient {
-  background: linear-gradient(135deg, #6B8EC4, #8BA4D8);
-  border: none;
-  color: #fff;
-  font-family: var(--font-body);
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: opacity var(--transition-base);
-}
-.btn-gradient:hover {
-  background: linear-gradient(135deg, #5A7DB3, #7A93C7);
-  opacity: 0.92;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   MINI CHART — sparkline glow
-   ═══════════════════════════════════════════════════════════════════ */
-
-.mini-chart-wrapper {
-  opacity: 0.7;
-  transition: opacity var(--transition-base);
-}
-.stat-card:hover .mini-chart-wrapper {
-  opacity: 1;
-}
+/* D16: .mini-chart-wrapper — zero consumers */
 
 /* ═══════════════════════════════════════════════════════════════════
    SCROLL CONTAINER — refined silent scrollbar for list panels

@@ -4,11 +4,20 @@ import type { RendererProps } from './index';
 
 function formatContent(content: unknown): string {
   if (content === null || content === undefined) return '—';
+  let obj: unknown;
+  if (typeof content === 'string') {
+    try {
+      obj = JSON.parse(content);
+    } catch {
+      obj = content;
+    }
+  } else {
+    obj = content;
+  }
   try {
-    const obj = typeof content === 'string' ? JSON.parse(content) : content;
     return JSON.stringify(obj, null, 2);
   } catch {
-    return String(content);
+    return '[Data too large to display]';
   }
 }
 

@@ -645,6 +645,7 @@ function WorkflowEditorInner() {
         initialTriggerType={workflow?.trigger_type ?? 'manual'}
         initialCronExpression={(workflow?.config?.cron_expression as string) ?? ''}
         initialCommandString={(workflow?.config?.command_string as string) ?? ''}
+        initialConfig={workflow?.config}
         onSaved={(next) => {
           setWorkflowName(next.name);
         }}

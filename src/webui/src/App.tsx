@@ -1,6 +1,6 @@
-import React, { Suspense, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { Layout, Menu, ConfigProvider, theme, Tooltip, Spin } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Link, useLocation } from 'react-router-dom';
+import { Layout, ConfigProvider, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import { useUiStore } from './store/useUiStore';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,25 +10,15 @@ import {
   ToolOutlined,
   SettingOutlined,
   BranchesOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
   SendOutlined,
 } from '@ant-design/icons';
 import './styles/theme.css';
 
-/* ─── Lazy-loaded page chunks ───────────────────────────────────────── */
-const FrameworkPage = React.lazy(() => import('./pages/FrameworkPage'));
-const AgentsPage = React.lazy(() => import('./pages/AgentsPage'));
-const ToolsPage = React.lazy(() => import('./pages/ToolsPage'));
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const WorkflowList = React.lazy(() => import('./pages/WorkflowList'));
-const WorkflowEditor = React.lazy(() => import('./pages/WorkflowEditor'));
-const WorkflowSettings = React.lazy(() => import('./pages/WorkflowSettings'));
-const WorkflowMonitor = React.lazy(() => import('./pages/WorkflowMonitor'));
-const ChatPage = React.lazy(() => import('./pages/ChatPage'));
+import Sidebar, { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './components/layout/Sidebar';
+import HeaderBar from './components/layout/HeaderBar';
+import AppContent from './components/layout/AppContent';
 
-const { Header, Sider, Content } = Layout;
-
+/* ─── Sidebar menu items ────────────────────────────────────────────── */
 type MenuItem = Required<MenuProps>['items'][number];
 
 const menuItems: MenuItem[] = [
@@ -94,260 +84,19 @@ const AppLayout: React.FC = () => {
       setOpenKeys((prev) => (prev.includes('agents-group') ? prev : [...prev, 'agents-group']));
     }
   }, [location.pathname]);
-  const SIDEBAR_WIDTH = 260;
-  const SIDEBAR_COLLAPSED_WIDTH = 72;
-
-  const pageName = () => {
-    const path = location.pathname;
-    if (path === '/') return 'Dashboard';
-    if (path === '/framework') return 'Framework';
-    if (path === '/chat') return 'Chat';
-    if (path === '/agents') return 'Agents';
-    if (path === '/tools') return 'Tools';
-    if (path.startsWith('/workflows')) return 'Workflows';
-    const SLICE_START = 2;
-    return path.replace('/', '').charAt(0).toUpperCase() + path.slice(SLICE_START);
-  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* Sidebar */}
-      <Sider
-        collapsible
+      <Sidebar
         collapsed={collapsed}
-        onCollapse={toggleSidebar}
-        width={SIDEBAR_WIDTH}
-        collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
-        style={{
-          background: '#1A1A1A',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-        trigger={null}
-      >
-        {/* Logo Area */}
-        <div
-          style={{
-            height: 56,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? '0' : '0 20px',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: '#6B8EC4',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          {!collapsed && (
-            <div>
-              <div
-                style={{
-                  fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: '#F0F0F0',
-                  lineHeight: 1.2,
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                FIN-AGENT
-              </div>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: '#6B6B6B',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                Analytics
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Navigation Menu */}
-        <div style={{ flex: 1, overflow: 'auto', paddingTop: 8 }}>
-          <Menu
-            theme="dark"
-            mode="inline"
-            selectedKeys={[location.pathname]}
-            openKeys={openKeys}
-            onOpenChange={(keys) => setOpenKeys(keys as string[])}
-            items={menuItems}
-            style={{
-              background: 'transparent',
-              borderRight: 'none',
-            }}
-          />
-        </div>
-
-        {/* Sidebar Footer */}
-        {!collapsed && (
-          <div
-            style={{
-              padding: '12px 20px',
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '6px 10px',
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: 8,
-              }}
-            >
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: '#5A9E7B',
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  color: '#B0B0B0',
-                }}
-              >
-                System Online
-              </span>
-            </div>
-            <div
-              style={{
-                fontSize: 10,
-                color: '#6B6B6B',
-                textAlign: 'center',
-                marginTop: 8,
-              }}
-            >
-              v1.0.0
-            </div>
-          </div>
-        )}
-      </Sider>
-
-      {/* Main Content Area */}
+        toggleSidebar={toggleSidebar}
+        openKeys={openKeys}
+        setOpenKeys={setOpenKeys}
+        menuItems={menuItems}
+      />
       <Layout style={{ marginLeft: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH, transition: 'margin-left 0.2s' }}>
-        {/* Top Header Bar */}
-        <Header
-          style={{
-            padding: '0 24px',
-            background: '#1A1A1A',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            height: 52,
-            position: 'sticky',
-            top: 0,
-            zIndex: 50,
-          }}
-        >
-          {/* Left: Collapse Button + Page Name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <Tooltip title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-              <div
-                onClick={toggleSidebar}
-                style={{
-                  cursor: 'pointer',
-                color: '#6B6B6B',
-                fontSize: 16,
-                padding: '4px 6px',
-                borderRadius: 4,
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#F0F0F0';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#6B6B6B';
-              }}
-              >
-                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              </div>
-            </Tooltip>
-            <div
-              style={{
-                fontSize: 14,
-                color: '#B0B0B0',
-                fontWeight: 400,
-              }}
-            >
-              {pageName()}
-            </div>
-          </div>
-
-          {/* Right: Minimal status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: '#5A9E7B',
-                }}
-              />
-              <span style={{ fontSize: 11, color: '#787878' }}>
-                Live
-              </span>
-            </div>
-          </div>
-        </Header>
-
-        {/* Page Content */}
-        <Content
-          style={{
-            margin: 0,
-            padding: 0,
-            minHeight: 'calc(100vh - 52px)',
-            background: '#121212',
-          }}
-        >
-          <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}><Spin size="large" /></div>}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/framework" element={<FrameworkPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/agents" element={<AgentsPage />} />
-              <Route path="/tools" element={<ToolsPage />} />
-              <Route path="/workflows" element={<WorkflowList />} />
-              <Route path="/workflows/new/edit" element={<WorkflowEditor />} />
-              <Route path="/workflows/:id/edit" element={<WorkflowEditor />} />
-              <Route path="/workflows/settings" element={<WorkflowSettings />} />
-              <Route path="/workflows/monitor" element={<WorkflowMonitor />} />
-              <Route path="/workflows/monitor/:executionId" element={<WorkflowMonitor />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </Content>
+        <HeaderBar collapsed={collapsed} toggleSidebar={toggleSidebar} />
+        <AppContent />
       </Layout>
     </Layout>
   );

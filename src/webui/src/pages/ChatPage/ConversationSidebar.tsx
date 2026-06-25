@@ -12,7 +12,6 @@
  * - The delete button's `stopPropagation` prevents row click from firing.
  * - The currently active row has a `#1a1a1a` background.
  */
-import { useState } from 'react';
 import { Button, Popconfirm } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 
@@ -38,7 +37,6 @@ export default function ConversationSidebar({
   onCreate,
   onDelete,
 }: ConversationSidebarProps) {
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   return (
     <div
       style={{
@@ -49,6 +47,8 @@ export default function ConversationSidebar({
         flexDirection: 'column',
       }}
     >
+      <style>{`.conv-row .conv-delete-btn { visibility: hidden; }
+.conv-row:hover .conv-delete-btn { visibility: visible; }`}</style>
       <div style={{ padding: 16, borderBottom: '1px solid #222' }}>
         <Button
           type="primary"
@@ -64,10 +64,10 @@ export default function ConversationSidebar({
 
       <div style={{ flex: 1, overflow: 'auto' }}>
         {conversations.map((conv) => {
-          const isHovered = hoveredId === conv.id;
           return (
             <div
               key={conv.id}
+              className="conv-row"
               style={{
                 padding: '10px 16px',
                 cursor: 'pointer',
@@ -77,8 +77,6 @@ export default function ConversationSidebar({
                 alignItems: 'center',
                 gap: 8,
               }}
-              onMouseEnter={() => setHoveredId(conv.id)}
-              onMouseLeave={() => setHoveredId(null)}
               onClick={() => onSelect(conv)}
             >
               <div style={{ flex: 1 }}>
@@ -88,8 +86,8 @@ export default function ConversationSidebar({
                 </div>
               </div>
 
-              {/* Delete button — only on hover */}
-              {isHovered && (
+              {/* Delete button — visible on hover via CSS */}
+              <span className="conv-delete-btn">
                 <Popconfirm
                   title="Delete this conversation?"
                   onConfirm={(e) => {
@@ -105,7 +103,7 @@ export default function ConversationSidebar({
                     style={{ color: '#666' }}
                   />
                 </Popconfirm>
-              )}
+              </span>
             </div>
           );
         })}

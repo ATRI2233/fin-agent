@@ -14,16 +14,13 @@ import { useConversationStore } from '../../../store/useConversationStore';
 import type { Conversation } from '../../../domain/conversation';
 import { deleteConversation as deleteConversationApi } from '../../../api/conversations';
 
-/** Default agent name used when creating a new conversation. */
-const DEFAULT_AGENT_NAME = 'fin-orchestrator'; // configured in config/agents/fin-orchestrator.md
-
 export interface UseConversationsResult {
   conversations: Conversation[];
   loading: boolean;
   error: Error | null;
   currentConversation: Conversation | null;
   setCurrentConversation: (conv: Conversation | null) => void;
-  createConversation: () => Promise<void>;
+  createConversation: (agentName: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   refetch: () => void;
 }
@@ -36,9 +33,9 @@ export function useChatConversations(): UseConversationsResult {
   const setCurrentConversation = useConversationStore((s) => s.setCurrentConversation);
   const setMessages = useConversationStore((s) => s.setMessages);
 
-  const createConversation = useCallback(async (): Promise<void> => {
+  const createConversation = useCallback(async (agentName: string): Promise<void> => {
     try {
-      const conv = await createMutation.mutate({ agent_name: DEFAULT_AGENT_NAME, title: 'New Conversation' });
+      const conv = await createMutation.mutate({ agent_name: agentName, title: 'New Conversation' });
       setCurrentConversation(conv);
       setMessages([]);
       refetch();

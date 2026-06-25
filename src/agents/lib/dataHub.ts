@@ -232,7 +232,7 @@ export function verifyOutcome(analysisId: number, actualPrice: number) {
   const resistance = keyPrices.resistance?.[0];
 
   // 当 key_prices 缺失时跳过验证
-  if (support === undefined && resistance === undefined) {
+  if (support === undefined || resistance === undefined) {
     return { analysis_id: analysisId, was_correct: null, deviation_pct: null, skipped: true };
   }
 

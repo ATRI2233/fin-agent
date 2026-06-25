@@ -35,7 +35,7 @@ import type { UpdateWorkflowPayload } from '../domain/workflow';
 export const workflowKeys = {
   all: ['workflows'] as const,
   list: (skip?: number, limit?: number) =>
-    [...workflowKeys.all, 'list', skip ?? 0, limit ?? 1000] as const,
+    [...workflowKeys.all, 'list', skip ?? 0, limit ?? 50] as const,
   detail: (id: string | null) =>
     [...workflowKeys.all, 'detail', id] as const,
 };
@@ -47,12 +47,13 @@ export const workflowKeys = {
  * Re-fetches when `skip` or `limit` change.
  *
  * @param skip Number of rows to skip (pagination). Default 0.
- * @param limit Page size. Default 1000 (matches backend default).
+ * @param limit Page size. Default 50 (matches backend default).
  */
-export function useWorkflows(skip: number = 0, limit: number = 1000) {
+export function useWorkflows(skip: number = 0, limit: number = 50, enabled: boolean = true) {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: workflowKeys.list(skip, limit),
     queryFn: ({ signal }) => listWorkflows(skip, limit, signal),
+    enabled,
   });
   return {
     data: data ?? null,

@@ -267,6 +267,15 @@ function detectDangerousPattern(
     bearish: s.distribution?.p_bearish ?? 0,
   }));
 
+  if (directions.length === 0) {
+    return {
+      detected: false,
+      pattern: "无明显危险模式",
+      historical_analog: "无直接历史类比",
+      key_difference: "需要更多数据判断",
+    };
+  }
+
   const avgBullish = directions.reduce((sum, d) => sum + (d.bullish ?? 0), 0) / directions.length;
 
 

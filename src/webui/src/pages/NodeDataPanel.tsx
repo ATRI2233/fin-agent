@@ -28,8 +28,12 @@ function formatDuration(ms?: number): string {
 
 function jsonPreview(data: unknown, maxLen = 300): string {
   if (data === undefined || data === null) return '--';
-  const str = JSON.stringify(data, null, 2);
-  return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+  try {
+    const str = JSON.stringify(data, null, 2);
+    return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+  } catch {
+    return '[Data too large to display]';
+  }
 }
 
 interface Props {
