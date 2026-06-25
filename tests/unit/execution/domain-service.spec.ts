@@ -10,7 +10,7 @@ function createMockRepo(
     id: string;
     nodeId: string;
     status: ExecutionStatus;
-    input: unknown;
+    inputs: unknown;
   }>,
 ) {
   const recordNodeSkipped = vi.fn();
@@ -30,8 +30,8 @@ describe("ExecutionDomainService", () => {
     // -----------------------------------------------------------------------
     it("should skip a single downstream node that references the failed node", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "pending", input: "node-1" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "pending", inputs: "node-1" },
       ]);
       const service = new ExecutionDomainService(mockRepo);
 
@@ -44,14 +44,15 @@ describe("ExecutionDomainService", () => {
 
     it("should skip a chain of downstream nodes (transitive references)", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "pending", input: "node-1" },
-        { id: "r3", nodeId: "node-3", status: "pending", input: "node-2" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "pending", inputs: "node-1" },
+        { id: "r3", nodeId: "node-3", status: "pending", inputs: "node-2" },
       ]);
       const service = new ExecutionDomainService(mockRepo);
 
       const skipped = service.markDownstreamSkipped("exec-1", "node-1");
 
+      // After BFS fix: node-2 and node-3 are both skipped (transitive)
       expect(skipped).toEqual(["node-2", "node-3"]);
       expect(mockRepo.recordNodeSkipped).toHaveBeenCalledTimes(2);
       expect(mockRepo.recordNodeSkipped).toHaveBeenCalledWith("exec-1", "node-2");
@@ -63,8 +64,8 @@ describe("ExecutionDomainService", () => {
     // -----------------------------------------------------------------------
     it("should detect a direct string reference in input", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "pending", input: "node-1" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "pending", inputs: "node-1" },
       ]);
       const service = new ExecutionDomainService(mockRepo);
 
@@ -75,12 +76,12 @@ describe("ExecutionDomainService", () => {
 
     it("should detect an object-key reference in input", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         {
           id: "r2",
           nodeId: "node-2",
           status: "pending",
-          input: { "node-1": "someValue" },
+          inputs: { "node-1": "someValue" },
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -92,12 +93,12 @@ describe("ExecutionDomainService", () => {
 
     it("should detect a nested reference inside an array", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         {
           id: "r2",
           nodeId: "node-2",
           status: "pending",
-          input: { sources: ["node-1"] },
+          inputs: { sources: ["node-1"] },
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -109,12 +110,12 @@ describe("ExecutionDomainService", () => {
 
     it("should detect a deeply nested object reference", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         {
           id: "r2",
           nodeId: "node-2",
           status: "pending",
-          input: { data: { dependsOn: "node-1" } },
+          inputs: { data: { dependsOn: "node-1" } },
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -126,12 +127,12 @@ describe("ExecutionDomainService", () => {
 
     it("should NOT skip a node whose input does NOT reference the failed node", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         {
           id: "r2",
           nodeId: "node-2",
           status: "pending",
-          input: { foo: "bar" },
+          inputs: { foo: "bar" },
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -147,13 +148,13 @@ describe("ExecutionDomainService", () => {
     // -----------------------------------------------------------------------
     it("should NOT skip a running node (only pending -> skipped is valid)", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "running", input: "node-1" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "running", inputs: "node-1" },
         {
           id: "r3",
           nodeId: "node-3",
           status: "pending",
-          input: "node-1",
+          inputs: "node-1",
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -168,13 +169,13 @@ describe("ExecutionDomainService", () => {
 
     it("should NOT skip a completed node (only pending -> skipped is valid)", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "completed", input: "node-1" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "completed", inputs: "node-1" },
         {
           id: "r3",
           nodeId: "node-3",
           status: "pending",
-          input: "node-1",
+          inputs: "node-1",
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -191,13 +192,13 @@ describe("ExecutionDomainService", () => {
     // -----------------------------------------------------------------------
     it("should return empty array when there are no pending nodes", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "running", input: "node-1" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "running", inputs: "node-1" },
         {
           id: "r3",
           nodeId: "node-3",
           status: "completed",
-          input: "node-1",
+          inputs: "node-1",
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -220,39 +221,36 @@ describe("ExecutionDomainService", () => {
 
     it("should only skip the branch that depends on the failed node (DAG with independent branches)", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         // branch A — descendants of the failed node
-        { id: "ra1", nodeId: "node-A1", status: "pending", input: "node-1" },
+        { id: "ra1", nodeId: "node-A1", status: "pending", inputs: "node-1" },
         {
           id: "ra2",
           nodeId: "node-A2",
           status: "pending",
-          input: "node-A1",
+          inputs: "node-A1",
         },
         // branch B — independent sub-graph
-        { id: "rb1", nodeId: "node-B1", status: "pending", input: {} },
+        { id: "rb1", nodeId: "node-B1", status: "pending", inputs: {} },
         {
           id: "rb2",
           nodeId: "node-B2",
           status: "pending",
-          input: "node-B1",
+          inputs: "node-B1",
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
 
       const skipped = service.markDownstreamSkipped("exec-1", "node-1");
 
+      // After BFS fix: node-A2 (transitive descendant) is also skipped
       expect(skipped).toEqual(["node-A1", "node-A2"]);
-      // Branch-B nodes must NOT be touched
       expect(mockRepo.recordNodeSkipped).toHaveBeenCalledTimes(2);
-      expect(mockRepo.recordNodeSkipped).not.toHaveBeenCalledWith(
-        "exec-1",
-        "node-B1",
-      );
-      expect(mockRepo.recordNodeSkipped).not.toHaveBeenCalledWith(
-        "exec-1",
-        "node-B2",
-      );
+      expect(mockRepo.recordNodeSkipped).toHaveBeenCalledWith("exec-1", "node-A1");
+      expect(mockRepo.recordNodeSkipped).toHaveBeenCalledWith("exec-1", "node-A2");
+      // Branch-B nodes must NOT be touched
+      expect(mockRepo.recordNodeSkipped).not.toHaveBeenCalledWith("exec-1", "node-B1");
+      expect(mockRepo.recordNodeSkipped).not.toHaveBeenCalledWith("exec-1", "node-B2");
     });
 
     it("should handle circular references in input without infinite loop", () => {
@@ -260,12 +258,12 @@ describe("ExecutionDomainService", () => {
       circular.self = circular;
 
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         {
           id: "r2",
           nodeId: "node-2",
           status: "pending",
-          input: circular,
+          inputs: circular,
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);
@@ -283,9 +281,9 @@ describe("ExecutionDomainService", () => {
     // -----------------------------------------------------------------------
     it("should call recordNodeSkipped exactly once per skipped node", () => {
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
-        { id: "r2", nodeId: "node-2", status: "pending", input: "node-1" },
-        { id: "r3", nodeId: "node-3", status: "pending", input: "node-1" },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
+        { id: "r2", nodeId: "node-2", status: "pending", inputs: "node-1" },
+        { id: "r3", nodeId: "node-3", status: "pending", inputs: "node-1" },
       ]);
       const service = new ExecutionDomainService(mockRepo);
 
@@ -301,18 +299,18 @@ describe("ExecutionDomainService", () => {
       // before "node-2" we ensure the raw result is ["node-3", "node-2"],
       // which the service then sorts to ["node-2", "node-3"].
       const mockRepo = createMockRepo([
-        { id: "r1", nodeId: "node-1", status: "failed", input: {} },
+        { id: "r1", nodeId: "node-1", status: "failed", inputs: {} },
         {
           id: "r3",
           nodeId: "node-3",
           status: "pending",
-          input: "node-1",
+          inputs: "node-1",
         },
         {
           id: "r2",
           nodeId: "node-2",
           status: "pending",
-          input: "node-1",
+          inputs: "node-1",
         },
       ]);
       const service = new ExecutionDomainService(mockRepo);

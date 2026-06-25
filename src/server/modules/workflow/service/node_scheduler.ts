@@ -14,6 +14,7 @@ import { settings } from "../../../infra/settings.js";
 export class NodeScheduler {
   private circuitBreaker: CircuitBreaker;
   private limit: ReturnType<typeof pLimit>;
+  private cancelled: boolean = false;
 
   constructor(
     private executionRepo: IExecutionRepo,
@@ -22,6 +23,10 @@ export class NodeScheduler {
   ) {
     this.circuitBreaker = new CircuitBreaker(settings.CIRCUIT_BREAKER_THRESHOLD);
     this.limit = pLimit(settings.MAX_PARALLEL_NODES);
+  }
+
+  cancel(): void {
+    this.cancelled = true;
   }
 
   async executeAll(
@@ -57,6 +62,12 @@ export class NodeScheduler {
     tracker: ExecutionTracker,
     traceId: string,
   ): Promise<void> {
+    if (this.cancelled) {
+      this.executionRepo.recordNodeSkipped(executionId, node.id);
+      tracker.recordSkippedSingle(node.id);
+      return;
+    }
+
     try {
       const predecessorIds = preds.get(node.id) ?? [];
 
@@ -89,6 +100,12 @@ export class NodeScheduler {
 
       // Execute
       await this.limit(async () => {
+        if (this.cancelled) {
+          this.executionRepo.recordNodeSkipped(executionId, node.id);
+          tracker.recordSkippedSingle(node.id);
+          return;
+        }
+
         try {
           this.executionRepo.recordNodeStarted(executionId, node.id);
 
@@ -112,6 +129,7 @@ export class NodeScheduler {
             node.id,
             result.output as Record<string, unknown>,
             result.sessionId ?? undefined,
+            result.extraData,
           );
           this.circuitBreaker.reset(executionId, node.id, traceId);
         } catch (e) {
@@ -119,6 +137,7 @@ export class NodeScheduler {
           this.executionRepo.recordNodeFailed(executionId, node.id, errorMsg);
           tracker.recordFailure(node.id);
           this.circuitBreaker.recordFailure(executionId, node.id, traceId);
+          this.cancel();
 
           const skipped = this.executionDomainService.markDownstreamSkipped(executionId, node.id);
           tracker.recordSkipped(skipped);

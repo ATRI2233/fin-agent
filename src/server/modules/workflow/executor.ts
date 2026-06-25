@@ -75,10 +75,14 @@ export class AgentExecutor implements NodeExecutor {
       payload: ctx.params,
       traceId: ctx.traceId,
     });
+    const extraData: Record<string, unknown> = {};
+    if (output.usage) {
+      extraData.tokenUsage = output.usage;
+    }
     return {
-      output: output.content as any,
+      output: output.content,
       sessionId: null,
-      extraData: {},
+      extraData,
     };
   }
 }

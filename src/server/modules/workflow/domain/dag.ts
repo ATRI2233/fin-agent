@@ -25,6 +25,16 @@ export interface Workflow {
 
 /** Build predecessor map: node_id -> list of predecessor node_ids. */
 export function buildPredecessors(nodes: Node[], edges: Edge[]): Map<string, string[]> {
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  for (const e of edges) {
+    if (!nodeIds.has(e.source)) {
+      throw new Error(`Edge references non-existent source node: ${e.source}`);
+    }
+    if (!nodeIds.has(e.target)) {
+      throw new Error(`Edge references non-existent target node: ${e.target}`);
+    }
+  }
+
   const preds = new Map<string, string[]>();
   for (const n of nodes) {
     preds.set(n.id, []);
@@ -60,8 +70,9 @@ export function topologicalSort(nodes: Node[], edges: Edge[]): string[] {
   }
 
   const result: string[] = [];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  let idx = 0;
+  while (idx < queue.length) {
+    const current = queue[idx++]!;
     result.push(current);
     for (const next of adj.get(current) || []) {
       const newDeg = (inDegree.get(next) || 0) - 1;
@@ -90,8 +101,9 @@ export function findDownstream(
 
   const visited = new Set<string>();
   const queue = [startNodeId];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  let idx = 0;
+  while (idx < queue.length) {
+    const current = queue[idx++]!;
     if (visited.has(current)) continue;
     visited.add(current);
     for (const next of adj.get(current) || []) {

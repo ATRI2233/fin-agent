@@ -17,9 +17,10 @@ const absolutePath = resolve(dbPath);
 // which is safe with SQLite WAL mode.
 export const sqlite = new Database(absolutePath);
 
-// WAL mode + busy timeout (Python 版本等价)
+// WAL mode + busy timeout + foreign keys (Python 版本等价)
 sqlite.pragma(`journal_mode = ${settings.DB_JOURNAL_MODE}`);
 sqlite.pragma(`busy_timeout = ${settings.DB_BUSY_TIMEOUT_MS}`);
+sqlite.pragma('foreign_keys = ON');
 
 export const db = drizzle(sqlite, { schema });
 
@@ -57,8 +58,10 @@ export function wrapDbCall<T>(operation: string, fn: () => T): T {
   try {
     return fn();
   } catch (e) {
-    throw new DatabaseError(`Database operation failed: ${operation}`, {
-      cause: e instanceof Error ? e : new Error(String(e)),
-    });
+    throw new DatabaseError(
+      `Database operation failed: ${operation}`,
+      {},
+      e instanceof Error ? e : new Error(String(e))
+    );
   }
 }

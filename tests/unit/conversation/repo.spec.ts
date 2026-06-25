@@ -54,14 +54,11 @@ describe("ConversationRepo", () => {
       expect(retrieved!.id).toBe(conv.id);
       expect(retrieved!.agentName).toBe(conv.agentName);
       expect(retrieved!.title).toBe(conv.title);
-      expect(retrieved!.createdAt.getTime() / 1000).toBeCloseTo(
-        conv.createdAt.getTime() / 1000,
-        0,
-      );
-      expect(retrieved!.updatedAt.getTime() / 1000).toBeCloseTo(
-        conv.updatedAt.getTime() / 1000,
-        0,
-      );
+      // Dates are compared with 1-second tolerance because SQLite stores
+      // timestamps as integer seconds, so the JS Date from `repo.get()`
+      // may differ from the one returned by `repo.create()` by up to 999ms.
+      expect(Math.abs(retrieved!.createdAt.getTime() - conv.createdAt.getTime())).toBeLessThanOrEqual(1000);
+      expect(Math.abs(retrieved!.updatedAt.getTime() - conv.updatedAt.getTime())).toBeLessThanOrEqual(1000);
     });
 
     it("sets title to null when no title is provided", () => {

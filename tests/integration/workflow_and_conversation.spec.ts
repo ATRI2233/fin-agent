@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { Database } from "better-sqlite3";
+import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { eq } from "drizzle-orm";
@@ -12,6 +12,7 @@ import { ExecutionDomainService } from "../../src/server/modules/execution/domai
 import { WorkflowRunner } from "../../src/server/modules/workflow/service/workflow_runner.js";
 import { ExecutorRegistry } from "../../src/server/modules/workflow/service/workflow_runner.js";
 import { createAgentDispatcher } from "../../src/server/modules/agent/dispatcher.js";
+import { createTestWorkflow } from "../helpers/db-fixtures.js";
 
 // NOTE: This file is a subset of full_stack.spec.ts and is kept for targeted test runs.
 
@@ -65,23 +66,17 @@ describe("integration: conversation CRUD + cascade delete (H1)", () => {
 
 describe("integration: workflow trigger end-to-end", () => {
   it("should trigger a simple workflow and complete all nodes", async () => {
-    const workflowId = crypto.randomUUID();
-    db.insert(schema.workflows)
-      .values({
-        id: workflowId,
-        name: "test-workflow",
-        nodes: [
-          { id: "input-1", type: "input", data: {} },
-          { id: "output-1", type: "output", data: {} },
-        ] as any,
-        edges: [{ source: "input-1", target: "output-1" }] as any,
-        triggerType: "manual",
-        config: {},
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .run();
+    const { id: workflowId } = createTestWorkflow(db, {
+      name: "test-workflow",
+      nodes: [
+        { id: "input-1", type: "input", data: {} },
+        { id: "output-1", type: "output", data: {} },
+      ],
+      edges: [{ source: "input-1", target: "output-1" }],
+      triggerType: "manual",
+      config: {},
+      status: "active",
+    });
 
     const dispatcher = createAgentDispatcher();
     const executionDomainService = new ExecutionDomainService(ExecutionRepo);

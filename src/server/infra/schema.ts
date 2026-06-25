@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const conversations = sqliteTable("conversations", {
@@ -23,7 +23,9 @@ export const messages = sqliteTable("messages", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => ({
+  conversationCreatedAtIndex: index("idx_messages_conversation_created_at").on(table.conversationId, table.createdAt),
+}));
 
 export const workflowExecutions = sqliteTable("workflow_executions", {
   id: text("id").primaryKey(),
@@ -47,6 +49,7 @@ export const executionNodes = sqliteTable("execution_nodes", {
   input: text("input", { mode: "json" }).notNull().default("{}"),
   output: text("output", { mode: "json" }),
   sessionId: text("session_id"),
+  tokenUsage: text("token_usage", { mode: "json" }),
   error: text("error"),
   startedAt: integer("started_at", { mode: "timestamp" }),
   completedAt: integer("completed_at", { mode: "timestamp" }),

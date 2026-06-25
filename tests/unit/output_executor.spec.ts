@@ -40,9 +40,9 @@ describe("OutputExecutor (H5)", () => {
     expect(result.output).toEqual({ inputs: ["hello"] });
   });
 
-  it("should throw ValidationError for missing predecessor (H5 fix)", async () => {
+  it("should throw ValidationError for missing predecessor (H5 fix)", () => {
     const executor = new OutputExecutor();
-    await expect(
+    expect(() =>
       executor.execute({
         node: { id: "output-1", type: "output" },
         executionId: "exec-1",
@@ -54,6 +54,6 @@ describe("OutputExecutor (H5)", () => {
         chainSessions: {},
         failedNodes: new Set(),
       })
-    ).rejects.toThrow(ValidationError);
+    ).toThrow(ValidationError);
   });
 });

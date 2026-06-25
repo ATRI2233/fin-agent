@@ -1,12 +1,11 @@
-﻿import { eq, and } from "drizzle-orm";
+﻿import { eq, and, desc } from "drizzle-orm";
 import { db, wrapDbCall } from "../../infra/db.js";
 import type { DrizzleDatabase as Database } from "../../infra/db.js";
 import { workflowExecutions, executionNodes } from "../../infra/schema.js";
 import type { ExecutionStatus } from "../execution/domain.js";
 
-// Drizzle JSON 鍒楃被鍨嬫爣璁?鈥?SQLite JSON 鍒楀湪 Drizzle 涓渶瑕佺被鍨嬫柇瑷€
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DbJson = any;
+// Drizzle JSON column type tag -- SQLite JSON columns need a type assertion in Drizzle
+type DbJson = Record<string, unknown> | unknown[] | string | number | boolean | null;
 
 export interface CreateExecutionParams {
   workflowId: string;
@@ -25,7 +24,8 @@ export interface IExecutionRepo {
     executionId: string,
     nodeId: string,
     output: Record<string, unknown>,
-    sessionId?: string
+    sessionId?: string,
+    extraData?: Record<string, unknown>
   ): void;
   recordNodeFailed(executionId: string, nodeId: string, error: string): void;
   recordNodeSkipped(executionId: string, nodeId: string): void;
@@ -34,7 +34,19 @@ export interface IExecutionRepo {
     id: string;
     nodeId: string;
     status: ExecutionStatus;
-    input: any;
+    inputs: any;
+    outputs: any;
+  }>;
+  getExecutionRecord(executionId: string): { id: string; workflowId: string; status: string; completedAt: Date | null; createdAt: Date; startedAt: Date | null } | null;
+  listExecutions(limit: number, offset: number): Array<{
+    id: string;
+    workflowId: string;
+    status: string;
+    createdAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    params: unknown;
+    traceId: string;
   }>;
 }
 
@@ -95,7 +107,10 @@ export class ExecutionRepo implements IExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (!row || row.status === "running") return;
+      if (!row) {
+        throw new Error(`Execution node not found: executionId=${executionId}, nodeId=${nodeId}`);
+      }
+      if (row.status === "running") return;
       const result = this.db.update(executionNodes)
         .set({ status: "running" as ExecutionStatus, startedAt: new Date() })
         .where(and(
@@ -114,7 +129,8 @@ export class ExecutionRepo implements IExecutionRepo {
     executionId: string,
     nodeId: string,
     output: Record<string, unknown>,
-    sessionId?: string
+    sessionId?: string,
+    extraData?: Record<string, unknown>
   ): void {
     wrapDbCall("record node completed", () => {
       const row = this.db
@@ -122,12 +138,16 @@ export class ExecutionRepo implements IExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (!row || row.status === "completed") return;
+      if (!row) {
+        throw new Error(`Execution node not found: executionId=${executionId}, nodeId=${nodeId}`);
+      }
+      if (row.status === "completed") return;
       const result = this.db.update(executionNodes)
         .set({
           status: "completed" as ExecutionStatus,
           output: output as DbJson,
           sessionId: sessionId ?? null,
+          tokenUsage: (extraData?.tokenUsage as DbJson) ?? null,
           completedAt: new Date(),
         })
         .where(and(
@@ -149,7 +169,10 @@ export class ExecutionRepo implements IExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (!row || row.status === "failed") return;
+      if (!row) {
+        throw new Error(`Execution node not found: executionId=${executionId}, nodeId=${nodeId}`);
+      }
+      if (row.status === "failed") return;
       const result = this.db.update(executionNodes)
         .set({
           status: "failed" as ExecutionStatus,
@@ -175,7 +198,10 @@ export class ExecutionRepo implements IExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (!row || row.status === "skipped") return;
+      if (!row) {
+        throw new Error(`Execution node not found: executionId=${executionId}, nodeId=${nodeId}`);
+      }
+      if (row.status === "skipped") return;
       const result = this.db.update(executionNodes)
         .set({ status: "skipped" as ExecutionStatus, completedAt: new Date() })
         .where(and(
@@ -195,6 +221,9 @@ export class ExecutionRepo implements IExecutionRepo {
       const row = this.db.select().from(workflowExecutions).where(eq(workflowExecutions.id, executionId)).get();
       if (!row || row.status === status) return;
       const update: DbJson = { status };
+      if (status === "running") {
+        update.startedAt = new Date();
+      }
       if (status === "completed" || status === "failed" || status === "cleaned_up") {
         update.completedAt = new Date();
       }
@@ -215,7 +244,8 @@ export class ExecutionRepo implements IExecutionRepo {
     id: string;
     nodeId: string;
     status: ExecutionStatus;
-    input: any;
+    inputs: any;
+    outputs: any;
   }> {
     return wrapDbCall("get execution nodes", () => {
       return this.db
@@ -227,8 +257,49 @@ export class ExecutionRepo implements IExecutionRepo {
           id: r.id,
           nodeId: r.nodeId,
           status: r.status as ExecutionStatus,
-          input: r.input,
+          inputs: r.input,
+          outputs: r.output,
         }));
+    });
+  }
+
+  getExecutionRecord(executionId: string): { id: string; workflowId: string; status: string; completedAt: Date | null; createdAt: Date; startedAt: Date | null } | null {
+    return wrapDbCall("get execution record", () => {
+      const row = this.db
+        .select()
+        .from(workflowExecutions)
+        .where(eq(workflowExecutions.id, executionId))
+        .get();
+      if (!row) return null;
+      return {
+        id: row.id,
+        workflowId: row.workflowId,
+        status: row.status,
+        completedAt: row.completedAt,
+        createdAt: row.createdAt,
+        startedAt: row.startedAt,
+      };
+    });
+  }
+
+  listExecutions(limit: number, offset: number): Array<{
+    id: string;
+    workflowId: string;
+    status: string;
+    createdAt: Date;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    params: unknown;
+    traceId: string;
+  }> {
+    return wrapDbCall("list executions", () => {
+      return this.db
+        .select()
+        .from(workflowExecutions)
+        .orderBy(desc(workflowExecutions.createdAt))
+        .limit(limit)
+        .offset(offset)
+        .all();
     });
   }
 }
