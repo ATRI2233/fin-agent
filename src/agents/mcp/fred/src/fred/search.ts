@@ -3,7 +3,8 @@
  *
  * Provides search functionality for discovering FRED series
  */
-import { makeRequest, FREDConfigError } from "../common/request.js";
+import { makeRequest } from "../common/request.js";
+import { handleToolError, buildQueryParams } from "./helpers.js";
 import { z } from "zod";
 
 /**
@@ -65,19 +66,7 @@ export interface FREDSearchOptions {
  */
 export async function searchSeries(options: FREDSearchOptions = {}) {
   try {
-    const queryParams: Record<string, string | number> = {};
-
-    // Add search parameters
-    if (options.search_text) queryParams.search_text = options.search_text;
-    if (options.search_type) queryParams.search_type = options.search_type;
-    if (options.tag_names) queryParams.tag_names = options.tag_names;
-    if (options.exclude_tag_names) queryParams.exclude_tag_names = options.exclude_tag_names;
-    if (options.limit !== undefined) queryParams.limit = options.limit;
-    if (options.offset !== undefined) queryParams.offset = options.offset;
-    if (options.order_by) queryParams.order_by = options.order_by;
-    if (options.sort_order) queryParams.sort_order = options.sort_order;
-    if (options.filter_variable) queryParams.filter_variable = options.filter_variable;
-    if (options.filter_value) queryParams.filter_value = options.filter_value;
+    const queryParams = buildQueryParams(options as Record<string, unknown>);
 
     const response = await makeRequest<SearchResponse>(
       "series/search",
@@ -108,22 +97,7 @@ export async function searchSeries(options: FREDSearchOptions = {}) {
       }]
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
-            detail: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-    if (error instanceof Error) {
-      throw new Error(`Failed to search FRED series: ${error.message}`);
-    }
-    throw error;
+    return handleToolError(error, "search FRED series");
   }
 }
 
@@ -160,9 +134,9 @@ export async function getSeriesInfo(seriesId: string) {
       notes: series.notes
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
+    if (error instanceof Error && error.message.includes("FRED_API_KEY")) {
       return {
-        error: "FRED_API_KEY 未配置,请联系管理员",
+        error: "FRED API key is not configured. Please contact the administrator.",
         detail: error.message
       };
     }

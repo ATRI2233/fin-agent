@@ -1,5 +1,5 @@
 # Fundamental analysis tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
+from ..utils import is_ashare, is_etf, parse_ashare_code, http_get, retry_akshare
 import logging
 
 try:
@@ -91,7 +91,7 @@ def get_fundamental_scan(symbol):
 
             try:
                 # 财务摘要（含营收、净利润、毛利率等）
-                df_fin = ak.stock_financial_abstract_ths(symbol=code, indicator="按年度")
+                df_fin = retry_akshare(ak.stock_financial_abstract_ths, symbol=code, indicator="按年度")
                 if df_fin is not None and not df_fin.empty:
                     latest = df_fin.iloc[0]
                     cols = df_fin.columns.tolist()
@@ -166,7 +166,7 @@ def get_fundamental_scan(symbol):
 
             try:
                 # 股息率
-                df_div = ak.stock_fhps_em(symbol=code)
+                df_div = retry_akshare(ak.stock_fhps_em, symbol=code)
                 if df_div is not None and not df_div.empty:
                     for _, row in df_div.head(3).iterrows():
                         div_cols = df_div.columns.tolist()

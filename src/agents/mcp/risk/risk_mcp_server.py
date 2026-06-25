@@ -5,7 +5,7 @@
 # It is not imported by any config. To use it, register via openclaw gateway config.
 
 import json
-import os
+import math
 import sys
 
 from agents.mcp.common import make_handle_request, run_stdio_server
@@ -216,6 +216,9 @@ def get_institutional_flow(symbol, top_n=10):
     if not HAS_DEPS:
         return error_result(symbol, "yfinance not installed")
 
+    if top_n is not None and top_n < 1:
+        top_n = 10
+
     try:
         yf_symbol = _to_yfinance_symbol(symbol)
         ticker = yf.Ticker(yf_symbol)
@@ -311,68 +314,85 @@ def error_result(symbol, msg):
 # MCP 协议处理
 # ═══════════════════════════════════════════════
 
-TOOLS = [
-    {
-        "name": "risk_gauge",
-        "description": "风控指标计算：基于 yfinance 历史价格计算 20日/60日年化波动率、距52周高点回撤、95% VaR，输出风险等级和预警",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "position_sizing",
-        "description": "仓位计算：基于凯利公式和波动率目标，输出建议仓位比例。支持传入预期收益率，否则使用历史收益率估算",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
-                "expected_return": {
-                    "type": "number",
-                    "description": "预期年化收益率（小数），如 0.15 表示15%，不传则用历史数据估算",
-                },
-                "risk_free_rate": {
-                    "type": "number",
-                    "description": "无风险利率（小数），默认 0.05",
-                },
-                "kelly_fraction": {
-                    "type": "number",
-                    "description": "凯利比例上限，默认 0.25（全凯利过于激进）",
-                },
-            },
-            "required": ["symbol"],
-        },
-    },
-    {
-        "name": "institutional_flow",
-        "description": "机构持仓分析：基于 yfinance/13F 数据，输出前十大机构持有人、持仓市值、持股变化趋势。注意数据有45天延迟",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
-                "top_n": {"type": "number", "description": "返回前N大机构，默认 10"},
-            },
-            "required": ["symbol"],
-        },
-    },
-]
 
-TOOL_DISPATCH = {
-    "risk_gauge": lambda args: calculate_risk(args.get("symbol", "").upper()),
-    "position_sizing": lambda args: calculate_position(
-        args.get("symbol", "").upper(),
-        expected_return=args.get("expected_return"),
-        risk_free_rate=args.get("risk_free_rate", 0.05),
-        kelly_fraction=args.get("kelly_fraction", 0.25),
-    ),
-    "institutional_flow": lambda args: get_institutional_flow(
-        args.get("symbol", "").upper(),
-        top_n=args.get("top_n", 10),
-    ),
-}
+def _sanitize_for_json(obj):
+    """Recursively convert NaN/Inf in dicts/lists to None for JSON-safe serialization."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(v) for v in obj]
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+    return obj
+
+
+TOOLS = []
+TOOL_DISPATCH = {}
+
+if HAS_DEPS:
+    TOOLS = [
+        {
+            "name": "risk_gauge",
+            "description": "风控指标计算：基于 yfinance 历史价格计算 20日/60日年化波动率、距52周高点回撤、95% VaR，输出风险等级和预警",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
+                },
+                "required": ["symbol"],
+            },
+        },
+        {
+            "name": "position_sizing",
+            "description": "仓位计算：基于凯利公式和波动率目标，输出建议仓位比例。支持传入预期收益率，否则使用历史收益率估算",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
+                    "expected_return": {
+                        "type": "number",
+                        "description": "预期年化收益率（小数），如 0.15 表示15%，不传则用历史数据估算",
+                    },
+                    "risk_free_rate": {
+                        "type": "number",
+                        "description": "无风险利率（小数），默认 0.05",
+                    },
+                    "kelly_fraction": {
+                        "type": "number",
+                        "description": "凯利比例上限，默认 0.25（全凯利过于激进）",
+                    },
+                },
+                "required": ["symbol"],
+            },
+        },
+        {
+            "name": "institutional_flow",
+            "description": "机构持仓分析：基于 yfinance/13F 数据，输出前十大机构持有人、持仓市值、持股变化趋势。注意数据有45天延迟",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "股票代码，如 AAPL"},
+                    "top_n": {"type": "number", "description": "返回前N大机构，默认 10"},
+                },
+                "required": ["symbol"],
+            },
+        },
+    ]
+
+    TOOL_DISPATCH = {
+        "risk_gauge": lambda args: _sanitize_for_json(calculate_risk(args.get("symbol", "").upper())),
+        "position_sizing": lambda args: _sanitize_for_json(calculate_position(
+            args.get("symbol", "").upper(),
+            expected_return=args.get("expected_return"),
+            risk_free_rate=args.get("risk_free_rate", 0.05),
+            kelly_fraction=args.get("kelly_fraction", 0.25),
+        )),
+        "institutional_flow": lambda args: _sanitize_for_json(get_institutional_flow(
+            args.get("symbol", "").upper(),
+            top_n=args.get("top_n", 10),
+        )),
+    }
 
 def _validate_risk_call(name, args, req_id):
     """Validate that symbol is provided for all risk tools."""

@@ -54,6 +54,7 @@ export function registerCommodityPrices(
       const commodities = args.commodities || ["WTI", "BRENT", "NAT_GAS"];
 
       try {
+        // Standard fallback-to-simulated pattern: try external MCP data, fall back to generated data
         let commodityData: any = null;
         try {
           commodityData = await mcpManager.callTool("oil-price", "commodity_prices", { commodities })
@@ -82,6 +83,8 @@ export function registerCommodityPrices(
 function processCommodityData(rawData: any): CommodityPricesResult {
   const commodityList = rawData?.commodities || rawData?.prices || [];
   const commodities: CommodityPrice[] = [];
+  const isSimulated = rawData._simulated === true;
+  const dataSource = rawData._dataSource;
 
   for (const item of commodityList) {
     commodities.push({
@@ -132,7 +135,7 @@ function processCommodityData(rawData: any): CommodityPricesResult {
     inflationDesc = "商品价格平稳，通胀压力可控";
   }
 
-  return {
+  const result = {
     timestamp: new Date().toISOString(),
     commodities,
     energy_index: Math.round(energyIndex * 100) / 100,
@@ -151,6 +154,12 @@ function processCommodityData(rawData: any): CommodityPricesResult {
       oil_usd: null,
     },
   };
+
+  if (isSimulated) {
+    (result as any)._simulated = true;
+    (result as any)._dataSource = dataSource || "FALLBACK_SIMULATION";
+  }
+  return result;
 }
 
 function generateSimulatedCommodityData(commodities: string[]): any {

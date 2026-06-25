@@ -74,6 +74,7 @@ export function registerInsiderTrading(
       }
 
       try {
+        // Standard fallback-to-simulated pattern: try external MCP data, fall back to generated data
         let insiderData: any = null;
         try {
           insiderData = await mcpManager.callTool("sec-edgar", "edgar_insider_transactions", {
@@ -100,6 +101,10 @@ export function registerInsiderTrading(
 }
 
 function processInsiderData(symbol: string, rawData: any, days: number): InsiderTradingResult {
+  // Preserve simulation markers from simulated data
+  const isSimulated = rawData._simulated === true;
+  const dataSource = rawData._dataSource;
+
   const transactions: InsiderTransaction[] = rawData?.transactions || rawData?.insider_trades || [];
   const now = Date.now();
   const cutoff = now - days * 86400000;
@@ -162,7 +167,7 @@ function processInsiderData(symbol: string, rawData: any, days: number): Insider
   if (heavySelling) alerts.push("⚠️ 内部人大规模卖出，可能有负面信息");
   if (buySellRatio < 0.3) alerts.push("⚠️ 卖出/买入比极高，内部人信心不足）");
 
-  return {
+  const result: InsiderTradingResult = {
     symbol,
     timestamp: new Date().toISOString(),
     recent_transactions: recentTx.slice(0, 20),
@@ -184,6 +189,13 @@ function processInsiderData(symbol: string, rawData: any, days: number): Insider
     institutional_concentration: "需结合机构持仓数据",
     recent_alerts: alerts,
   };
+
+  // Preserve simulation markers
+  if (isSimulated) {
+    (result as any)._simulated = true;
+    (result as any)._dataSource = dataSource || "FALLBACK_SIMULATION";
+  }
+  return result;
 }
 
 function generateSimulatedInsiderData(_symbol: string): any {

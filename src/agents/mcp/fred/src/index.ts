@@ -11,6 +11,11 @@ import { randomUUID } from "crypto";
 import express, { Request, Response } from "express";
 import { Server } from "http";
 
+// Load package.json once at module level (U9)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PACKAGE_JSON = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
+
 export type TransportType = "stdio" | "http";
 
 /**
@@ -28,14 +33,9 @@ export interface HttpServerResult {
  * Create and configure a new FRED MCP server
  */
 export function createServer() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  const packageJsonPath = join(__dirname, "..", "package.json");
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-
   const server = new McpServer({
     name: "fred",
-    version: packageJson.version,
+    version: PACKAGE_JSON.version,
     description: "Federal Reserve Economic Data (FRED) MCP Server for retrieving economic data series"
   });
 
@@ -179,7 +179,10 @@ export async function startHttpServer(port: number = 3000): Promise<HttpServerRe
     process.exit(0);
   });
 
-  // Placeholder only; actual transports are stored in the local transports dict keyed by session ID.
+  // D15/U7: Placeholder transport to satisfy the HttpServerResult return type.
+  // This transport is never connected and does not handle requests.
+  // Real transports are stored in the local `transports` dict keyed by session ID.
+  // Consider returning null or restructuring the interface if this becomes a maintainability issue.
   const placeholderTransport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID()
   });

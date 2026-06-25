@@ -1,5 +1,5 @@
 # Fund flow tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
+from ..utils import is_ashare, parse_ashare_code, http_get
 import json
 import logging
 import time
@@ -31,8 +31,6 @@ def get_fund_flow(symbol):
         market_id = market_map.get(market)
         if market_id is None:
             return {"error": f"不支持的市场: {market}"}
-
-        import time
 
         url = (
             f"https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get"
@@ -106,7 +104,9 @@ def get_fund_flow_real(symbol):
     """获取个股实时资金流向（主力/超大单/大单/中单/小单 净流入与净占比）
 
     数据来源：东方财富（push2his.eastmoney.com）
-    委托给 get_fund_flow 实现，避免代码重复。
+
+    Deprecated: 此函数是 get_fund_flow 的别名，功能完全一致。
+    请直接使用 get_fund_flow(symbol) 替代。
     """
     return get_fund_flow(symbol)
 

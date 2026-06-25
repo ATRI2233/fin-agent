@@ -51,6 +51,7 @@ export function registerFearGreedIndex(
       const source = args.source || "cnn";
 
       try {
+        // Standard fallback-to-simulated pattern: try external MCP data, fall back to generated data
         let fgData: any = null;
         try {
           fgData = await mcpManager.callTool("fear-greed", "fear_greed_index", { source })
@@ -76,6 +77,10 @@ export function registerFearGreedIndex(
 }
 
 function processFearGreedData(rawData: any): FearGreedResult {
+  // 保存模拟数据标记
+  const isSimulated = rawData?._simulated === true;
+  const dataSource = rawData?._dataSource;
+
   const indexValue = rawData?.value || rawData?.index_value || rawData?.fear_greed_index || 50;
   const previousValue = rawData?.previous_value || rawData?.yesterday_value || indexValue + (Math.random() - 0.5) * 10;
   const changePct = previousValue > 0 ? ((indexValue - previousValue) / previousValue) * 100 : 0;
@@ -148,7 +153,9 @@ function processFearGreedData(rawData: any): FearGreedResult {
     signalReasoning = "市场情绪中性，等待更明确信号";
   }
 
-  return {
+  // TODO: Populate news_headlines from newsSentiment.ts when integrated; currently empty
+  // 穿透模拟数据标记
+  const result: FearGreedResult & { _simulated?: boolean; _dataSource?: string } = {
     timestamp: new Date().toISOString(),
     index_value: Math.round(indexValue),
     sentiment,
@@ -164,6 +171,13 @@ function processFearGreedData(rawData: any): FearGreedResult {
       reasoning: signalReasoning,
     },
   };
+
+  if (isSimulated) {
+    result._simulated = true;
+    result._dataSource = dataSource || "FALLBACK_SIMULATION";
+  }
+
+  return result;
 }
 
 function generateSimulatedFearGreedData(): any {

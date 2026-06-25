@@ -96,6 +96,7 @@ export function registerSECFilings(
       }
 
       try {
+        // Standard fallback-to-simulated pattern: try external MCP data, fall back to generated data
         let filingsData: any = null;
         const [companyInfo, filings] = await Promise.allSettled([
           mcpManager.callTool("sec-edgar", "edgar_company_info", { ticker: symbol.toUpperCase() }),
@@ -133,6 +134,8 @@ function processFilingsData(symbol: string, rawData: any): SECFilingsResult {
   const companyInfo = rawData?.company_info || {};
   const filings = Array.isArray(rawData?.filings) ? rawData.filings : [];
   const companyFacts = rawData?.company_facts || {};
+  const isSimulated = rawData._simulated === true;
+  const dataSource = rawData._dataSource;
 
   const revenue = extractFinancialSeries(companyFacts, "Revenue");
   const netIncome = extractFinancialSeries(companyFacts, "NetIncomeLoss");
@@ -161,7 +164,7 @@ function processFilingsData(symbol: string, rawData: any): SECFilingsResult {
     ),
   };
 
-  return {
+  const result: any = {
     symbol,
     timestamp: new Date().toISOString(),
     company_info: {
@@ -195,6 +198,12 @@ function processFilingsData(symbol: string, rawData: any): SECFilingsResult {
     } : { filing_date: "", revenue: 0, net_income: 0, revenue_growth_qoq: null },
     flags,
   };
+
+  if (isSimulated) {
+    result._simulated = true;
+    result._dataSource = dataSource || "FALLBACK_SIMULATION";
+  }
+  return result;
 }
 
 function extractFinancialSeries(companyFacts: any, metricName: string): FinancialMetric[] {

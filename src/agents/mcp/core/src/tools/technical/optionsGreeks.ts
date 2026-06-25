@@ -15,7 +15,7 @@ interface OptionData {
   iv: number;
   volume: number;
   openInterest: number;
-  type: "call" | "put";
+  type: "call" | "put" | "unknown";
 }
 
 interface OptionsGreeksResult {
@@ -80,6 +80,7 @@ export function registerOptionsGreeks(
       }
 
       try {
+        // Standard fallback-to-simulated pattern: try external MCP data, fall back to generated data
         let optionsData: any = null;
         try {
           optionsData = await mcpManager.callTool("stock-scanner", "options_chain", {
@@ -113,6 +114,9 @@ function processOptionsData(
   const calls: OptionData[] = [];
   const puts: OptionData[] = [];
 
+  const isSimulated = rawData._simulated === true;
+  const dataSource = rawData._dataSource;
+
   if (rawData && rawData.options) {
     for (const opt of rawData.options) {
       const option: OptionData = {
@@ -129,7 +133,7 @@ function processOptionsData(
         iv: opt.iv || opt.impliedVolatility || 0,
         volume: opt.volume || 0,
         openInterest: opt.openInterest || opt.open_interest || 0,
-        type: opt.type || (opt.strike && opt.underlying_price ? "call" : "put"),
+        type: opt.type || "unknown", // "unknown" when opt.type is missing (strike+underlying_price alone cannot distinguish call vs put)
       };
       optionsChain.push(option);
       if (option.type === "call" && option.callPrice > 0) calls.push(option);
@@ -149,7 +153,8 @@ function processOptionsData(
   const ivPercentile = ivRange > 0 ? ((avgIV - minIV) / ivRange) * 100 : 50;
 
   const strikes = optionsChain.map((o) => o.strike).filter((s) => s > 0);
-  const underlyingPrice = (rawData?.underlying_price && rawData.underlying_price > 0) ? rawData.underlying_price : (strikes.length > 0 ? strikes[Math.floor(strikes.length / 2)] / 2 : 0);
+  // NOTE: underlying_price estimate uses middle strike as rough approximation when data source doesn't provide it; value is flagged as "estimate"
+  const underlyingPrice = (rawData?.underlying_price && rawData.underlying_price > 0) ? rawData.underlying_price : (strikes.length > 0 ? strikes[Math.floor(strikes.length / 2)] : 0);
 
   const atmStrikes = strikes.filter((s) => Math.abs(s - underlyingPrice) < underlyingPrice * 0.05);
   const maxPain = atmStrikes.length > 0 ? atmStrikes[Math.floor(atmStrikes.length / 2)] : underlyingPrice;
@@ -164,7 +169,7 @@ function processOptionsData(
 
   const nextExpiration = optionsChain.length > 0 ? optionsChain[0].expiration : "";
 
-  return {
+  const result: any = {
     symbol,
     timestamp: new Date().toISOString(),
     underlying_price: underlyingPrice,
@@ -191,6 +196,13 @@ function processOptionsData(
       call_wall: callWall,
     },
   };
+
+  if (isSimulated) {
+    result._simulated = true;
+    result._dataSource = dataSource || "FALLBACK_SIMULATION";
+  }
+
+  return result;
 }
 
 function generateSimulatedOptionsData(symbol: string): any {

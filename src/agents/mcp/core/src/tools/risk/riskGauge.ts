@@ -8,7 +8,7 @@ interface RiskMetrics {
   volatility_60d_pct: number | null;
   drawdown_from_52w_high_pct: number | null;
   var_95_daily_pct: number | null;
-  risk_level: "low" | "medium" | "high";
+  risk_level: "low" | "medium" | "high" | "unknown";
   warnings: string[];
 }
 
@@ -66,7 +66,7 @@ export function registerRiskGauge(_mcpManager: MCPClientManager): ToolRegistrati
         const dailyReturns = args.daily_returns_60d ?? [];
 
         const warnings: string[] = [];
-        let riskLevel: "low" | "medium" | "high" = "low";
+        let riskLevel: "low" | "medium" | "high" | "unknown" = "low";
 
         let vol20dPct: number | null = null;
         let vol60dPct: number | null = null;
@@ -106,10 +106,17 @@ export function registerRiskGauge(_mcpManager: MCPClientManager): ToolRegistrati
           }
         }
 
+        // If no metrics were provided at all, risk is unknown rather than low
+        if (vol20dPct === null && vol60dPct === null && drawdownPct === null && var95 === null) {
+          riskLevel = "unknown";
+        }
+
         if (riskLevel === "high") {
           warnings.push("风险等级: HIGH （建议降低仓位或等待回撤）");
         } else if (riskLevel === "medium") {
           warnings.push("风险等级: MEDIUM （建议轻仓试探）");
+        } else if (riskLevel === "unknown") {
+          warnings.push("风险等级: UNKNOWN （缺少足够数据，无法评估风险）");
         } else {
           warnings.push("风险等级: LOW （正常操作范围）");
         }

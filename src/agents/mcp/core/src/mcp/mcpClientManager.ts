@@ -81,6 +81,10 @@ export class MCPClientManager {
   private clients: Map<string, ConnectedClient> = new Map();
   private initialized = false;
 
+  private checkInitialized(): void {
+    if (!this.initialized) throw new Error('MCP client manager not initialized — call initialize() first');
+  }
+
   async initialize(): Promise<void> {
     // 惰性连接模式：不启动任何子进程，仅校验配置
     const errors: string[] = [];
@@ -102,6 +106,7 @@ export class MCPClientManager {
     args: Record<string, any>,
     timeout = DEFAULT_CALL_TIMEOUT
   ): Promise<any> {
+    this.checkInitialized();
     if (!getMCPConfig()[serverName]) {
       throw new Error(`未知 MCP 服务器: ${serverName}，可用: ${Object.keys(getMCPConfig()).join(", ")}`);
     }
@@ -168,6 +173,7 @@ export class MCPClientManager {
   }
 
   async listTools(serverName: string): Promise<any[]> {
+    this.checkInitialized();
     const connected = await this.getOrConnect(serverName);
     try {
       const result = await connected.client.listTools();
@@ -179,6 +185,7 @@ export class MCPClientManager {
   }
 
   async ping(serverName: string): Promise<boolean> {
+    this.checkInitialized();
     const connected = await this.getOrConnect(serverName);
     try {
       await connected.client.ping();
@@ -190,6 +197,7 @@ export class MCPClientManager {
   }
 
   async disconnect(serverName: string): Promise<void> {
+    this.checkInitialized();
     const entry = this.clients.get(serverName);
     if (!entry) return;
 
@@ -207,16 +215,19 @@ export class MCPClientManager {
   }
 
   async disconnectAll(): Promise<void> {
+    this.checkInitialized();
     const names = Array.from(this.clients.keys());
     await Promise.allSettled(names.map((name) => this.disconnect(name)));
     console.error("[MCPClientManager] 已断开所有 MCP 服务器");
   }
 
   getAvailableServers(): string[] {
+    this.checkInitialized();
     return Object.keys(getMCPConfig());
   }
 
   getConnectedServers(): string[] {
+    this.checkInitialized();
     return Array.from(this.clients.entries())
       .filter(([, c]) => !c.disconnected)
       .map(([name]) => name);

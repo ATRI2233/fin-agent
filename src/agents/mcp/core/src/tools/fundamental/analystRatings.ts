@@ -62,6 +62,7 @@ export function registerAnalystRatings(
       }
 
       try {
+        // Standard fallback-to-simulated pattern: try external MCP data, fall back to generated data
         let ratingsData: any = null;
         try {
           ratingsData = await mcpManager.callTool("stock-scanner", "analyst_ratings", {
@@ -95,6 +96,9 @@ export function registerAnalystRatings(
 }
 
 function processRatingsData(symbol: string, rawData: any): AnalystRatingsResult {
+  const isSimulated = rawData._simulated === true;
+  const dataSource = rawData._dataSource;
+
   const currentPrice = rawData?.current_price || rawData?.price || 150;
   const targetMean = rawData?.target_mean || rawData?.targetPrice?.mean || currentPrice * 1.1;
   const targetHigh = rawData?.target_high || rawData?.targetPrice?.high || currentPrice * 1.25;
@@ -132,7 +136,7 @@ function processRatingsData(symbol: string, rawData: any): AnalystRatingsResult 
 
   const confidence = Math.min(100, Math.round((total / 20) * 50 + (bullishPct > 50 ? 25 : bullishPct < 30 ? 0 : 12.5)));
 
-  return {
+  const result: any = {
     symbol,
     timestamp: new Date().toISOString(),
     rating_summary: {
@@ -155,6 +159,12 @@ function processRatingsData(symbol: string, rawData: any): AnalystRatingsResult 
     recent_changes: recent,
     confidence,
   };
+
+  if (isSimulated) {
+    result._simulated = true;
+    result._dataSource = dataSource || "FALLBACK_SIMULATION";
+  }
+  return result as AnalystRatingsResult;
 }
 
 function generateSimulatedRatings(symbol: string): any {

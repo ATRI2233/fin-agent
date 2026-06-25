@@ -1,5 +1,6 @@
 # News sentiment tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
+from ..constants import INDEX_CODES
+from ..utils import is_ashare, retry_akshare
 import logging
 
 try:
@@ -11,17 +12,6 @@ except ImportError:
     HAS_DEPS = False
 
 logger = logging.getLogger(__name__)
-
-INDEX_CODES = {
-    "上证指数": "000001",
-    "深证成指": "399001",
-    "创业板指": "399006",
-    "沪深300": "000300",
-    "科创50": "000688",
-    "上证50": "000016",
-    "中证500": "000905",
-    "中证1000": "000852",
-}
 
 def _calc_sentiment_score(text):
     """基于关键词匹配计算情绪评分 (0-100)，50 为中性"""

@@ -1,9 +1,7 @@
 """Stock name to code lookup tool."""
 
 import json
-import os
-import sys
-from ..utils import _session
+from ..utils import http_get
 
 # Common A-share stock name to code mapping
 # This is a fallback; the primary method is API lookup
@@ -44,37 +42,14 @@ STOCK_NAME_MAP = {
     "中国平安": "601318",
     "美的集团": "000333",
     "格力电器": "000651",
-    # 港股
-    "腾讯控股": "0700.HK",
-    "阿里巴巴": "BABA",
-    # 美股
-    "苹果": "AAPL",
-    "特斯拉": "TSLA",
-    "英伟达": "NVDA",
-    "微软": "MSFT",
 }
-
-
-def _http_get(url, headers=None, timeout=15, encoding="utf-8"):
-    """HTTP GET request using shared session with connection pooling and retry."""
-    if headers is None:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        }
-    try:
-        resp = _session.get(url, headers=headers, timeout=timeout)
-        resp.raise_for_status()
-        return resp.content.decode(encoding, errors="replace")
-    except Exception:
-        return None
-
 
 def _search_stock_name(name):
     """Search stock code by name using Sina Finance API."""
     try:
         # Suggest API: https://suggest3.sinajs.cn/suggest/type=&key=NAME&name=suggest
         url = f"https://suggest3.sinajs.cn/suggest/type=&key={name}&name=suggest"
-        text = _http_get(url, encoding="utf-8")
+        text = http_get(url, encoding="utf-8")
         if not text:
             return None
 

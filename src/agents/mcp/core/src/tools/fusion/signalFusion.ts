@@ -1,6 +1,6 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-import { autoLogAnalysis, getJudgments } from '../../memory/memoryStore.js';
+import { autoLogAnalysis, getJudgments, getSignalWeights } from '../../memory/memoryStore.js';
 import { extractData } from "../shared/extractData.js";
 
 // ── 概率分布类型定义 ─────────────────────────────────────
@@ -103,6 +103,28 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
   smart_money: 0.05,
 };
 
+// ── 数据库权重加载（回退到硬编码默认值）───────────────────
+/**
+ * Load signal weights from the signal_weights DB table with fallback to DEFAULT_WEIGHTS.
+ * The signal_weights table is populated in memoryStore.ts schema initialization.
+ * This allows dynamic weight adjustment via DB updates without code changes.
+ */
+function getEffectiveWeights(): Record<string, number> {
+  try {
+    const rows = getSignalWeights();
+    if (rows.length > 0) {
+      const weights: Record<string, number> = {};
+      for (const row of rows) {
+        weights[row.signal_name] = row.base_weight;
+      }
+      return weights;
+    }
+  } catch {
+    // DB unavailable, fall through to defaults
+  }
+  return { ...DEFAULT_WEIGHTS };
+}
+
 // ── 默认时间框架 ─────────────────────────────────────────
 const DEFAULT_TIMEFRAMES: Record<string, string> = {
   technical: "1d-5d",
@@ -122,7 +144,7 @@ export function registerSignalFusion(
 ): ToolRegistration {
   return {
       name: "signal_fusion",
-      description: "概率分布融合引擎：接收多个 agent 的概率分布，检测冲突并触发辩论协议，输出条件化结论与一致性报告。",
+      description: "概率分布融合引擎：接收多个 agent 的概率分布，检测冲突并触发信号调整（Arithmetic Adjustment），输出条件化结论与一致性报告。",
     inputSchema: {
       type: "object",
       properties: {
@@ -179,6 +201,9 @@ export function registerSignalFusion(
       }
 
       try {
+        // ── 加载信号权重（DB优先，回退到硬编码默认值）─────
+        const effectiveWeights = getEffectiveWeights();
+
         // ── 如果没有传入signals，从外部MCP获取 ─────────────
         let signals: SignalInput[] = [];
 
@@ -204,16 +229,16 @@ export function registerSignalFusion(
         // ── 冲突检测 ─────────────────────────────────────
         const conflictAnalysis = detectConflicts(signals);
 
-        // ── 如果是根本性冲突，执行辩论协议 ─────────────────
+        // ── 如果是根本性冲突，执行信号调整（算术调整，非 LLM 辩论） ───
         if (conflictAnalysis.conflict_type === "fundamental") {
           conflictAnalysis.debate_triggered = true;
-          conflictAnalysis.debate_rounds = runDebateProtocol(signals);
-          // 辩论后调整概率分布
-          adjustDistributionsAfterDebate(signals, conflictAnalysis.debate_rounds);
+          conflictAnalysis.debate_rounds = runArithmeticAdjustment(signals);
+          // 算术调整后修正概率分布
+          adjustDistributionsAfterAdjustment(signals, conflictAnalysis.debate_rounds);
         }
 
         // ── 融合概率分布 ─────────────────────────────────
-        const fusedDistribution = fuseDistributions(signals);
+        const fusedDistribution = fuseDistributions(signals, effectiveWeights);
 
         // ── 生成条件化结论 ────────────────────────────────
         const conditionalConclusions = generateConditionalConclusions(signals, conflictAnalysis);
@@ -236,7 +261,7 @@ export function registerSignalFusion(
         // ── 构建信号分解 ─────────────────────────────────
         const signalBreakdown: Record<string, { distribution: ProbabilityDistribution; weight: number; contribution: number; timeframe: string }> = {};
         for (const sig of signals) {
-          const weight = DEFAULT_WEIGHTS[sig.source] || 0;
+          const weight = effectiveWeights[sig.source] || 0;
           signalBreakdown[sig.source] = {
             distribution: sig.distribution,
             weight,
@@ -272,7 +297,7 @@ export function registerSignalFusion(
             confidence: Math.round(Math.max(fusedDistribution.p_bullish, fusedDistribution.p_bearish) * 100),
             key_prices: { support: [actionPlan.stop_loss], resistance: [actionPlan.target_price] },
             reasons: keyFactors.join("; "),
-            source_signals: Object.fromEntries(signals.map((s) => [s.source, { distribution: s.distribution, weight: DEFAULT_WEIGHTS[s.source] || 0 }])),
+            source_signals: Object.fromEntries(signals.map((s) => [s.source, { distribution: s.distribution, weight: effectiveWeights[s.source] || 0 }])),
           });
         } catch { /* intentionally empty */ }
 
@@ -581,8 +606,8 @@ function checkContradictoryAssumptions(bullish: string[], bearish: string[]): bo
   return false;
 }
 
-// ── 辩论协议 ─────────────────────────────────────────────
-function runDebateProtocol(signals: SignalInput[]): DebateRound[] {
+// ── 算术调整（占位实现，真正的 LLM 辩论尚未接入）─────────
+function runArithmeticAdjustment(signals: SignalInput[]): DebateRound[] {
   const rounds: DebateRound[] = [];
 
   // 找到冲突双方
@@ -611,7 +636,8 @@ function runDebateProtocol(signals: SignalInput[]): DebateRound[] {
     [`${bullAgent.source}_质疑_${bearAgent.source}`]: bearChallenges.join("; "),
   });
 
-  // Round 3: 调整立场（模拟调整，实际应由LLM判断）
+  // Round 3: 算术调整（占位实现 — 硬编码 0.1 后退；真正的 LLM 辩论尚未接入，
+  //          未来应调用 LLM 根据对方论点动态计算调整幅度）
   const bullAdjustment = 0.1; // 看多方后退10%
   const bearAdjustment = 0.1; // 看空方后退10%
 
@@ -627,8 +653,8 @@ function runDebateProtocol(signals: SignalInput[]): DebateRound[] {
 // NOTE: This function mutates signal distributions in place for simplicity.
 // If re-entrant or concurrent access is needed, shallow-copy distributions first:
 //   const sig = { ...s, distribution: { ...s.distribution } };
-// ── 辩论后调整概率分布 ───────────────────────────────────
-function adjustDistributionsAfterDebate(signals: SignalInput[], rounds: DebateRound[]): void {
+// ── 算术调整后概率修正（非 LLM 辩论）─────────────────────
+function adjustDistributionsAfterAdjustment(signals: SignalInput[], rounds: DebateRound[]): void {
   if (rounds.length < 3) return;
 
   // 找到冲突双方
@@ -654,14 +680,14 @@ function adjustDistributionsAfterDebate(signals: SignalInput[], rounds: DebateRo
 }
 
 // ── 融合概率分布 ─────────────────────────────────────────
-function fuseDistributions(signals: SignalInput[]): ProbabilityDistribution {
+function fuseDistributions(signals: SignalInput[], weights: Record<string, number>): ProbabilityDistribution {
   let p_bullish = 0;
   let p_bearish = 0;
   let p_neutral = 0;
   let totalWeight = 0;
 
   for (const sig of signals) {
-    const weight = (DEFAULT_WEIGHTS[sig.source] || 0) * sig.data_quality;
+    const weight = (weights[sig.source] || 0) * sig.data_quality;
     p_bullish += sig.distribution.p_bullish * weight;
     p_bearish += sig.distribution.p_bearish * weight;
     p_neutral += sig.distribution.p_neutral * weight;
@@ -682,7 +708,10 @@ function fuseDistributions(signals: SignalInput[]): ProbabilityDistribution {
     p_neutral /= sum;
   }
 
-  // 计算预期收益和置信区间
+  // NOTE: 置信区间是近似值，有以下局限：
+  //   1. 忽略了协方差项（假设各信号独立，实际存在关联）
+  //   2. 1.96 来自正态分布，但对 bounded [0,1] 概率应用不严谨
+  //   3. 改进方向：对 bounded [0,1] 概率可用 Beta 分布或其他适当方法
   const expectedReturn = (p_bullish - p_bearish) * 0.1; // 简化：假设牛市涨10%，熊市跌10%
   const uncertainty = Math.sqrt(p_bullish * (1 - p_bullish) + p_bearish * (1 - p_bearish));
   const confidenceInterval: [number, number] = [

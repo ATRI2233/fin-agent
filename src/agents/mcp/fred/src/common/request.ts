@@ -74,6 +74,7 @@ export const makeRequest = async <T>(
 };
 
 // Observation schema for the series/observations endpoint
+// @deprecated Schema retained for potential external use. SeriesObservationsResponseSchema is the active schema.
 export const ObservationSchema = z.object({
   realtime_start: z.string(),
   realtime_end: z.string(),
@@ -115,6 +116,9 @@ export interface FREDSeriesMetadata {
  * Registry of known FRED series with their metadata
  * Key: series ID as used in FRED API
  * Value: human-readable metadata about the series
+ *
+ * @deprecated No longer consumed by internal tools. Retained for external consumers.
+ * TODO: Remove if unused after Q3 2026.
  */
 export const FRED_SERIES_REGISTRY: Record<string, FREDSeriesMetadata> = {
   "CPIAUCSL": {
@@ -131,7 +135,10 @@ export const FRED_SERIES_REGISTRY: Record<string, FREDSeriesMetadata> = {
 
 /**
  * Fetches economic data for a specific FRED series
- * 
+ *
+ * @deprecated Use getSeriesData from series.ts instead. Kept for external consumers.
+ * TODO: Remove if unused after Q3 2026.
+ *
  * @param seriesId - FRED series identifier (e.g., "CPIAUCSL")
  * @param options - Query parameters for filtering the data
  * @returns Formatted series data with metadata
@@ -198,7 +205,7 @@ export async function fetchFREDSeriesData(
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
+            error: "FRED API key is not configured. Please contact the administrator.",
             detail: error.message
           }, null, 2)
         }],

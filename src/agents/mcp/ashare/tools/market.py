@@ -1,5 +1,6 @@
 # Market tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data, retry_akshare
+from ..constants import INDEX_CODES
+from ..utils import http_get, retry_akshare
 from datetime import datetime, timedelta
 
 try:
@@ -9,16 +10,6 @@ try:
 except ImportError:
     HAS_DEPS = False
 
-INDEX_CODES = {
-    "上证指数": "000001",
-    "深证成指": "399001",
-    "创业板指": "399006",
-    "沪深300": "000300",
-    "科创50": "000688",
-    "上证50": "000016",
-    "中证500": "000905",
-    "中证1000": "000852",
-}
 
 def get_market_snapshot():
     """获取 A 股主要大盘指数行情"""
@@ -200,7 +191,7 @@ def get_market_breadth():
         decline_count = 0
         flat_count = 0
         try:
-            df_activity = ak.stock_market_activity_legu()
+            df_activity = retry_akshare(ak.stock_market_activity_legu)
             if df_activity is not None and not df_activity.empty:
                 acols = df_activity.columns.tolist()
                 for c in acols:

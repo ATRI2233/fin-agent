@@ -1,63 +1,6 @@
 # Technical analysis tools
-from ..utils import is_ashare, normalize_symbol, get_market_code, is_etf, parse_ashare_code, http_get, get_daily_data
-import math
+from ..utils import is_ashare, get_daily_data
 import numpy as np
-
-def calculate_rsi(close, period=14):
-    """计算 RSI"""
-    delta = close.diff()
-    gain = delta.where(delta > 0, 0.0)
-    loss = (-delta).where(delta < 0, 0.0)
-    avg_gain = gain.rolling(window=period, min_periods=period).mean()
-    avg_loss = loss.rolling(window=period, min_periods=period).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-
-def calculate_ema(series, period):
-    """计算 EMA"""
-    return series.ewm(span=period, adjust=False).mean()
-
-
-def calculate_bollinger_bands(close, period=20, std_dev=2):
-    """计算布林带"""
-    sma = close.rolling(window=period).mean()
-    std = close.rolling(window=period).std()
-    upper = sma + (std * std_dev)
-    lower = sma - (std * std_dev)
-    return upper, sma, lower
-
-
-def calculate_macd(close, fast=12, slow=26, signal=9):
-    """计算 MACD"""
-    ema_fast = calculate_ema(close, fast)
-    ema_slow = calculate_ema(close, slow)
-    macd_line = ema_fast - ema_slow
-    signal_line = calculate_ema(macd_line, signal)
-    histogram = macd_line - signal_line
-    return macd_line, signal_line, histogram
-
-
-def calculate_pivot_points(high, low, close):
-    """计算枢轴点"""
-    pivot = (high + low + close) / 3
-    r1 = 2 * pivot - low
-    s1 = 2 * pivot - high
-    r2 = pivot + (high - low)
-    s2 = pivot - (high - low)
-    r3 = high + 2 * (pivot - low)
-    s3 = low - 2 * (high - pivot)
-    return {
-        "R1": round(r1, 2),
-        "R2": round(r2, 2),
-        "R3": round(r3, 2),
-        "Pivot": round(pivot, 2),
-        "S1": round(s1, 2),
-        "S2": round(s2, 2),
-        "S3": round(s3, 2),
-    }
-
 
 def get_technical_levels(symbol):
     """获取技术指标"""

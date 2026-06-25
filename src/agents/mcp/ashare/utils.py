@@ -1,10 +1,6 @@
 """Shared utilities for ashare MCP server."""
 
-import json
 import logging
-import os
-import subprocess
-import sys
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -55,35 +51,6 @@ _session.mount("https://", HTTPAdapter(max_retries=_retry, pool_connections=2, p
 _session.mount("http://", HTTPAdapter(max_retries=_retry, pool_connections=2, pool_maxsize=2))
 # Strip any system proxy — matches the original ProxyHandler({}) intent.
 _session.trust_env = False
-
-
-def _run_akshare(script):
-    """Run akshare code in a clean environment, return JSON result."""
-    clean_env = dict(os.environ)
-    for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY"]:
-        clean_env.pop(k, None)
-
-    code = (
-        "import os\n"
-        'for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"]:\n'
-        " os.environ.pop(k, None)\n"
-        "import json, sys\n"
-        "sys.stdout.write(json.dumps(" + script + "))\n"
-        "sys.stdout.flush()\n"
-    )
-    try:
-        result = subprocess.run(
-            [sys.executable, "-c", code],
-            env=clean_env,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return json.loads(result.stdout.strip())
-        return {"error": result.stderr.strip()[:200] if result.stderr else "unknown"}
-    except Exception as e:
-        return {"error": str(e)[:200]}
 
 
 def is_ashare(symbol):
@@ -201,19 +168,8 @@ def get_daily_data(symbol):
                 return {"error": f"Beijing exchange {symbol} data fetch failed"}
             return {"klines": [], "raw": text, "market": "bj"}
 
-        elif is_etf(symbol):
-            url = (
-                f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php"
-                f"/CN_MarketData.getKLineData"
-                f"?symbol={market}{code}&scale=240&ma=no&datalen=250"
-            )
-            text = http_get(url, encoding="utf-8")
-            if not text:
-                return {"error": f"ETF {symbol} history fetch failed"}
-            klines = _json.loads(text) if text.startswith("[") else []
-            return {"klines": klines, "market": "etf", "code": code}
-
         else:
+            # Unified kline parsing for ETFs and stocks — same API endpoint, same response format.
             market_prefix = "sh" if market == "sh" else "sz"
             url = (
                 f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php"
@@ -222,9 +178,10 @@ def get_daily_data(symbol):
             )
             text = http_get(url, encoding="utf-8")
             if not text:
-                return {"error": f"Stock {symbol} history fetch failed"}
+                return {"error": f"Market data fetch failed for {symbol}"}
             klines = _json.loads(text) if text.startswith("[") else []
-            return {"klines": klines, "market": "stock", "code": code}
+            market_type = "etf" if is_etf(symbol) else "stock"
+            return {"klines": klines, "market": market_type, "code": code}
 
     except Exception as e:
         return {"error": f"Daily data fetch failed: {str(e)}"}

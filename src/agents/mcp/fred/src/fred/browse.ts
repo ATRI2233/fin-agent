@@ -3,7 +3,8 @@
  *
  * Provides comprehensive browsing of FRED categories, releases, and sources
  */
-import { makeRequest, FREDConfigError } from "../common/request.js";
+import { makeRequest } from "../common/request.js";
+import { handleToolError, formatPaginationDisplay, buildQueryParams } from "./helpers.js";
 import { z } from "zod";
 
 /**
@@ -40,6 +41,46 @@ const SourceSchema = z.object({
   notes: z.string().optional(),
 });
 
+/**
+ * Schema for category/series API response
+ */
+const CategorySeriesResponseSchema = z.object({
+  realtime_start: z.string(),
+  realtime_end: z.string(),
+  count: z.number(),
+  offset: z.number(),
+  limit: z.number(),
+  seriess: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    units: z.string(),
+    frequency: z.string(),
+    observation_start: z.string(),
+    observation_end: z.string(),
+    last_updated: z.string()
+  }))
+});
+
+/**
+ * Schema for release/series API response
+ */
+const ReleaseSeriesResponseSchema = z.object({
+  realtime_start: z.string(),
+  realtime_end: z.string(),
+  count: z.number(),
+  offset: z.number(),
+  limit: z.number(),
+  seriess: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    units: z.string(),
+    frequency: z.string(),
+    observation_start: z.string(),
+    observation_end: z.string(),
+    last_updated: z.string()
+  }))
+});
+
 export type Category = z.infer<typeof CategorySchema>;
 export type Release = z.infer<typeof ReleaseSchema>;
 export type Source = z.infer<typeof SourceSchema>;
@@ -50,16 +91,14 @@ export type Source = z.infer<typeof SourceSchema>;
 export async function browseCategories(categoryId?: number) {
   try {
     const endpoint = categoryId ? `category/children` : "category";
-    const queryParams: Record<string, string | number> = {};
-    
-    if (categoryId) {
-      queryParams.category_id = categoryId;
-    }
-    
+    const queryParams = buildQueryParams(
+      categoryId !== undefined ? { category_id: categoryId } : {}
+    );
+
     const response = await makeRequest<{
       categories: Category[];
     }>(endpoint, queryParams);
-    
+
     return {
       content: [{
         type: "text" as const,
@@ -73,22 +112,7 @@ export async function browseCategories(categoryId?: number) {
       }]
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
-            detail: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-    if (error instanceof Error) {
-      throw new Error(`Failed to browse categories: ${error.message}`);
-    }
-    throw error;
+    return handleToolError(error, "browse categories");
   }
 }
 
@@ -104,27 +128,19 @@ export async function getCategorySeries(categoryId: number, options: {
   filter_value?: string;
 } = {}) {
   try {
-    const queryParams: Record<string, string | number> = {
-      category_id: categoryId
-    };
-    
-    if (options.limit !== undefined) queryParams.limit = options.limit;
-    if (options.offset !== undefined) queryParams.offset = options.offset;
-    if (options.order_by) queryParams.order_by = options.order_by;
-    if (options.sort_order) queryParams.sort_order = options.sort_order;
-    if (options.filter_variable) queryParams.filter_variable = options.filter_variable;
-    if (options.filter_value) queryParams.filter_value = options.filter_value;
-    
-    const response = await makeRequest<any>("category/series", queryParams);
-    
+    const queryParams = buildQueryParams(options as Record<string, unknown>, { category_id: categoryId });
+    const response = CategorySeriesResponseSchema.parse(
+      await makeRequest("category/series", queryParams)
+    );
+
     return {
       content: [{
         type: "text" as const,
         text: JSON.stringify({
           category_id: categoryId,
           total_series: response.count,
-          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
-          series: response.seriess.map((s: any) => ({
+          showing: formatPaginationDisplay(response.offset, response.limit, response.count),
+          series: response.seriess.map(s => ({
             id: s.id,
             title: s.title,
             units: s.units,
@@ -136,22 +152,7 @@ export async function getCategorySeries(categoryId: number, options: {
       }]
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
-            detail: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-    if (error instanceof Error) {
-      throw new Error(`Failed to get category series: ${error.message}`);
-    }
-    throw error;
+    return handleToolError(error, "get category series");
   }
 }
 
@@ -165,13 +166,8 @@ export async function browseReleases(options: {
   sort_order?: "asc" | "desc";
 } = {}) {
   try {
-    const queryParams: Record<string, string | number> = {};
-    
-    if (options.limit !== undefined) queryParams.limit = options.limit;
-    if (options.offset !== undefined) queryParams.offset = options.offset;
-    if (options.order_by) queryParams.order_by = options.order_by;
-    if (options.sort_order) queryParams.sort_order = options.sort_order;
-    
+    const queryParams = buildQueryParams(options as Record<string, unknown>);
+
     const response = await makeRequest<{
       realtime_start: string;
       realtime_end: string;
@@ -182,13 +178,13 @@ export async function browseReleases(options: {
       limit: number;
       releases: Release[];
     }>("releases", queryParams);
-    
+
     return {
       content: [{
         type: "text" as const,
         text: JSON.stringify({
           total_releases: response.count,
-          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
+          showing: formatPaginationDisplay(response.offset, response.limit, response.count),
           releases: response.releases.map(rel => ({
             id: rel.id,
             name: rel.name,
@@ -199,22 +195,7 @@ export async function browseReleases(options: {
       }]
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
-            detail: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-    if (error instanceof Error) {
-      throw new Error(`Failed to browse releases: ${error.message}`);
-    }
-    throw error;
+    return handleToolError(error, "browse releases");
   }
 }
 
@@ -228,25 +209,19 @@ export async function getReleaseSeries(releaseId: number, options: {
   sort_order?: "asc" | "desc";
 } = {}) {
   try {
-    const queryParams: Record<string, string | number> = {
-      release_id: releaseId
-    };
-    
-    if (options.limit !== undefined) queryParams.limit = options.limit;
-    if (options.offset !== undefined) queryParams.offset = options.offset;
-    if (options.order_by) queryParams.order_by = options.order_by;
-    if (options.sort_order) queryParams.sort_order = options.sort_order;
-    
-    const response = await makeRequest<any>("release/series", queryParams);
-    
+    const queryParams = buildQueryParams(options as Record<string, unknown>, { release_id: releaseId });
+    const response = ReleaseSeriesResponseSchema.parse(
+      await makeRequest("release/series", queryParams)
+    );
+
     return {
       content: [{
         type: "text" as const,
         text: JSON.stringify({
           release_id: releaseId,
           total_series: response.count,
-          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
-          series: response.seriess.map((s: any) => ({
+          showing: formatPaginationDisplay(response.offset, response.limit, response.count),
+          series: response.seriess.map(s => ({
             id: s.id,
             title: s.title,
             units: s.units,
@@ -258,22 +233,7 @@ export async function getReleaseSeries(releaseId: number, options: {
       }]
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
-            detail: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-    if (error instanceof Error) {
-      throw new Error(`Failed to get release series: ${error.message}`);
-    }
-    throw error;
+    return handleToolError(error, "get release series");
   }
 }
 
@@ -287,13 +247,8 @@ export async function browseSources(options: {
   sort_order?: "asc" | "desc";
 } = {}) {
   try {
-    const queryParams: Record<string, string | number> = {};
-    
-    if (options.limit !== undefined) queryParams.limit = options.limit;
-    if (options.offset !== undefined) queryParams.offset = options.offset;
-    if (options.order_by) queryParams.order_by = options.order_by;
-    if (options.sort_order) queryParams.sort_order = options.sort_order;
-    
+    const queryParams = buildQueryParams(options as Record<string, unknown>);
+
     const response = await makeRequest<{
       realtime_start: string;
       realtime_end: string;
@@ -304,13 +259,13 @@ export async function browseSources(options: {
       limit: number;
       sources: Source[];
     }>("sources", queryParams);
-    
+
     return {
       content: [{
         type: "text" as const,
         text: JSON.stringify({
           total_sources: response.count,
-          showing: `${(response.offset ?? 0) + 1}-${Math.min((response.offset ?? 0) + (response.limit ?? 0), response.count)}`,
+          showing: formatPaginationDisplay(response.offset, response.limit, response.count),
           sources: response.sources.map(src => ({
             id: src.id,
             name: src.name,
@@ -320,21 +275,6 @@ export async function browseSources(options: {
       }]
     };
   } catch (error) {
-    if (error instanceof FREDConfigError) {
-      return {
-        content: [{
-          type: "text" as const,
-          text: JSON.stringify({
-            error: "FRED_API_KEY 未配置,请联系管理员",
-            detail: error.message
-          }, null, 2)
-        }],
-        isError: true
-      };
-    }
-    if (error instanceof Error) {
-      throw new Error(`Failed to browse sources: ${error.message}`);
-    }
-    throw error;
+    return handleToolError(error, "browse sources");
   }
 }
