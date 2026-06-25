@@ -62,6 +62,11 @@ export function useWorkflowAutoSave({
   const isDirtyRef = useRef(isDirty);
   isDirtyRef.current = isDirty;
 
+  // Store getSaveData in a ref to avoid the effect re-firing on every render
+  // when the caller passes an inline arrow function (B11 fix).
+  const getSaveDataRef = useRef(getSaveData);
+  getSaveDataRef.current = getSaveData;
+
   useEffect(() => {
     // Clear any prior timer when workflowId changes.
     if (timerRef.current) {
@@ -74,7 +79,7 @@ export function useWorkflowAutoSave({
       // Guard: only save when dirty AND a valid (non-new) id exists.
       if (!dirty || !workflowId || workflowId === 'new') return;
 
-      const data = getSaveData();
+      const data = getSaveDataRef.current();
       mutate({ id: workflowId, data })
         .then(() => {
           setDirty(false);
@@ -90,6 +95,7 @@ export function useWorkflowAutoSave({
       }
     };
     // mutate is stable across renders (react-query's useMutation returns a stable callback).
+    // getSaveData is accessed via getSaveDataRef to keep the effect stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflowId, getSaveData, setDirty]);
+  }, [workflowId, setDirty]);
 }

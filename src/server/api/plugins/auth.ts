@@ -1,13 +1,13 @@
 import { FastifyPluginAsync } from "fastify";
 import { Address6 } from "ip-address";
 import { settings } from "../../infra/settings.js";
-import { ValidationError } from "../../infra/errors.js";
+import { UnauthorizedError } from "../../infra/errors.js";
 
 /** Auth plugin: API key + localhost bypass (H4 fix). */
 const authPlugin: FastifyPluginAsync = async (app) => {
-  app.addHook("onRequest", async (req, reply) => {
+  app.addHook("onRequest", async (req, _reply) => {
     // Skip auth for health check
-    if (req.url === "/api/v1/health") return;
+    if (req.url === settings.HEALTH_CHECK_PATH) return;
 
     // Localhost bypass
     if (settings.AUTH_SKIP_LOCALHOST) {
@@ -35,7 +35,7 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     // API key check
     const apiKey = req.headers["x-api-key"];
     if (!apiKey || apiKey !== settings.API_KEY) {
-      throw new ValidationError("Unauthorized", {
+      throw new UnauthorizedError("Unauthorized", {
         reason: "invalid_api_key",
       });
     }

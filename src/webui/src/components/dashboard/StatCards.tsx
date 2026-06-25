@@ -7,7 +7,6 @@
 import { Row, Col } from 'antd';
 import {
   RobotOutlined,
-  ThunderboltOutlined,
   ToolOutlined,
   CloudServerOutlined,
 } from '@ant-design/icons';
@@ -17,21 +16,17 @@ import type { Agent, ToolItem } from '../../domain/agent';
 interface StatCardsProps {
   agents: Agent[];
   tools: ToolItem[];
-  servers: unknown[];
-  skillsCount: number;
   systemOnline: boolean;
 }
 
 export function StatCards({
   agents,
   tools,
-  servers,
-  skillsCount,
   systemOnline,
 }: StatCardsProps) {
   return (
     <Row gutter={[20, 20]} style={{ marginBottom: 28 }}>
-      <Col xs={12} sm={6}>
+      <Col xs={8} sm={8}>
         <StatCard
           icon={<RobotOutlined />}
           color="#6B8EC4"
@@ -40,16 +35,7 @@ export function StatCards({
           fadeDelay="fade-in-1"
         />
       </Col>
-      <Col xs={12} sm={6}>
-        <StatCard
-          icon={<ThunderboltOutlined />}
-          color="#5A9E7B"
-          value={skillsCount}
-          label="Skills"
-          fadeDelay="fade-in-2"
-        />
-      </Col>
-      <Col xs={12} sm={6}>
+      <Col xs={8} sm={8}>
         <StatCard
           icon={<ToolOutlined />}
           color="#D4A85A"
@@ -58,7 +44,7 @@ export function StatCards({
           fadeDelay="fade-in-3"
         />
       </Col>
-      <Col xs={12} sm={6}>
+      <Col xs={8} sm={8}>
         <StatCard
           icon={
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

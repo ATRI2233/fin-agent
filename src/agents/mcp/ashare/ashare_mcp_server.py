@@ -9,6 +9,8 @@ import logging
 import os
 import sys
 
+from agents.mcp.common import make_handle_request, run_stdio_server
+
 # Ensure project root is on sys.path for absolute imports
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _PROJECT_ROOT not in sys.path:
@@ -153,51 +155,19 @@ TOOLS_REQUIRING_SYMBOL = {
     "ashare_news_sentiment", "ashare_fund_flow", "ashare_fund_flow_real",
 }
 
-# ─── MCP Protocol Handler ────────────────────────────────────────────
+# ─── Validation + handler factory ─────────────────────────────
 
+def _validate_ashare_call(name, args, req_id):
+    if name in TOOLS_REQUIRING_SYMBOL and args.get("symbol", "").strip() == "":
+        return {"jsonrpc": "2.0", "error": {"code": -32603, "message": "缺少 symbol"}, "id": req_id}
+    return None
 
-def handle_request(req):
-    method = req.get("method", "")
-    params = req.get("params", {})
-    req_id = req.get("id")
-
-    if method == "initialize":
-        return {
-            "jsonrpc": "2.0",
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "ashare-mcp-server", "version": "1.0.0"},
-            },
-            "id": req_id,
-        }
-
-    if method == "notifications/initialized":
-        return None
-
-    if method == "tools/list":
-        return {"jsonrpc": "2.0", "result": {"tools": TOOLS}, "id": req_id}
-
-    if method == "tools/call":
-        name = params.get("name", "")
-        args = params.get("arguments", {})
-        symbol = args.get("symbol", "").strip()
-
-        if name in TOOLS_REQUIRING_SYMBOL and not symbol:
-            return {"jsonrpc": "2.0", "error": {"code": -32603, "message": "缺少 symbol"}, "id": req_id}
-
-        handler = TOOL_DISPATCH.get(name)
-        if not handler:
-            return {"jsonrpc": "2.0", "error": {"code": -32603, "message": f"Unknown tool: {name}"}, "id": req_id}
-
-        result = handler(args)
-        return {
-            "jsonrpc": "2.0",
-            "result": {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False, default=str)}]},
-            "id": req_id,
-        }
-
-    return {"jsonrpc": "2.0", "error": {"code": -32603, "message": f"Unknown method: {method}"}, "id": req_id}
+handle_request = make_handle_request(
+    TOOLS,
+    TOOL_DISPATCH,
+    {"name": "ashare-mcp-server", "version": "1.0.0"},
+    validate_call=_validate_ashare_call,
+)
 
 
 if __name__ == "__main__":
@@ -206,20 +176,4 @@ if __name__ == "__main__":
         if os.environ.pop(var, None) is not None:
             logger.info("Removed proxy env var: %s", var)
 
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            resp = handle_request(json.loads(line))
-            if resp is not None:
-                print(json.dumps(resp, ensure_ascii=False))
-                sys.stdout.flush()
-        except Exception as e:
-            req_id = None
-            try:
-                req_id = json.loads(line).get("id")
-            except Exception:
-                pass
-            print(json.dumps({"jsonrpc": "2.0", "id": req_id, "error": {"code": -32603, "message": str(e)}}))
-            sys.stdout.flush()
+    run_stdio_server(handle_request, server_name="ashare-mcp-server")

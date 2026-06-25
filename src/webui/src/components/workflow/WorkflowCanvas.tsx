@@ -14,9 +14,6 @@ import {
   useOnSelectionChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Card, Empty, Tooltip, Button, Tag } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-
 import AgentNode from './nodes/AgentNode';
 import DebateNode from './nodes/DebateNode';
 import InputNode from './nodes/InputNode';
@@ -48,43 +45,47 @@ const agentPalette = [
   { type: 'debateNode', label: 'Debate Block', agentType: 'debate', icon: '⚔️' },
 ];
 
-const initialNodes: WorkflowNode[] = [
-  {
-    id: 'input-1',
-    type: 'inputNode',
-    position: { x: 50, y: 200 },
-    data: { label: 'Market Query', value: '' },
-  },
-  {
-    id: 'agent-1',
-    type: 'agentNode',
-    position: { x: 300, y: 150 },
-    data: { label: 'Macro Scout', agentType: 'macro-scout', status: 'idle' },
-  },
-  {
-    id: 'agent-2',
-    type: 'agentNode',
-    position: { x: 300, y: 280 },
-    data: { label: 'Sector Rotator', agentType: 'sector-rotator', status: 'idle' },
-  },
-  {
-    id: 'output-1',
-    type: 'outputNode',
-    position: { x: 550, y: 200 },
-    data: { label: 'Analysis Result' },
-  },
-];
+function getInitialNodes(): WorkflowNode[] {
+  return [
+    {
+      id: 'input-1',
+      type: 'inputNode',
+      position: { x: 50, y: 200 },
+      data: { label: 'Market Query', value: '' },
+    },
+    {
+      id: 'agent-1',
+      type: 'agentNode',
+      position: { x: 300, y: 150 },
+      data: { label: 'Macro Scout', agentType: 'macro-scout', status: 'idle' },
+    },
+    {
+      id: 'agent-2',
+      type: 'agentNode',
+      position: { x: 300, y: 280 },
+      data: { label: 'Sector Rotator', agentType: 'sector-rotator', status: 'idle' },
+    },
+    {
+      id: 'output-1',
+      type: 'outputNode',
+      position: { x: 550, y: 200 },
+      data: { label: 'Analysis Result' },
+    },
+  ];
+}
 
-const initialEdges: Edge[] = [
-  { id: 'e-input-agent1', source: 'input-1', target: 'agent-1', type: 'smoothstep' },
-  { id: 'e-input-agent2', source: 'input-1', target: 'agent-2', type: 'smoothstep' },
-  { id: 'e-agent1-output', source: 'agent-1', target: 'output-1', type: 'smoothstep' },
-  { id: 'e-agent2-output', source: 'agent-2', target: 'output-1', type: 'smoothstep' },
-];
+function getInitialEdges(): Edge[] {
+  return [
+    { id: 'e-input-agent1', source: 'input-1', target: 'agent-1', type: 'smoothstep' },
+    { id: 'e-input-agent2', source: 'input-1', target: 'agent-2', type: 'smoothstep' },
+    { id: 'e-agent1-output', source: 'agent-1', target: 'output-1', type: 'smoothstep' },
+    { id: 'e-agent2-output', source: 'agent-2', target: 'output-1', type: 'smoothstep' },
+  ];
+}
 
 const WorkflowCanvas = () => {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(getInitialNodes());
+  const [edges, setEdges, onEdgesChange] = useEdgesState(getInitialEdges());
   const [sessionBoundaries, setSessionBoundaries] = useState<SessionBoundary[]>([]);
 
   const handleBoundaryCreated = useCallback((boundary: SessionBoundary) => {

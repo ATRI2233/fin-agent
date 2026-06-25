@@ -287,9 +287,9 @@ export class MCPClientManager {
       entry.disconnected = true;
     };
 
+    let connectTimer: ReturnType<typeof setTimeout>;
     try {
       const connectPromise = client.connect(transport);
-      let connectTimer: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise<void>((_, reject) => {
         connectTimer = setTimeout(() => reject(new Error(`连接 ${serverName} 超时 (${CONNECT_TIMEOUT}ms)`)), CONNECT_TIMEOUT);
       });
@@ -300,7 +300,7 @@ export class MCPClientManager {
     } catch (err) {
       clearTimeout(connectTimer!);
       // 连接失败时清理 transport
-      try { await transport.close(); } catch {}
+      try { await transport.close(); } catch { /* transport close failed, ignore */ }
       console.error(`[MCPClientManager] 连接 ${serverName} 失败:`, err);
       throw err;
     }

@@ -1,9 +1,6 @@
 /** Generic renderer — JSON preview fallback for unrecognized data types. */
 
-import { Typography } from 'antd';
 import type { RendererProps } from './index';
-
-const { Text } = Typography;
 
 function formatContent(content: unknown): string {
   if (content === null || content === undefined) return '—';

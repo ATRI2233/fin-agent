@@ -8,9 +8,8 @@
  * What it edits
  * -------------
  * - `name` — free-text label for the workflow
- * - `triggerType` — `manual` | `schedule` | `command`
- * - `cronExpression` — required when `triggerType === 'schedule'`,
- * edited via the project's `CronEditor` component
+ * - `triggerType` — `manual` | `command`
+ * - `cronExpression` — optional cron expression for scheduled execution
  * - `commandString` — required when `triggerType === 'command'`,
  * forwarded verbatim to the engine
  *
@@ -19,8 +18,6 @@
  * The modal writes through the typed `useWorkflows` hooks:
  * 1. `useUpdateWorkflow` PATCHes the canonical row (`name`,
  * `trigger_type`, `config.{cron_expression, command_string}`).
- * 2. `useScheduleWorkflow` / `useUnscheduleWorkflow` keep the APScheduler
- * registry in sync with the schedule toggle.
  *
  * The legacy `/workflows/{id}/settings` endpoint was a non-existent route
  * (no backend controller); we deliberately route through the typed CRUD
@@ -30,7 +27,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Form, Input, Select, Button, Space, message } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
-import { CronEditor } from '../../components/CronEditor';
 import {
   useUpdateWorkflow,
 } from '../../hooks/useWorkflows';
@@ -42,7 +38,7 @@ export interface WorkflowSettingsModalProps {
   workflowId: string;
   initialName: string;
   initialTriggerType: WorkflowTriggerType;
-  initialCronExpression: string;
+  initialCronExpression?: string;
   initialCommandString: string;
   /** Called after a successful save so the parent can update its state. */
   onSaved: (next: {
@@ -65,7 +61,7 @@ export default function WorkflowSettingsModal({
 }: WorkflowSettingsModalProps) {
   const [form] = Form.useForm();
   const [triggerType, setTriggerType] = useState<WorkflowTriggerType>(initialTriggerType);
-  const [cronExpression, setCronExpression] = useState(initialCronExpression);
+  const [cronExpression, setCronExpression] = useState<string>(initialCronExpression ?? '');
 
   const updateMut = useUpdateWorkflow();
 
@@ -76,10 +72,11 @@ export default function WorkflowSettingsModal({
     form.setFieldsValue({
       name: initialName,
       triggerType: initialTriggerType,
+      cronExpression: initialCronExpression ?? '',
       commandString: initialCommandString,
     });
     setTriggerType(initialTriggerType);
-    setCronExpression(initialCronExpression);
+    setCronExpression(initialCronExpression ?? '');
   }, [visible, initialName, initialTriggerType, initialCronExpression, initialCommandString, form]);
 
   const handleSave = async (): Promise<void> => {
@@ -88,7 +85,7 @@ export default function WorkflowSettingsModal({
       const name = String(values.name ?? '').trim();
       const nextType = values.triggerType as WorkflowTriggerType;
       const commandString = nextType === 'command' ? String(values.commandString ?? '') : '';
-      const nextCron = nextType === 'schedule' ? cronExpression : '';
+      const nextCron = values.cronExpression as string | undefined;
 
       // Persist the canonical row.
       await updateMut.mutate({
@@ -97,14 +94,14 @@ export default function WorkflowSettingsModal({
           name,
           trigger_type: nextType,
           config: {
-            ...(nextCron ? { cron_expression: nextCron } : {}),
+            ...(nextCron ? { cron_expression: nextCron } : { cron_expression: null }),
             ...(commandString ? { command_string: commandString } : {}),
           },
         },
       });
 
       message.success('设置已保存');
-      onSaved({ name, triggerType: nextType, cronExpression: nextCron, commandString });
+      onSaved({ name, triggerType: nextType, cronExpression: nextCron ?? '', commandString });
       onClose();
     } catch (err) {
       if (err instanceof Error) message.error(err.message);
@@ -148,23 +145,21 @@ export default function WorkflowSettingsModal({
             onChange={(val) => setTriggerType(val as WorkflowTriggerType)}
             options={[
               { label: '手动', value: 'manual' },
-              { label: '定时 (Cron)', value: 'schedule' },
               { label: '命令', value: 'command' },
             ]}
           />
         </Form.Item>
-        {triggerType === 'schedule' && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ color: '#F0F0F0' }}>执行计划</span>
-              <span style={{ color: '#D47070', marginLeft: 4 }}>*</span>
-            </div>
-            <CronEditor
-              initialCron={cronExpression}
-              onChange={setCronExpression}
-            />
-          </div>
-        )}
+        <Form.Item
+          name="cronExpression"
+          label="定时表达式 (cron)"
+          tooltip="可选，Cron 格式如 0 9 * * 1-5 表示每个工作日 9:00 执行。留空则不进行定时调度。"
+        >
+          <Input
+            placeholder="例如 0 9 * * 1-5"
+            value={cronExpression}
+            onChange={(e) => setCronExpression(e.target.value)}
+          />
+        </Form.Item>
         {triggerType === 'command' && (
           <Form.Item
             name="commandString"

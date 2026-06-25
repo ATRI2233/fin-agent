@@ -160,8 +160,8 @@ function analyzeNarrative(signals: Record<string, AgentSignal>): DevilAdvocateRe
 
   for (const [agent, signal] of Object.entries(signals)) {
     sources.push(agent);
-    if (signal.distribution.p_bullish > 0.5) bullishCount++;
-    if (signal.distribution.p_bearish > 0.5) bearishCount++;
+    if (signal.distribution?.p_bullish != null && signal.distribution.p_bullish > 0.5) bullishCount++;
+    if (signal.distribution?.p_bearish != null && signal.distribution.p_bearish > 0.5) bearishCount++;
     if (signal.assumptions) allAssumptions.push(...signal.assumptions);
     if (signal.key_drivers) {
       allDrivers.push(...signal.key_drivers.map(d => d.factor));
@@ -276,16 +276,16 @@ function detectDangerousPattern(
 
   // 收集所有信号的方向
   const directions = Object.values(signals).map(s => ({
-    bullish: s.distribution.p_bullish,
-    bearish: s.distribution.p_bearish,
+    bullish: s.distribution?.p_bullish ?? 0,
+    bearish: s.distribution?.p_bearish ?? 0,
   }));
 
-  const avgBullish = directions.reduce((sum, d) => sum + d.bullish, 0) / directions.length;
-  const avgBearish = directions.reduce((sum, d) => sum + d.bearish, 0) / directions.length;
+  const avgBullish = directions.reduce((sum, d) => sum + (d.bullish ?? 0), 0) / directions.length;
+
 
   // 检测模式1：极端一致性
-  const allBullish = directions.filter(d => d.bullish > 0.6).length;
-  const allBearish = directions.filter(d => d.bearish > 0.6).length;
+  const allBullish = directions.filter(d => (d.bullish ?? 0) > 0.6).length;
+  const allBearish = directions.filter(d => (d.bearish ?? 0) > 0.6).length;
 
   if (allBullish >= directions.length * 0.7) {
     patterns.push("极端看多一致性");

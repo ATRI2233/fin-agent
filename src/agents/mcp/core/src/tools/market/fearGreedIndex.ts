@@ -179,6 +179,8 @@ function generateSimulatedFearGreedData(): any {
   }
 
   return {
+    _simulated: true,
+    _dataSource: "FALLBACK_SIMULATION",
     value: history[history.length - 1].value,
     previous_value: history[history.length - 2].value,
     components: {

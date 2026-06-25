@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./config/drizzle/migrations",
   dialect: "sqlite",
   dbCredentials: {
-    url: process.env.FIN_AGENT_DATABASE_URL || "sqlite:///./data/finagent.db",
+    url: "sqlite:///./data/finagent.db",
   },
 });

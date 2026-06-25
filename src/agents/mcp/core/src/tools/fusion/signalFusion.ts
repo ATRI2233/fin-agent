@@ -1,22 +1,7 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-import { getSignalWeights, autoLogAnalysis, getJudgments, getAllExperience } from '../../memory/memoryStore.js';
-
-function extractData(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.content && Array.isArray(raw.content)) {
-    const texts = raw.content
-      .filter((c: any) => c.type === "text" && c.text != null)
-      .map((c: any) => c.text);
-    const results: any[] = [];
-    for (const t of texts) {
-      try { results.push(JSON.parse(t)); }
-      catch { if (t) results.push(t); }
-    }
-    return results;
-  }
-  return [];
-}
+import { autoLogAnalysis, getJudgments } from '../../memory/memoryStore.js';
+import { extractData } from "../shared/extractData.js";
 
 // ── 概率分布类型定义 ─────────────────────────────────────
 interface ProbabilityDistribution {
@@ -289,7 +274,7 @@ export function registerSignalFusion(
             reasons: keyFactors.join("; "),
             source_signals: Object.fromEntries(signals.map((s) => [s.source, { distribution: s.distribution, weight: DEFAULT_WEIGHTS[s.source] || 0 }])),
           });
-        } catch {}
+        } catch { /* intentionally empty */ }
 
         // ── 构建结果 ─────────────────────────────────────
         const result: FusionResult = {
@@ -750,7 +735,7 @@ function generateConditionalConclusions(signals: SignalInput[], conflict: Confli
       condition: bearAgent.assumptions[0],
       probability: bearAgent.distribution.p_bearish,
       dominant_view: bearAgent.source,
-      conclusion: `看空，预期收益${(bearAgent.distribution.p_bearish * 10).toFixed(1)}%`,
+      conclusion: `看空，预期收益${(-bearAgent.distribution.p_bearish * 10).toFixed(1)}%`,
       position_pct: 0,
     });
   }

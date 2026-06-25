@@ -48,3 +48,5 @@ export async function listServers(signal?: AbortSignal): Promise<unknown[]> {
 export async function listAllowedTools(name: string, signal?: AbortSignal): Promise<string[]> {
   return apiGet<string[]>(ROUTES.mcp.allowedTools(name), signal);
 }
+
+export type { ToolItem };

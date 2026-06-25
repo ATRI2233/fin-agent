@@ -16,6 +16,10 @@ export class Registry {
     this.factories.set(token, factory as Factory<unknown>);
   }
 
+  isRegistered(token: string): boolean {
+    return this.factories.has(token);
+  }
+
   resolve<T>(token: string): T {
     if (this.instances.has(token)) {
       return this.instances.get(token) as T;
@@ -30,6 +34,24 @@ export class Registry {
   }
 
   override<T>(token: string, instance: T): void {
+    // Dispose the old instance if present, mirroring shutdown() logic
+    if (this.instances.has(token)) {
+      const old = this.instances.get(token);
+      if (old && typeof (old as { close?: () => void }).close === "function") {
+        try {
+          (old as { close(): void }).close();
+        } catch {
+          // ignore
+        }
+      }
+      if (old && typeof (old as { dispose?: () => void }).dispose === "function") {
+        try {
+          (old as { dispose(): void }).dispose();
+        } catch {
+          // ignore
+        }
+      }
+    }
     this.instances.set(token, instance);
   }
 

@@ -43,12 +43,6 @@ export class CircuitBreaker {
 }
 
 /** Retry service with exponential backoff. */
-export interface RetryResult {
-  success: boolean;
-  result?: unknown;
-  error?: string;
-  retryCount: number;
-}
 
 export async function withRetry<T>(
   fn: () => Promise<T>,
@@ -64,8 +58,8 @@ export async function withRetry<T>(
     } catch (e) {
       lastError = e as Error;
       if (attempt === maxRetries) break;
-      const delay = baseDelay * Math.pow(backoffFactor, attempt);
-      await sleep(delay * 1000);
+      const delaySeconds = baseDelay * Math.pow(backoffFactor, attempt);
+      await sleep(delaySeconds * 1000);
     }
   }
   throw lastError;

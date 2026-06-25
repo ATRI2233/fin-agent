@@ -262,7 +262,7 @@ export default function WorkflowMonitor({ executionId: executionIdProp }: Props)
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Tag color={execStatus === 'running' ? 'processing' : execStatus === 'completed' ? 'success' : 'error'}>
+            <Tag color={({ pending: 'default', running: 'processing', completed: 'success', failed: 'error', cancelled: 'warning' })[execStatus]}>
               {execStatus.toUpperCase()}
             </Tag>
           </div>

@@ -25,6 +25,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
 } from 'react';
 import { Tag, Typography } from 'antd';
@@ -98,67 +99,74 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
     }, [messages]);
 
     // Build agent -> latest status map (for strike-through supersession).
-    const agentLatestStatus: Record<string, string> = {};
-    for (const m of messages) {
-      const extra = m.extra_data as
-        | { type?: string; status?: string }
-        | undefined;
-      if (extra?.type === 'workflow_status' && m.agent) {
-        agentLatestStatus[m.agent] = extra.status || '';
+    const { agentLatestStatus, allAgents } = useMemo(() => {
+      const agentLatestStatus: Record<string, string> = {};
+      for (const m of messages) {
+        const extra = m.extra_data as
+          | { type?: string; status?: string }
+          | undefined;
+        if (extra?.type === 'workflow_status' && m.agent) {
+          agentLatestStatus[m.agent] = extra.status || '';
+        }
       }
-    }
-    const allAgents = Object.keys(agentLatestStatus);
+      return { agentLatestStatus, allAgents: Object.keys(agentLatestStatus) };
+    }, [messages]);
 
     // Check if the latest overall workflow_status is failed (handles edge case
     // where no per-agent statuses exist yet but the workflow has failed).
-    const latestWorkflowStatusMsg = messages
-      .filter((m) => getExtraType(m) === 'workflow_status' && !m.agent)
-      .pop();
-    const latestWorkflowStatusVal = (
-      latestWorkflowStatusMsg?.extra_data as { status?: string } | undefined
-    )?.status;
+    const latestWorkflowStatusVal = useMemo(() => {
+      const latestWorkflowStatusMsg = messages
+        .filter((m) => getExtraType(m) === 'workflow_status' && !m.agent)
+        .pop();
+      return (latestWorkflowStatusMsg?.extra_data as { status?: string } | undefined)?.status;
+    }, [messages]);
 
     // Track the latest workflow_status message per execution_id so only
     // one MessageBubble renders the shared node list (avoids duplication).
-    const latestWorkflowMsgId: Record<string, string> = {};
-    for (const m of messages) {
-      const extra = m.extra_data as { type?: string } | undefined;
-      if (extra?.type === 'workflow_status') {
-        const eid = m.execution_id ?? m.id; // fallback to msg id if no exec id
-        latestWorkflowMsgId[eid] = m.id;
+    const latestWorkflowMsgId = useMemo(() => {
+      const latestWorkflowMsgId: Record<string, string> = {};
+      for (const m of messages) {
+        const extra = m.extra_data as { type?: string } | undefined;
+        if (extra?.type === 'workflow_status') {
+          const eid = m.execution_id ?? m.id; // fallback to msg id if no exec id
+          latestWorkflowMsgId[eid] = m.id;
+        }
       }
-    }
+      return latestWorkflowMsgId;
+    }, [messages]);
 
     // Identify the execution_id of the latest in-flight workflow so we can
     // scope workflow_result lookups to the correct execution (prevents stale
     // results from previous executions in the same conversation).
     // Always scan all messages — `showWorkflowIndicator` only controls the
     // status banner rendering, not the completion-detection logic.
-    const latestWorkflowExecutionId = (() => {
+    const latestWorkflowExecutionId = useMemo(() => {
       const msgs = messages.filter((m) => {
         const t = getExtraType(m);
         return t === 'workflow_status' || t === 'workflow_start';
       });
       const latest = msgs[msgs.length - 1];
       return latest?.execution_id ?? null;
-    })();
+    }, [messages]);
 
     // Also check for workflow_result messages — they are terminal even if the
     // workflow_status/failed callback message was never saved (e.g. due to a
     // DB write failure in the status_callback closure).
     // CRITICAL: scope to the latest execution_id so old results don't
     // incorrectly mark a new running workflow as failed.
-    const workflowResultMsg = messages
-      .filter((m) => {
-        if (getExtraType(m) !== 'workflow_result') return false;
-        if (latestWorkflowExecutionId) {
-          return m.execution_id === latestWorkflowExecutionId;
-        }
-        // No execution_id on the message — be conservative and skip
-        return false;
-      })
-      .pop();
-    const hasWorkflowResult = !!workflowResultMsg;
+    const { workflowResultMsg, hasWorkflowResult } = useMemo(() => {
+      const workflowResultMsg = messages
+        .filter((m) => {
+          if (getExtraType(m) !== 'workflow_result') return false;
+          if (latestWorkflowExecutionId) {
+            return m.execution_id === latestWorkflowExecutionId;
+          }
+          // No execution_id on the message — be conservative and skip
+          return false;
+        })
+        .pop();
+      return { workflowResultMsg, hasWorkflowResult: !!workflowResultMsg };
+    }, [messages, latestWorkflowExecutionId]);
 
     const allDone =
       (allAgents.length > 0 &&
@@ -179,14 +187,14 @@ export const MessageThread = forwardRef<MessageThreadHandle, MessageThreadProps>
       ?? 'running';
 
     // Latest workflow message (status or start) for the status indicator.
-    const workflowMsgs = showWorkflowIndicator
-      ? messages.filter((m) => {
-          const t = getExtraType(m);
-          return t === 'workflow_status' || t === 'workflow_start';
-        })
-      : [];
-    const latestWorkflowMsg = workflowMsgs[workflowMsgs.length - 1];
-    const latestWorkflowExtra = latestWorkflowMsg?.extra_data as { status?: string } | undefined;
+    const latestWorkflowMsg = useMemo(() => {
+      if (!showWorkflowIndicator) return null;
+      const workflowMsgs = messages.filter((m) => {
+        const t = getExtraType(m);
+        return t === 'workflow_status' || t === 'workflow_start';
+      });
+      return workflowMsgs[workflowMsgs.length - 1] ?? null;
+    }, [messages, showWorkflowIndicator]);
     const isWorkflowFailed = finalWorkflowStatus === 'failed';
 
     return (

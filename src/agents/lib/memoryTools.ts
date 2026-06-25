@@ -128,6 +128,13 @@ export function registerRuleManage(): ToolRegistration {
       "管理经验规则。action: add(新增规则) | list(列出所有) | update(更新命中/失误计数)。参数: action, rule, confidence, rule_id, was_correct",
     inputSchema: {
       type: "object",
+      if: {
+        properties: { action: { const: "add" } },
+        required: ["action"],
+      },
+      then: {
+        required: ["rule"],
+      },
       properties: {
         action: {
           type: "string",

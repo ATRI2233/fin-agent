@@ -54,8 +54,8 @@ Desktop.ini
 # Claude Code tool config
 .claude/
 
-# OpenCode node_modules
-.opencode/node_modules/
+# OpenClaw node_modules
+.openclaw/node_modules/
 
 # Data files
 *.db
@@ -74,7 +74,7 @@ coverage/
 .nyc_output/
 .pytest_cache/
 
-# OpenCode working files (fine-grained)
+# OpenClaw working files (fine-grained)
 .omo/drafts/
 .omo/notepads/
 .omo/run-continuation/
@@ -99,9 +99,9 @@ vite_err.txt
 vite_out.txt
 
 # Build artifacts
-opencode-plugin/web/server/dist/
-opencode-plugin/web/dist/
-opencode-plugin/dist/
+openclaw-plugin/web/server/dist/
+openclaw-plugin/web/dist/
+openclaw-plugin/dist/
 
 # Deployment package (rebuild from source)
 deploy/

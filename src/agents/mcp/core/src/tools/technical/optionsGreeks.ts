@@ -107,7 +107,7 @@ export function registerOptionsGreeks(
 function processOptionsData(
   symbol: string,
   rawData: any,
-  expirationDays: number
+  _expirationDays: number
 ): OptionsGreeksResult {
   const optionsChain: OptionData[] = [];
   const calls: OptionData[] = [];
@@ -132,8 +132,8 @@ function processOptionsData(
         type: opt.type || (opt.strike && opt.underlying_price ? "call" : "put"),
       };
       optionsChain.push(option);
-      if (option.callPrice > 0) calls.push(option);
-      if (option.putPrice > 0) puts.push(option);
+      if (option.type === "call" && option.callPrice > 0) calls.push(option);
+      if (option.type === "put" && option.putPrice > 0) puts.push(option);
     }
   }
 
@@ -146,8 +146,6 @@ function processOptionsData(
   const maxIV = allIVs.length > 0 ? Math.max(...allIVs) : 0;
   const minIV = allIVs.length > 0 ? Math.min(...allIVs) : 0;
   const ivRange = maxIV - minIV;
-  const nearTermIV = avgIV;
-
   const ivPercentile = ivRange > 0 ? ((avgIV - minIV) / ivRange) * 100 : 50;
 
   const strikes = optionsChain.map((o) => o.strike).filter((s) => s > 0);
@@ -245,6 +243,8 @@ function generateSimulatedOptionsData(symbol: string): any {
   }
 
   return {
+    _simulated: true,
+    _dataSource: "FALLBACK_SIMULATION",
     symbol,
     underlying_price: currentPrice,
     options,

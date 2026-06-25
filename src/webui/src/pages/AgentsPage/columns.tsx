@@ -4,8 +4,8 @@
  * Extracted verbatim from the original monolithic `AgentsPage.tsx` so
  * the visual surface is identical pre- and post-split. The columns
  * are pure render functions over an `AgentMeta` row — the only state
- * they consume is passed via the `ColumnsContext` parameter (model map
- * + whitelist counts).
+ * they consume is passed via the `ColumnsContext` parameter (whitelist
+ * counts).
  *
  * Note: P2-T2 removed CRUD modals (Create / View / Edit / Delete /
  * BatchModel). The Actions column has been removed and the callbacks
@@ -27,8 +27,6 @@ const { Text } = Typography;
  * factory signature stays stable as new fields are added.
  */
 export interface ColumnsContext {
-  /** Name → currently-bound model id. Missing entries render as "—". */
-  agentModels: Record<string, string>;
   /**
    * Name → whitelist size. Missing entries render as "..." (loading
    * placeholder) so the user can distinguish "still loading" from
@@ -83,16 +81,6 @@ export function buildAgentColumns(
       onFilter: (value, record) => record.mode === value,
     },
     {
-      title: 'Model',
-      key: 'model',
-      width: 180,
-      render: (_, record) => (
-        <Text style={{ color: '#787878', fontSize: 13 }}>
-          {ctx.agentModels[record.name] || '—'}
-        </Text>
-      ),
-    },
-    {
       title: 'Tools 白名单',
       key: 'tools-whitelist',
       width: 130,
@@ -110,31 +98,6 @@ export function buildAgentColumns(
             </Text>
           </Space>
         );
-      },
-    },
-    {
-      title: 'Source',
-      dataIndex: 'filePath',
-      key: 'source',
-      width: 90,
-      render: (filePath?: string) => {
-        const isBuiltin =
-          !!filePath && (filePath.includes('node_modules') || filePath.includes('builtin'));
-        return (
-          <Tag color={isBuiltin ? 'orange' : 'green'}>
-            {isBuiltin ? 'builtin' : filePath ? 'file' : '—'}
-          </Tag>
-        );
-      },
-      filters: [
-        { text: 'builtin', value: 'builtin' },
-        { text: 'file', value: 'file' },
-      ],
-      onFilter: (value, record) => {
-        const isBuiltin =
-          !!record.filePath && (record.filePath.includes('node_modules') ||
-          record.filePath.includes('builtin'));
-        return value === 'builtin' ? isBuiltin : !isBuiltin;
       },
     },
   ];

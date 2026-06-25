@@ -12,7 +12,7 @@ interface RiskMetrics {
   warnings: string[];
 }
 
-export function registerRiskGauge(mcpManager: MCPClientManager): ToolRegistration {
+export function registerRiskGauge(_mcpManager: MCPClientManager): ToolRegistration {
   return {
     name: "risk_gauge",
     description: "风控指标计算：基于历史价格数据计算 20/60 日年化波动率、相对于 52 周高点的回撤百分比与 5% VaR，并输出风险等级与告警。",

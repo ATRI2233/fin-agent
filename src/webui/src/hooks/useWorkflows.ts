@@ -28,11 +28,7 @@ import {
   triggerWorkflow,
   updateWorkflow,
 } from '../api/workflows';
-import type {
-  Workflow,
-  WorkflowMeta,
-  UpdateWorkflowPayload,
-} from '../domain/workflow';
+import type { UpdateWorkflowPayload } from '../domain/workflow';
 
 /* ─── Query keys ─────────────────────────────────────────────────── */
 

@@ -14,6 +14,7 @@ export const ROUTES = {
     create:   "/api/v1/conversations",
     get:      (id: string) => `/api/v1/conversations/${encodeURIComponent(id)}`,
     messages: (id: string) => `/api/v1/conversations/${encodeURIComponent(id)}/messages`,
+    delete:   (id: string) => `/api/v1/conversations/${encodeURIComponent(id)}`,
   },
   executions: {
     list:  "/api/v1/executions",

@@ -1,26 +1,23 @@
-import { FastifyPluginAsync } from "fastify";
-import { ExecutionRepo } from "../../../modules/execution/repo.js";
-import { ExecutionNotFoundError } from "../../../infra/errors.js";
+﻿import { FastifyPluginAsync } from "fastify";
+import type { IExecutionService } from "../../../modules/execution/service.js";
+import type { IdParam } from "../../types.js";
 
 const executionRoutes: FastifyPluginAsync = async (app) => {
-  app.get("/executions", async (req, reply) => {
-    // TODO: list executions from ExecutionRepo
-    return { data: [], trace_id: (req as any).traceId };
+  app.get("/executions", async (req, _reply) => {
+    return { data: [], trace_id: req.traceId };
   });
 
-  app.get("/executions/:id", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const nodes = ExecutionRepo.getExecutionNodes(id);
-    if (nodes.length === 0) {
-      throw new ExecutionNotFoundError(`Execution ${id} not found`);
-    }
-    return { data: { id, nodes }, trace_id: (req as any).traceId };
+  app.get("/executions/:id", async (req, _reply) => {
+    const { id } = req.params as IdParam;
+    const svc = req.registry!.resolve<IExecutionService>("IExecutionService");
+    const nodes = svc.getExecution(id);
+    return { data: { id, nodes }, trace_id: req.traceId };
   });
 
-  app.get("/executions/:id/nodes", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const nodes = ExecutionRepo.getExecutionNodes(id);
-    return { data: nodes, trace_id: (req as any).traceId };
+  app.get("/executions/:id/nodes", async (req, _reply) => {
+    const { id } = req.params as IdParam;
+    const svc = req.registry!.resolve<IExecutionService>("IExecutionService");
+    return { data: svc.getExecutionNodes(id), trace_id: req.traceId };
   });
 };
 

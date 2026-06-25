@@ -49,6 +49,7 @@ export interface UseConversationPollingResult {
 export function useConversationPolling(): UseConversationPollingResult {
   const setMessages = useConversationStore((s) => s.setMessages);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevMessagesRef = useRef<Message[]>([]);
   const [processingMessage, setProcessingMessage] = useState(false);
   const [pendingMessageId, setPendingMessageId] = useState<string | null>(null);
 
@@ -89,7 +90,19 @@ export function useConversationPolling(): UseConversationPollingResult {
         try {
           const envelope = await getConversation(conversationId);
           const msgs = envelope.messages;
-          setMessages(msgs);
+
+          // Shallow comparison — skip state update if nothing meaningful changed
+          // to avoid re-rendering the entire MessageThread subtree every 2 s.
+          const prev = prevMessagesRef.current;
+          const hasChanged =
+            prev.length !== msgs.length ||
+            (msgs.length > 0 && msgs[msgs.length - 1]?.id !== prev[prev.length - 1]?.id) ||
+            (msgs.length > 0 && msgs[msgs.length - 1]?.content !== prev[prev.length - 1]?.content);
+
+          if (hasChanged) {
+            setMessages(msgs);
+          }
+          prevMessagesRef.current = msgs;
 
           // Only look at messages AFTER the user message — anything
           // before is stale and could falsely satisfy the stop check.
@@ -102,7 +115,9 @@ export function useConversationPolling(): UseConversationPollingResult {
                 getExtraType(m) === 'workflow_result' ||
                 getExtraType(m) === 'workflow_error' ||
                 (getExtraType(m) === 'workflow_status' &&
-                  (m.extra_data as Record<string, unknown>)?.status === 'failed'),
+                  ['completed', 'failed'].includes(
+                    (m.extra_data as Record<string, unknown>)?.status as string,
+                  )),
             );
             if (hasTerminal) stopPollingRef.current();
           } else {

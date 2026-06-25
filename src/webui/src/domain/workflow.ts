@@ -49,12 +49,16 @@ export interface WorkflowNode {
 }
 
 /**
- * A directed edge in the workflow DAG. The optional `data` carries the
+ * A directed edge in the workflow DAG. The `data` carries the
  * `EdgePrompt` (or any extension) describing how the upstream output feeds
  * the downstream node.
+ *
+ * @note `id` is required — React Flow requires every edge to have a unique ID.
+ * Backend-generated edges always include one; the monitor page falls back to
+ * `"${source}-${target}"` when constructing runtime edges.
  */
 export interface WorkflowEdge {
-  id?: string;
+  id: string;
   source: string;
   target: string;
   data?: EdgePrompt;

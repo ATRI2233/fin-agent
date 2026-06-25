@@ -46,7 +46,7 @@ export function FundFlowRenderer({ content }: RendererProps) {
   }));
 
   const totalNet = records.reduce((sum, r) => sum + getNetFlow(r), 0);
-  const latestPct = records.length > 0 ? getNetFlowPct(records[0]) : 0;
+  const latestPct = records.length > 0 ? getNetFlowPct(records[0]!) : 0;
 
   return (
     <div>

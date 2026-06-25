@@ -1,21 +1,6 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-
-function extractData(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.content && Array.isArray(raw.content)) {
-    const texts = raw.content
-      .filter((c: any) => c.type === "text" && c.text != null)
-      .map((c: any) => c.text);
-    const results: any[] = [];
-    for (const t of texts) {
-      try { results.push(JSON.parse(t)); }
-      catch { if (t) results.push(t); }
-    }
-    return results;
-  }
-  return [];
-}
+import { extractData } from "../shared/extractData.js";
 
 interface FundamentalResult {
   symbol: string;
@@ -88,34 +73,52 @@ export function registerFundamentalScan(
       }
 
       try {
-        // ── 并行获取数据 ──────────────────────────────────────
-        const [scanData, compareData] = await Promise.allSettled([
+        // ── 获取基础数据 ──────────────────────────────────────
+        const scanColumns = [
+          "close", "price_earnings_ttm", "earnings_per_share_basic_ttm",
+          "market_cap_basic", "return_on_equity_fq", "total_revenue_fq",
+          "net_income_fq", "total_assets_fq", "total_debt_fq",
+          "dividend_yield_recent", "sector", "number_of_employees",
+          // ── 新增列：填补 8 个 null 字段 ──
+          "gross_margin_fq", "operating_margin_fq",
+          "current_ratio_fq", "enterprise_value_ebitda_ttm",
+          "total_revenue_growth_fq_yoy", "earnings_per_share_growth_fq_yoy",
+          "operating_cash_flow_fq", "free_cash_flow_fq",
+          "price_earnings_to_growth_ttm",
+        ];
+
+        const [scanData] = await Promise.allSettled([
           mcpManager.callTool("stock-scanner", "tradingview_scan", {
             filters: [{ left: "name", operation: "equal", right: ticker.toUpperCase() }],
-            columns: [
-              "close", "price_earnings_ttm", "earnings_per_share_basic_ttm",
-              "market_cap_basic", "return_on_equity_fq", "total_revenue_fq",
-              "net_income_fq", "total_assets_fq", "total_debt_fq",
-              "dividend_yield_recent", "sector", "number_of_employees",
-              // ── 新增列：填补 8 个 null 字段 ──
-              "gross_margin_fq", "operating_margin_fq",
-              "current_ratio_fq", "enterprise_value_ebitda_ttm",
-              "total_revenue_growth_fq_yoy", "earnings_per_share_growth_fq_yoy",
-              "operating_cash_flow_fq", "free_cash_flow_fq",
-              "price_earnings_to_growth_ttm",
-            ],
+            columns: scanColumns,
             limit: 1,
-          }, 25000),
-          mcpManager.callTool("stock-scanner", "tradingview_compare_stocks", {
-            tickers: [ticker, ticker],
           }, 25000),
         ]);
 
         const scanResult = scanData.status === "fulfilled" ? scanData.value : null;
-        const compareResult = compareData.status === "fulfilled" ? compareData.value : null;
         const scanItems = extractData(scanResult);
-        const compareItems = extractData(compareResult);
         const scanItem = scanItems[0]?.data || scanItems[0] || null;
+
+        // ── 获取同行比较数据（基于行业板块）─────────────────
+        let compareData = null;
+        const sector = scanItem?.sector;
+        if (sector) {
+          const [peerResult] = await Promise.allSettled([
+            mcpManager.callTool("stock-scanner", "tradingview_scan", {
+              filters: [
+                { left: "sector", operation: "equal", right: sector },
+                { left: "name", operation: "neq", right: ticker.toUpperCase() },
+              ],
+              columns: scanColumns,
+              limit: 5,
+            }, 25000),
+          ]);
+          if (peerResult.status === "fulfilled") {
+            compareData = peerResult.value;
+          }
+        }
+
+        const compareItems = compareData ? extractData(compareData) : [];
         const compareItem = compareItems[0]?.data || compareItems[0] || null;
         const data = { ...scanItem, ...compareItem };
 
@@ -123,7 +126,6 @@ export function registerFundamentalScan(
           throw new Error(`无法获取 ${ticker} 的基本面数据`);
         }
 
-        const price = data.close;
         const pe = data.price_earnings_ttm || null;
         const eps = data.earnings_per_share_basic_ttm || null;
         const marketCap = data.market_cap_basic || null;
@@ -182,7 +184,7 @@ export function registerFundamentalScan(
 
         const quality = {
           ocf_to_net_income: ocfToNI != null ? Math.round(ocfToNI * 100) / 100 : null,
-          debt_to_equity: debtToEquity ? Math.round(debtToEquity * 100) / 100 : null,
+          debt_to_equity: debtToEquity != null ? Math.round(debtToEquity * 100) / 100 : null,
           current_ratio: currentRatio != null ? Math.round(currentRatio * 100) / 100 : null,
           earnings_quality: earningsQuality,
         };

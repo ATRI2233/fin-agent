@@ -1,7 +1,5 @@
 import { describe, expect, test, jest, beforeEach, afterEach } from '@jest/globals';
 import { main } from '../../src/index.js';
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 // This test specifically targets the main function in index.ts
 describe('Main function test', () => {
@@ -9,20 +7,7 @@ describe('Main function test', () => {
   const originalProcessExit = process.exit;
   const originalConsoleError = console.error;
 
-  // Store a mock server and mock transport
-  let mockServer: McpServer;
-  let mockTransport: StdioServerTransport;
-
   beforeEach(() => {
-    // Create mock objects
-    mockServer = {
-      connect: jest.fn<() => Promise<void>>().mockResolvedValue()
-    } as unknown as McpServer;
-
-    mockTransport = {
-      // Any required transport properties
-    } as StdioServerTransport;
-
     // Mock console.error
     console.error = jest.fn();
 

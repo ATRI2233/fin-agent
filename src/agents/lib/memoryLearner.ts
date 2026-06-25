@@ -2,12 +2,6 @@ import { ToolRegistration } from "./types.js";
 import { query, queryOne, execute, getSignalWeights } from "./dataHub.js";
 
 // ── 类型定义 ─────────────────────────────────────────────
-interface AccuracyStats {
-  total: number;
-  correct: number;
-  hit_rate: number;
-}
-
 interface AgentAccuracy {
   hit_rate: number;
   sample_count: number;
@@ -353,7 +347,7 @@ function retireRules(): RetiredRule[] {
     SELECT id, rule, confidence, hit_count, miss_count
     FROM learned_rules
     WHERE active = 1
-      AND (miss_count >= 3 OR (hit_count + miss_count >= 5 AND hit_count / (hit_count + miss_count) < 0.4))
+      AND (miss_count >= 3 OR (hit_count + miss_count >= 5 AND CAST(hit_count AS REAL) / (hit_count + miss_count) < 0.4))
   `);
 
   for (const rule of rules) {

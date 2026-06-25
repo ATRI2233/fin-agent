@@ -65,16 +65,16 @@ export function describeCron(cron: string): string {
   const [minute, hour, day, month, weekday] = parts;
 
   if (cron === '* * * * *') return '每分钟执行';
-  if (minute.startsWith('*/')) {
-    return `每 ${minute.slice(2)} 分钟执行`;
+  if (minute!.startsWith('*/')) {
+    return `每 ${minute!.slice(2)} 分钟执行`;
   }
-  if (minute === '0' && hour.startsWith('*/')) {
-    return `每 ${hour.slice(2)} 小时整点执行`;
+  if (minute === '0' && hour!.startsWith('*/')) {
+    return `每 ${hour!.slice(2)} 小时整点执行`;
   }
 
   // Multi-time pattern: "m1,m2 h1,h2 * * *"
-  const minutes = minute.split(',');
-  const hours = hour.split(',');
+  const minutes = minute!.split(',');
+  const hours = hour!.split(',');
   const hasMultiTime = minutes.length > 1 || hours.length > 1;
   // Get cartesian product count (for warning)
   const isCartesian = minutes.length > 1 && hours.length > 1;
@@ -82,7 +82,7 @@ export function describeCron(cron: string): string {
 
   const formatTimeList = (): string => {
     if (minutes.length === 1) {
-      const m = minutes[0].padStart(2, '0');
+      const m = minutes[0]!.padStart(2, '0');
       return hours.map((h) => `${h.padStart(2, '0')}:${m}`).join('、');
     }
     // minutes differ - show cartesian product
@@ -95,7 +95,7 @@ export function describeCron(cron: string): string {
     return `每天 ${formatTimeList()} 执行 (${timesCount} 次/天)`;
   }
   if (hasMultiTime && weekday !== '*' && day === '*' && month === '*') {
-    const dayLabels = weekday
+    const dayLabels = weekday!
       .split(',')
       .map((d) => WEEKDAYS.find((wd) => String(wd.value) === d)?.label || `周${d}`)
       .join('、');
@@ -107,14 +107,14 @@ export function describeCron(cron: string): string {
 
   // Single time pattern
   if (hour !== '*' && minute !== '*' && day === '*' && month === '*' && weekday === '*') {
-    return `每天 ${hour.padStart(2, '0')}:${minute.padStart(2, '0')} 执行`;
+    return `每天 ${hour!.padStart(2, '0')}:${minute!.padStart(2, '0')} 执行`;
   }
   if (weekday !== '*' && hour !== '*' && minute !== '*' && day === '*' && month === '*') {
     const dayLabel = WEEKDAYS.find((d) => String(d.value) === weekday)?.label || `周${weekday}`;
-    return `每${dayLabel} ${hour.padStart(2, '0')}:${minute.padStart(2, '0')} 执行`;
+    return `每${dayLabel} ${hour!.padStart(2, '0')}:${minute!.padStart(2, '0')} 执行`;
   }
   if (day !== '*' && hour !== '*' && minute !== '*' && month === '*' && weekday === '*') {
-    return `每月 ${day} 日 ${hour.padStart(2, '0')}:${minute.padStart(2, '0')} 执行`;
+    return `每月 ${day} 日 ${hour!.padStart(2, '0')}:${minute!.padStart(2, '0')} 执行`;
   }
 
   return `Cron: ${cron}`;
@@ -203,21 +203,21 @@ export function inferFrequency(cron: string): InferredSchedule {
   if (minute === '*/5') return { frequency: 'every-5-min' };
   if (minute === '*/15') return { frequency: 'every-15-min' };
   if (minute === '*/30') return { frequency: 'every-30-min' };
-  if (minute === '0' && hour.startsWith('*/')) {
-    return { frequency: 'every-N-hours', hoursInterval: parseInt(hour.slice(2)) };
+  if (minute === '0' && hour!.startsWith('*/')) {
+    return { frequency: 'every-N-hours', hoursInterval: parseInt(hour!.slice(2)) };
   }
 
   // Parse multi-time
-  const minutes = minute.split(',');
-  const hours = hour.split(',');
+  const minutes = minute!.split(',');
+  const hours = hour!.split(',');
   const times: Dayjs[] = [];
   if (minutes.length === 1 && hours.length > 1) {
     for (const h of hours) {
-      times.push(dayjs().hour(parseInt(h)).minute(parseInt(minutes[0])));
+      times.push(dayjs().hour(parseInt(h)).minute(parseInt(minutes[0]!)));
     }
   } else if (hours.length === 1 && minutes.length > 1) {
     for (const m of minutes) {
-      times.push(dayjs().hour(parseInt(hours[0])).minute(parseInt(m)));
+      times.push(dayjs().hour(parseInt(hours[0]!)).minute(parseInt(m)));
     }
   } else {
     // Cartesian
@@ -235,11 +235,11 @@ export function inferFrequency(cron: string): InferredSchedule {
     return {
       frequency: 'weekly',
       times,
-      weekdays: weekday.split(',').map((d) => parseInt(d)),
+      weekdays: weekday!.split(',').map((d) => parseInt(d)),
     };
   }
   if (day !== '*' && month === '*' && weekday === '*') {
-    return { frequency: 'monthly', times, dayOfMonth: parseInt(day) };
+    return { frequency: 'monthly', times, dayOfMonth: parseInt(day!) };
   }
 
   // Fallback
@@ -265,6 +265,20 @@ export function CronEditor({ initialCron, onChange, nextRunTime }: CronEditorPro
   );
   const [weekdays, setWeekdays] = useState<number[]>(inferred.weekdays || [1, 2, 3, 4, 5]);
   const [dayOfMonth, setDayOfMonth] = useState<number>(inferred.dayOfMonth || 1);
+
+  // Sync internal state when initialCron changes
+  useEffect(() => {
+    const next = inferFrequency(initialCron || '');
+    setFrequency(next.frequency);
+    setHoursInterval(next.hoursInterval || 1);
+    setTimes(
+      next.times && next.times.length > 0
+        ? next.times
+        : [dayjs('09:00', 'HH:mm')]
+    );
+    setWeekdays(next.weekdays || [1, 2, 3, 4, 5]);
+    setDayOfMonth(next.dayOfMonth || 1);
+  }, [initialCron]);
 
   const currentCron = useMemo(() => {
     return buildCron({ frequency, hoursInterval, times, weekdays, dayOfMonth });

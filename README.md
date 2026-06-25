@@ -181,7 +181,7 @@ A: Make sure you have Python 3 and a C++ compiler installed. On Windows, install
 A: The existing SQLite DB already has tables. Run `pnpm db:generate` first to create a baseline migration from current schema, then `pnpm db:migrate`.
 
 **Q: Frontend shows CORS errors**
-A: Ensure `src/webui/.env` or `src/webui/src/config.ts` points to `http://localhost:8000` (TS backend port), not `http://localhost:4096` (opencode port).
+A: Ensure `src/webui/.env` or `src/webui/src/config.ts` points to `http://localhost:8000` (TS backend port), not `http://localhost:18789` (openclaw gateway port).
 
 **Q: Agent dispatch returns "Agent not found"**
 A: The agent handler in `src/server/modules/agent/dispatcher.ts` is a placeholder. Replace with actual `import` from `src/agents/lib/*`.

@@ -22,7 +22,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { getAgent, listAgents } from '../api/agents';
-import type { Agent, AgentDetail } from '../domain/agent';
+import type { AgentDetail } from '../domain/agent';
 
 /* ─── Query keys ──────────────────────────────────────────────────── */
 

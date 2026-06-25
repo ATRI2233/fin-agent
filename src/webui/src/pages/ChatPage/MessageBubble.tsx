@@ -1,10 +1,9 @@
 /**
  * MessageBubble — single chat message rendered in the message list.
  */
-import { Tag, Tooltip, Typography } from 'antd';
+import { Tag, Typography } from 'antd';
 import {
   BranchesOutlined,
-  ExclamationCircleOutlined,
   RobotOutlined,
   SyncOutlined,
   ThunderboltOutlined,

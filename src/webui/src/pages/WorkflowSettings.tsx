@@ -50,7 +50,19 @@ export default function WorkflowSettings() {
   // Backend returns a richer payload than the slim `WorkflowMeta` view-model;
   // cast so the form's description / createdAt / updatedAt fields keep
   // populating.
-  const workflowList = (data ?? []) as unknown as WorkflowSettings[];
+  const rows = (data ?? []) as unknown[];
+  const workflowList: WorkflowSettings[] = rows.map((row) => {
+    const item = row as Record<string, unknown>;
+    return {
+      id: String(item.id ?? ''),
+      name: String(item.name ?? ''),
+      trigger_type: (item.trigger_type as WorkflowTriggerType) ?? 'manual',
+      description: (item.description as string | undefined) ?? undefined,
+      config: (item.config as Record<string, unknown> | undefined) ?? undefined,
+      created_at: (item.created_at as string | undefined) ?? undefined,
+      updated_at: (item.updated_at as string | undefined) ?? undefined,
+    };
+  });
 
   if (loading) {
     return (
@@ -131,9 +143,10 @@ function WorkflowFormCard({ workflow: w, onSaved }: { workflow: WorkflowSettings
   const handleSave = async () => {
     setSaving(true);
     try {
+      const commandString = form.getFieldValue(['config', 'command']) ?? '';
       await updateMutation.mutate({
         id: w.id,
-        data: { trigger_type: triggerType },
+        data: { trigger_type: triggerType, config: { ...w.config, command: commandString } },
       });
       message.success(
         triggerType === 'manual' ? '已切换为手动触发' : '已切换为命令触发',

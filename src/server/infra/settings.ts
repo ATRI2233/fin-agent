@@ -26,17 +26,17 @@ const settingsSchema = z.object({
 
   // Database
   DATABASE_URL: z.string().default("sqlite:///./data/finagent.db"),
-  DB_POOL_SIZE: z.coerce.number().int().default(10),
   DB_BUSY_TIMEOUT_MS: z.coerce.number().int().default(30000),
   DB_JOURNAL_MODE: z.enum(["WAL", "DELETE"]).default("WAL"),
 
   // OpenClaw
   OPENCLAW_GATEWAY_HOST: z.string().default("127.0.0.1"),
   OPENCLAW_GATEWAY_PORT: z.coerce.number().int().default(18789),
-  OPENCLAW_API_BASE: z.string().default("https://opencode.ai/zen/go/v1"),
+  OPENCLAW_API_BASE: z.string().default("https://api.openclaw.ai/v1"),
   OPENCLAW_API_KEY: z.string().default(""),
   OPENCLAW_AUTH_TOKEN: z.string().default(""),
-  MCP_CONFIG_PATH: z.string().default(".opencode/opencode.json"),
+  OPENCLAW_MODEL: z.string().default("deepseek-v4-flash"),
+  MCP_CONFIG_PATH: z.string().default(".openclaw/openclaw.json"),
 
   // Workflow
   NODE_TIMEOUT_SECONDS: z.coerce.number().default(600.0),
@@ -54,6 +54,9 @@ const settingsSchema = z.object({
   TRACE_ID_HEADER: z.string().default("X-Trace-Id"),
   TRACE_ID_ENV_VAR: z.string().default("FIN_AGENT_TRACE_ID"),
 
+  // Health check
+  HEALTH_CHECK_PATH: z.string().default("/api/v1/health"),
+
   // Auth
   API_KEY: z.string().default(""),
   AUTH_SKIP_LOCALHOST: z.boolean().default(false),
@@ -68,7 +71,7 @@ const settingsSchema = z.object({
     .default("http://localhost:5173,http://127.0.0.1:5173"),
 
   // Logging
-  LOG_LEVEL: z.enum(["DEBUG", "INFO", "WARNING", "ERROR"]).default("INFO"),
+  LOG_LEVEL: z.enum(["DEBUG", "INFO", "WARN", "ERROR"]).default("INFO"),
 });
 
 // ── 解析 ──
@@ -110,13 +113,6 @@ export function validateSettings(s: Settings): void {
   if (s.API_KEY && s.API_KEY.length < 32) {
     throw new ConfigError("API_KEY must be at least 32 characters", {
       length: s.API_KEY.length,
-    });
-  }
-
-  if (s.DB_POOL_SIZE < s.MAX_PARALLEL_NODES) {
-    throw new ConfigError("DB_POOL_SIZE must be >= MAX_PARALLEL_NODES", {
-      DB_POOL_SIZE: s.DB_POOL_SIZE,
-      MAX_PARALLEL_NODES: s.MAX_PARALLEL_NODES,
     });
   }
 }

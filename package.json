@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev:server": "tsx watch src/server/index.ts",
-    "start": "node dist/server/index.js",
+    "start": "node dist/src/server/index.js",
     "build:server": "tsc -p config/tsconfig.server.json",
     "build:webui": "tsc -p config/tsconfig.webui.json && vite build src/webui",
     "build": "npm run build:server && npm run build:webui",
@@ -18,34 +18,32 @@
     "db:migrate": "drizzle-kit migrate --config config/drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config config/drizzle.config.ts",
     "lint": "eslint src --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit -p config/tsconfig.server.json && tsc --noEmit -p config/tsconfig.webui.json",
-    "switch:to-ts": "node config/scripts/switch-to-ts.js",
-    "switch:to-py": "node config/scripts/switch-to-py.js",
-    "clean:py": "node config/scripts/clean-python.js"
+    "typecheck": "tsc --noEmit -p config/tsconfig.server.json && tsc --noEmit -p config/tsconfig.webui.json"
   },
   "workspaces": [
     "src/webui",
     "src/agents"
   ],
   "dependencies": {
+    "@fastify/cors": "^9.0.0",
     "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.32.0",
     "fastify": "^4.28.0",
-    "@fastify/cors": "^9.0.0",
     "ip-address": "^9.0.0",
     "p-limit": "^5.0.0",
     "pino": "^9.0.0",
-    "uuid": "^9.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^20.0.0",
-    "@types/uuid": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
     "drizzle-kit": "^0.23.0",
     "eslint": "^8.57.0",
+    "knip": "^6.20.0",
     "tsx": "^4.15.0",
     "typescript": "^5.5.0",
     "vitest": "^1.6.0"

@@ -13,15 +13,8 @@ import type { Agent } from '../../../domain/agent';
 
 /**
  * Table-row projection of an Agent — what the AgentsPage table lists.
- *
- * Mirrors the original `AgentMeta` declaration in `AgentsPage.tsx`,
- * with the additional `filePath` field that the framework summary does
- * not surface.
  */
-export interface AgentMeta extends Pick<Agent, 'name' | 'description' | 'mode'> {
-  /** Local source path; framework summary does not include this. */
-  filePath?: string;
-}
+export interface AgentMeta extends Pick<Agent, 'name' | 'description' | 'mode'> {}
 
 /**
  * Adapter: canonical `Agent` → page-level `AgentMeta`.
@@ -48,17 +41,22 @@ export function useAgentsPage(): UseAgentsResult {
   const { data, loading, error, refetch } = useFrameworkAgents();
   const [agentWhitelistCounts, setAgentWhitelistCounts] = useState<Record<string, number>>({});
 
+  const CHUNK_SIZE = 4;
+
   const fetchAllWhitelistCounts = useCallback(async (list: Agent[]) => {
-    const results = await Promise.all(
-      list.map((agent) =>
-        fetchAllowedTools(agent.name)
-          .then((whitelist) => ({ name: agent.name, count: whitelist.length }))
-          .catch(() => ({ name: agent.name, count: undefined as number | undefined })),
-      ),
-    );
     const counts: Record<string, number> = {};
-    for (const r of results) {
-      if (typeof r.count === 'number') counts[r.name] = r.count;
+    for (let i = 0; i < list.length; i += CHUNK_SIZE) {
+      const chunk = list.slice(i, i + CHUNK_SIZE);
+      const results = await Promise.all(
+        chunk.map((agent) =>
+          fetchAllowedTools(agent.name)
+            .then((whitelist) => ({ name: agent.name, count: whitelist.length }))
+            .catch(() => ({ name: agent.name, count: undefined as number | undefined })),
+        ),
+      );
+      for (const r of results) {
+        if (typeof r.count === 'number') counts[r.name] = r.count;
+      }
     }
     setAgentWhitelistCounts(counts);
   }, []);

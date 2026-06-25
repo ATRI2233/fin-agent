@@ -1,19 +1,15 @@
-import pLimit from "p-limit";
-import type { WorkflowRepo } from "../repo.js";
-import { CircuitBreaker, withRetry } from "./retry.js";
+import { withRetry } from "./retry.js";
+import { ExecutionTracker } from "./execution_tracker.js";
+import { NodeScheduler } from "./node_scheduler.js";
 import { rootLogger } from "../../../infra/logging.js";
-import {
-  buildPredecessors,
-  topologicalSort,
-  type Workflow,
-  type Node,
-} from "../domain/dag.js";
-import { type NodeContext, type NodeResult, type NodeExecutor, InputExecutor, OutputExecutor } from "../executor.js";
-import { ValidationError, WorkflowNotFoundError } from "../../../infra/errors.js";
 import { settings } from "../../../infra/settings.js";
-import { ExecutionDomainService } from "../../execution/domain-service.js";
+import { ValidationError, WorkflowNotFoundError } from "../../../infra/errors.js";
+import { AgentExecutor, type NodeResult, NodeExecutor, InputExecutor, OutputExecutor, IExecutorRegistry } from "../executor.js";
 import type { ExecutionStatus } from "../../execution/domain.js";
-import type { AgentPort } from "../../../infra/agent/AgentPort.js";
+import type { IWorkflowRepo } from "../repo.js";
+import type { IExecutionRepo } from "../../execution/repo.js";
+import type { ExecutionDomainService } from "../../execution/domain-service.js";
+import type { AgentPort } from "../../../../agents/adapter/AgentPort.js";
 
 export interface ExecutionSummary {
   executionId: string;
@@ -24,29 +20,15 @@ export interface ExecutionSummary {
   skippedNodes: string[];
 }
 
-export interface IExecutionRepo {
-  createExecution(params: {
-    workflowId: string;
-    params: Record<string, unknown>;
-    traceId: string;
-  }): string;
-  createExecutionNodes(
-    executionId: string,
-    nodes: Array<{ id: string; agent: string; input: Record<string, unknown> }>
-  ): void;
-  markExecution(executionId: string, status: ExecutionStatus): void;
-  recordNodeStarted(executionId: string, nodeId: string): void;
-  recordNodeCompleted(
-    executionId: string,
-    nodeId: string,
-    output: Record<string, unknown>,
-    sessionId?: string
-  ): void;
-  recordNodeFailed(executionId: string, nodeId: string, error: string): void;
-  recordNodeSkipped(executionId: string, nodeId: string): void;
+export interface IWorkflowRunner {
+  run(
+    workflowId: string,
+    params: Record<string, unknown>,
+    traceId: string
+  ): Promise<ExecutionSummary>;
 }
 
-export class ExecutorRegistry {
+export class ExecutorRegistry implements IExecutorRegistry {
   constructor(private port: AgentPort) {}
 
   create(nodeType: string): NodeExecutor {
@@ -63,215 +45,70 @@ export class ExecutorRegistry {
   }
 }
 
-/** Agent node executor — delegates to AgentPort. */
-class AgentExecutor implements NodeExecutor {
-  constructor(private port: AgentPort) {}
-
-  async execute(ctx: NodeContext): Promise<NodeResult> {
-    const agentName = ctx.node.agent ?? "default";
-    const output = await this.port.invoke({
-      agentName,
-      payload: ctx.params,
-      traceId: ctx.traceId,
-    });
-    return {
-      output: output.content as any,
-      sessionId: null,
-      extraData: {},
-    };
-  }
-}
-
-export class WorkflowRunner {
-  private circuitBreaker: CircuitBreaker;
-  private limit: ReturnType<typeof pLimit>;
+export class WorkflowRunner implements IWorkflowRunner {
+  private nodeScheduler: NodeScheduler;
 
   constructor(
-    private workflowRepo: WorkflowRepo,
+    private workflowRepo: IWorkflowRepo,
     private executionRepo: IExecutionRepo,
     private executionDomainService: ExecutionDomainService,
-    private executorRegistry: ExecutorRegistry
+    executorRegistry: ExecutorRegistry,
   ) {
-    this.circuitBreaker = new CircuitBreaker(settings.CIRCUIT_BREAKER_THRESHOLD);
-    this.limit = pLimit(settings.MAX_PARALLEL_NODES);
+    this.nodeScheduler = new NodeScheduler(
+      this.executionRepo,
+      this.executionDomainService,
+      executorRegistry,
+    );
   }
 
   async run(
     workflowId: string,
     params: Record<string, unknown>,
-    traceId: string
+    traceId: string,
   ): Promise<ExecutionSummary> {
-    // 1. Load workflow
     const workflow = this.workflowRepo.get(workflowId);
     if (!workflow) {
       throw new WorkflowNotFoundError(`Workflow ${workflowId} not found`);
     }
 
-    // 2. Create execution
     const executionId = this.executionRepo.createExecution({
       workflowId,
       params,
       traceId,
     });
 
-    // 3. Create execution nodes
     const nodes = workflow.nodes.map((n) => ({
       id: n.id,
       agent: n.agent ?? n.type,
       input: n.data ?? {},
     }));
     this.executionRepo.createExecutionNodes(executionId, nodes);
-
-    // 4. Mark execution running
     this.executionRepo.markExecution(executionId, "running");
 
-    // 5. Topology sort
-    const sortedIds = topologicalSort(workflow.nodes, workflow.edges);
-    const preds = buildPredecessors(workflow.nodes, workflow.edges);
+    const tracker = new ExecutionTracker();
 
-    // 6. Results tracking
-    const results: Record<string, NodeResult> = {};
-    const failedNodes = new Set<string>();
-    const skippedNodes = new Set<string>();
-    const completedPromises = new Map<string, Promise<void>>();
+    await this.nodeScheduler.executeAll(
+      workflow, executionId, params, traceId, tracker,
+    );
 
-    // 7. Schedule nodes
-    const nodePromises: Promise<void>[] = [];
+    const finalStatus: ExecutionStatus = tracker.failedNodes.size > 0 ? "failed" : "completed";
+    await this.markExecutionWithRetry(executionId, finalStatus);
 
-    for (const nodeId of sortedIds) {
-      const node = workflow.nodes.find((n) => n.id === nodeId)!;
-      const nodePromise = this.scheduleNode(
-        node,
-        workflow,
-        executionId,
-        params,
-        preds,
-        results,
-        failedNodes,
-        skippedNodes,
-        completedPromises,
-        traceId
-      );
-      completedPromises.set(nodeId, nodePromise);
-      nodePromises.push(nodePromise);
-    }
-
-    await Promise.all(nodePromises);
-
-    // 8. Mark final status with retry (H3 fix)
-    const finalStatus: ExecutionStatus = failedNodes.size > 0 ? "failed" : "completed";
-    await this.markExecutionWithRetry(executionId, finalStatus, traceId);
+    const { failedNodes, skippedNodes } = tracker.toSummary();
 
     return {
       executionId,
       workflowId,
       status: finalStatus,
-      results,
-      failedNodes: Array.from(failedNodes),
-      skippedNodes: Array.from(skippedNodes),
+      results: tracker.results,
+      failedNodes,
+      skippedNodes,
     };
   }
 
-  private async scheduleNode(
-    node: Node,
-    workflow: Workflow,
-    executionId: string,
-    params: Record<string, unknown>,
-    preds: Map<string, string[]>,
-    results: Record<string, NodeResult>,
-    failedNodes: Set<string>,
-    skippedNodes: Set<string>,
-    completedPromises: Map<string, Promise<void>>,
-    traceId: string
-  ): Promise<void> {
-    try {
-      // Wait for all predecessors to complete
-      const predecessorIds = preds.get(node.id) ?? [];
-      for (const pid of predecessorIds) {
-        const promise = completedPromises.get(pid);
-        if (!promise) {
-          // Predecessor not in execution plan — DAG data inconsistency
-          this.executionRepo.recordNodeSkipped(executionId, node.id);
-          skippedNodes.add(node.id);
-          return;
-        }
-        await promise;
-      }
-
-      // If any predecessor failed, skip this node
-      if (predecessorIds.some((pid) => failedNodes.has(pid))) {
-        this.executionRepo.recordNodeSkipped(executionId, node.id);
-        skippedNodes.add(node.id);
-        return;
-      }
-
-      // Check circuit breaker
-      if (this.circuitBreaker.isOpen(executionId, node.id, traceId)) {
-        this.executionRepo.recordNodeFailed(executionId, node.id, "Circuit breaker open");
-        failedNodes.add(node.id);
-        // Mark downstream skipped
-        const skipped = this.executionDomainService.markDownstreamSkipped(executionId, node.id);
-        skipped.forEach((sid) => skippedNodes.add(sid));
-        return;
-      }
-
-      // Execute with concurrency limit
-      await this.limit(async () => {
-        try {
-          this.executionRepo.recordNodeStarted(executionId, node.id);
-
-          const executor = this.executorRegistry.create(node.type);
-          const ctx: NodeContext = {
-            node,
-            executionId,
-            predecessorIds,
-            params,
-            results: { ...results },
-            edges: workflow.edges,
-            traceId,
-            chainSessions: {},
-            failedNodes: new Set(failedNodes),
-          };
-
-          const result = await executor.execute(ctx);
-          results[node.id] = result;
-
-          this.executionRepo.recordNodeCompleted(
-            executionId,
-            node.id,
-            result.output as Record<string, unknown>,
-            result.sessionId ?? undefined
-          );
-          this.circuitBreaker.reset(executionId, node.id, traceId);
-        } catch (e) {
-          const errorMsg = e instanceof Error ? e.message : String(e);
-          this.executionRepo.recordNodeFailed(executionId, node.id, errorMsg);
-          failedNodes.add(node.id);
-          this.circuitBreaker.recordFailure(executionId, node.id, traceId);
-
-          // Mark downstream skipped
-          const skipped = this.executionDomainService.markDownstreamSkipped(executionId, node.id);
-          skipped.forEach((sid) => skippedNodes.add(sid));
-        }
-      });
-    } catch (e) {
-      // Any DB error (recordNodeStarted, recordNodeSkipped, etc.) outside the
-      // p-limit callback should not crash the entire workflow.
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      failedNodes.add(node.id);
-      try {
-        this.executionRepo.recordNodeFailed(executionId, node.id, errorMsg);
-      } catch {
-        // Best-effort: if even recordNodeFailed fails, at least track in memory.
-      }
-    }
-  }
-
-  /** Mark execution with 3 retries (H3 fix). */
   private async markExecutionWithRetry(
     executionId: string,
     status: ExecutionStatus,
-    _traceId: string
   ): Promise<void> {
     try {
       await withRetry(
@@ -280,12 +117,12 @@ export class WorkflowRunner {
         },
         settings.MAX_AGENT_RETRIES,
         settings.RETRY_BASE_DELAY_SECONDS,
-        settings.RETRY_BACKOFF_FACTOR
+        settings.RETRY_BACKOFF_FACTOR,
       );
     } catch (e) {
       rootLogger.fatal(
         { executionId, status, error: e },
-        "mark_execution failed after all retries"
+        "mark_execution failed after all retries",
       );
       throw e;
     }

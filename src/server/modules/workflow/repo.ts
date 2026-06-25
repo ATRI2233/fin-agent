@@ -1,11 +1,16 @@
 import { eq, desc } from "drizzle-orm";
 import { db, wrapDbCall } from "../../infra/db.js";
-import type { Database } from "../../infra/db.js";
+import type { DrizzleDatabase as Database } from "../../infra/db.js";
 import { workflows } from "../../infra/schema.js";
 import type { Workflow } from "./domain/dag.js";
 
+export interface IWorkflowRepo {
+  get(id: string): Workflow | undefined;
+  list(limit: number, offset: number): Workflow[];
+}
+
 /** Repository for workflow persistence. */
-export class WorkflowRepo {
+export class WorkflowRepo implements IWorkflowRepo {
   constructor(private db: Database) {}
 
   get(id: string): Workflow | undefined {
@@ -48,3 +53,11 @@ export class WorkflowRepo {
 
 /** Default instance bound to the global production db. */
 export const workflowRepo = new WorkflowRepo(db);
+
+/**
+ * Factory function for creating a WorkflowRepo with a custom database instance.
+ * Used by integration tests to inject an in-memory SQLite database.
+ */
+export function createWorkflowRepo(db: Database): WorkflowRepo {
+  return new WorkflowRepo(db);
+}

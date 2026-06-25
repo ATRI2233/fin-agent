@@ -18,7 +18,7 @@ export class FREDConfigError extends Error {
 if (!process.env.FRED_API_KEY) {
   console.warn(
     "[FRED] FRED_API_KEY not set. Tools will return error responses; " +
-    "set FRED_API_KEY in .env or opencode config to enable."
+    "set FRED_API_KEY in .env or openclaw config to enable."
   );
 }
 
@@ -31,7 +31,7 @@ export const makeRequest = async <T>(
 ): Promise<T> => {
   if (!process.env.FRED_API_KEY) {
     throw new FREDConfigError(
-      "FRED_API_KEY not set. Set it in .env or opencode config (fred-mcp-server env)."
+      "FRED_API_KEY not set. Set it in .env or openclaw config (fred-mcp-server env)."
     );
   }
   const apiKey = process.env.FRED_API_KEY;

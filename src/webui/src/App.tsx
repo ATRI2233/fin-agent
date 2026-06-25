@@ -1,5 +1,5 @@
 import React, { Suspense, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { Layout, Menu, ConfigProvider, theme, Tooltip, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import { useUiStore } from './store/useUiStore';
@@ -90,7 +90,7 @@ const AppLayout: React.FC = () => {
     agentsPaths.includes(location.pathname) ? ['agents-group'] : [],
   );
   useEffect(() => {
-    if (agentsPaths.includes(location.pathname) && !openKeys.includes('agents-group')) {
+    if (agentsPaths.includes(location.pathname)) {
       setOpenKeys((prev) => (prev.includes('agents-group') ? prev : [...prev, 'agents-group']));
     }
   }, [location.pathname]);
@@ -344,6 +344,7 @@ const AppLayout: React.FC = () => {
               <Route path="/workflows/settings" element={<WorkflowSettings />} />
               <Route path="/workflows/monitor" element={<WorkflowMonitor />} />
               <Route path="/workflows/monitor/:executionId" element={<WorkflowMonitor />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </Content>

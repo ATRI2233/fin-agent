@@ -8,6 +8,7 @@ export const ErrorCode = {
   EXECUTION_NOT_FOUND: 1002,
   CONVERSATION_NOT_FOUND: 1006,
   VALIDATION_FAILED: 1100,
+  UNAUTHORIZED: 1101,
 
   // 2xxx: SystemError
   INVALID_STATE_TRANSITION: 2001,
@@ -88,9 +89,10 @@ export class DomainError extends FinAgentError {
     code: ErrorCodeValue,
     category: ErrorCategory,
     httpStatus: number = 500,
-    details: ErrorDetails = {}
+    details: ErrorDetails = {},
+    cause?: Error
   ) {
-    super(message, code, httpStatus, details);
+    super(message, code, httpStatus, details, cause);
     this.category = category;
   }
 }
@@ -102,33 +104,40 @@ export class BizError extends DomainError {
     message: string,
     code: ErrorCodeValue,
     httpStatus: number = 400,
-    details: ErrorDetails = {}
+    details: ErrorDetails = {},
+    cause?: Error
   ) {
-    super(message, code, "biz", httpStatus, details);
+    super(message, code, "biz", httpStatus, details, cause);
   }
 }
 
 export class WorkflowNotFoundError extends BizError {
-  constructor(message = "Workflow not found", details: ErrorDetails = {}) {
-    super(message, ErrorCode.WORKFLOW_NOT_FOUND, 404, details);
+  constructor(message = "Workflow not found", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.WORKFLOW_NOT_FOUND, 404, details, cause);
   }
 }
 
 export class ConversationNotFoundError extends BizError {
-  constructor(message = "Conversation not found", details: ErrorDetails = {}) {
-    super(message, ErrorCode.CONVERSATION_NOT_FOUND, 404, details);
+  constructor(message = "Conversation not found", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.CONVERSATION_NOT_FOUND, 404, details, cause);
   }
 }
 
 export class ExecutionNotFoundError extends BizError {
-  constructor(message = "Execution not found", details: ErrorDetails = {}) {
-    super(message, ErrorCode.EXECUTION_NOT_FOUND, 404, details);
+  constructor(message = "Execution not found", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.EXECUTION_NOT_FOUND, 404, details, cause);
   }
 }
 
 export class ValidationError extends BizError {
-  constructor(message = "Validation failed", details: ErrorDetails = {}) {
-    super(message, ErrorCode.VALIDATION_FAILED, 422, details);
+  constructor(message = "Validation failed", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.VALIDATION_FAILED, 422, details, cause);
+  }
+}
+
+export class UnauthorizedError extends BizError {
+  constructor(message = "Unauthorized", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.UNAUTHORIZED, 401, details, cause);
   }
 }
 
@@ -139,24 +148,26 @@ export class SystemError extends DomainError {
     message: string,
     code: ErrorCodeValue,
     httpStatus: number = 500,
-    details: ErrorDetails = {}
+    details: ErrorDetails = {},
+    cause?: Error
   ) {
-    super(message, code, "system", httpStatus, details);
+    super(message, code, "system", httpStatus, details, cause);
   }
 }
 
 export class InvalidStateTransitionError extends SystemError {
   constructor(
     message = "Invalid state transition",
-    details: ErrorDetails = {}
+    details: ErrorDetails = {},
+    cause?: Error
   ) {
-    super(message, ErrorCode.INVALID_STATE_TRANSITION, 500, details);
+    super(message, ErrorCode.INVALID_STATE_TRANSITION, 500, details, cause);
   }
 }
 
 export class ConfigError extends SystemError {
-  constructor(message = "Configuration inconsistent", details: ErrorDetails = {}) {
-    super(message, ErrorCode.CONFIG_INCONSISTENT, 500, details);
+  constructor(message = "Configuration inconsistent", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.CONFIG_INCONSISTENT, 500, details, cause);
   }
 }
 
@@ -167,26 +178,27 @@ export class InfraError extends DomainError {
     message: string,
     code: ErrorCodeValue,
     httpStatus: number = 500,
-    details: ErrorDetails = {}
+    details: ErrorDetails = {},
+    cause?: Error
   ) {
-    super(message, code, "infra", httpStatus, details);
+    super(message, code, "infra", httpStatus, details, cause);
   }
 }
 
 export class DatabaseError extends InfraError {
-  constructor(message = "Database failure", details: ErrorDetails = {}) {
-    super(message, ErrorCode.DATABASE_FAILURE, 500, details);
+  constructor(message = "Database failure", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.DATABASE_FAILURE, 500, details, cause);
   }
 }
 
 export class AgentTimeoutError extends InfraError {
-  constructor(message = "Agent timeout", details: ErrorDetails = {}) {
-    super(message, ErrorCode.AGENT_TIMEOUT, 504, details);
+  constructor(message = "Agent timeout", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.AGENT_TIMEOUT, 504, details, cause);
   }
 }
 
 export class AgentHttp5xxError extends InfraError {
-  constructor(message = "Agent upstream 5xx", details: ErrorDetails = {}) {
-    super(message, ErrorCode.AGENT_UPSTREAM_5XX, 502, details);
+  constructor(message = "Agent upstream 5xx", details: ErrorDetails = {}, cause?: Error) {
+    super(message, ErrorCode.AGENT_UPSTREAM_5XX, 502, details, cause);
   }
 }

@@ -1,8 +1,12 @@
-import { eq, and } from "drizzle-orm";
+﻿import { eq, and } from "drizzle-orm";
 import { db, wrapDbCall } from "../../infra/db.js";
-import type { Database } from "../../infra/db.js";
+import type { DrizzleDatabase as Database } from "../../infra/db.js";
 import { workflowExecutions, executionNodes } from "../../infra/schema.js";
-import { transition, type ExecutionStatus } from "../execution/domain.js";
+import type { ExecutionStatus } from "../execution/domain.js";
+
+// Drizzle JSON 鍒楃被鍨嬫爣璁?鈥?SQLite JSON 鍒楀湪 Drizzle 涓渶瑕佺被鍨嬫柇瑷€
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DbJson = any;
 
 export interface CreateExecutionParams {
   workflowId: string;
@@ -10,8 +14,32 @@ export interface CreateExecutionParams {
   traceId: string;
 }
 
+export interface IExecutionRepo {
+  createExecution(params: CreateExecutionParams): string;
+  createExecutionNodes(
+    executionId: string,
+    nodes: Array<{ id: string; agent: string; input: Record<string, unknown> }>
+  ): void;
+  recordNodeStarted(executionId: string, nodeId: string): void;
+  recordNodeCompleted(
+    executionId: string,
+    nodeId: string,
+    output: Record<string, unknown>,
+    sessionId?: string
+  ): void;
+  recordNodeFailed(executionId: string, nodeId: string, error: string): void;
+  recordNodeSkipped(executionId: string, nodeId: string): void;
+  markExecution(executionId: string, status: ExecutionStatus): void;
+  getExecutionNodes(executionId: string): Array<{
+    id: string;
+    nodeId: string;
+    status: ExecutionStatus;
+    input: any;
+  }>;
+}
+
 /** Repository for execution persistence. */
-export class ExecutionRepo {
+export class ExecutionRepo implements IExecutionRepo {
   constructor(private db: Database) {}
 
   createExecution({ workflowId, params, traceId }: CreateExecutionParams): string {
@@ -23,7 +51,7 @@ export class ExecutionRepo {
           id,
           workflowId,
           status: "pending" as ExecutionStatus,
-          params: params as any,
+          params: params as DbJson,
           traceId,
           createdAt: now,
           startedAt: null,
@@ -47,7 +75,7 @@ export class ExecutionRepo {
             nodeId: node.id,
             agent: node.agent,
             status: "pending" as ExecutionStatus,
-            input: node.input as any,
+            input: node.input as DbJson,
             output: null,
             sessionId: null,
             error: null,
@@ -67,12 +95,17 @@ export class ExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (row && row.status !== "running") {
-        transition(row.status as ExecutionStatus, "running");
-        this.db.update(executionNodes)
-          .set({ status: "running" as ExecutionStatus, startedAt: new Date() })
-          .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
-          .run();
+      if (!row || row.status === "running") return;
+      const result = this.db.update(executionNodes)
+        .set({ status: "running" as ExecutionStatus, startedAt: new Date() })
+        .where(and(
+          eq(executionNodes.executionId, executionId),
+          eq(executionNodes.nodeId, nodeId),
+          eq(executionNodes.status, row.status as ExecutionStatus)
+        ))
+        .run();
+      if (result.changes === 0) {
+        throw new Error(`Concurrent modification detected: node ${nodeId} status changed since read`);
       }
     });
   }
@@ -89,17 +122,22 @@ export class ExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (row && row.status !== "completed") {
-        transition(row.status as ExecutionStatus, "completed");
-        this.db.update(executionNodes)
-          .set({
-            status: "completed" as ExecutionStatus,
-            output: output as any,
-            sessionId: sessionId ?? null,
-            completedAt: new Date(),
-          })
-          .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
-          .run();
+      if (!row || row.status === "completed") return;
+      const result = this.db.update(executionNodes)
+        .set({
+          status: "completed" as ExecutionStatus,
+          output: output as DbJson,
+          sessionId: sessionId ?? null,
+          completedAt: new Date(),
+        })
+        .where(and(
+          eq(executionNodes.executionId, executionId),
+          eq(executionNodes.nodeId, nodeId),
+          eq(executionNodes.status, row.status as ExecutionStatus)
+        ))
+        .run();
+      if (result.changes === 0) {
+        throw new Error(`Concurrent modification detected: node ${nodeId} status changed since read`);
       }
     });
   }
@@ -111,16 +149,21 @@ export class ExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (row && row.status !== "failed") {
-        transition(row.status as ExecutionStatus, "failed");
-        this.db.update(executionNodes)
-          .set({
-            status: "failed" as ExecutionStatus,
-            error,
-            completedAt: new Date(),
-          })
-          .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
-          .run();
+      if (!row || row.status === "failed") return;
+      const result = this.db.update(executionNodes)
+        .set({
+          status: "failed" as ExecutionStatus,
+          error,
+          completedAt: new Date(),
+        })
+        .where(and(
+          eq(executionNodes.executionId, executionId),
+          eq(executionNodes.nodeId, nodeId),
+          eq(executionNodes.status, row.status as ExecutionStatus)
+        ))
+        .run();
+      if (result.changes === 0) {
+        throw new Error(`Concurrent modification detected: node ${nodeId} status changed since read`);
       }
     });
   }
@@ -132,12 +175,17 @@ export class ExecutionRepo {
         .from(executionNodes)
         .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
         .get();
-      if (row && row.status !== "skipped") {
-        transition(row.status as ExecutionStatus, "skipped");
-        this.db.update(executionNodes)
-          .set({ status: "skipped" as ExecutionStatus, completedAt: new Date() })
-          .where(and(eq(executionNodes.executionId, executionId), eq(executionNodes.nodeId, nodeId)))
-          .run();
+      if (!row || row.status === "skipped") return;
+      const result = this.db.update(executionNodes)
+        .set({ status: "skipped" as ExecutionStatus, completedAt: new Date() })
+        .where(and(
+          eq(executionNodes.executionId, executionId),
+          eq(executionNodes.nodeId, nodeId),
+          eq(executionNodes.status, row.status as ExecutionStatus)
+        ))
+        .run();
+      if (result.changes === 0) {
+        throw new Error(`Concurrent modification detected: node ${nodeId} status changed since read`);
       }
     });
   }
@@ -145,13 +193,20 @@ export class ExecutionRepo {
   markExecution(executionId: string, status: ExecutionStatus): void {
     wrapDbCall("mark execution", () => {
       const row = this.db.select().from(workflowExecutions).where(eq(workflowExecutions.id, executionId)).get();
-      if (row && row.status !== status) {
-        transition(row.status as ExecutionStatus, status);
-        const update: any = { status };
-        if (status === "completed" || status === "failed" || status === "cleaned_up") {
-          update.completedAt = new Date();
-        }
-        this.db.update(workflowExecutions).set(update).where(eq(workflowExecutions.id, executionId)).run();
+      if (!row || row.status === status) return;
+      const update: DbJson = { status };
+      if (status === "completed" || status === "failed" || status === "cleaned_up") {
+        update.completedAt = new Date();
+      }
+      const result = this.db.update(workflowExecutions)
+        .set(update)
+        .where(and(
+          eq(workflowExecutions.id, executionId),
+          eq(workflowExecutions.status, row.status as ExecutionStatus)
+        ))
+        .run();
+      if (result.changes === 0) {
+        throw new Error(`Concurrent modification detected: execution ${executionId} status changed since read`);
       }
     });
   }
@@ -180,3 +235,11 @@ export class ExecutionRepo {
 
 /** Default instance bound to the global production db. */
 export const executionRepo = new ExecutionRepo(db);
+
+/**
+ * Factory function for creating an ExecutionRepo with a custom database instance.
+ * Used by integration tests to inject an in-memory SQLite database.
+ */
+export function createExecutionRepo(db: Database): ExecutionRepo {
+  return new ExecutionRepo(db);
+}

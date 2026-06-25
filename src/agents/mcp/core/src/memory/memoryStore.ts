@@ -1,8 +1,11 @@
 import Database from "better-sqlite3";
-import path from "path";
+import path, { dirname } from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 
 // 统一数据库路径 (与 lib/dataHub.ts 一致)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const DB_DIR = path.resolve(__dirname, "..", "..", "..", "..", "..", "data");
 const DB_PATH = path.join(DB_DIR, "fin-agent.db");
 let db: Database.Database;

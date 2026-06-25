@@ -5,29 +5,32 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { eq } from "drizzle-orm";
 import { resolve } from "path";
 import * as schema from "../../src/server/infra/schema.js";
-import { createConversationRepo } from "../../src/server/modules/conversation/repo.js";
-import { createWorkflowRepo } from "../../src/server/modules/workflow/repo.js";
-import { createExecutionRepo } from "../../src/server/modules/execution/repo.js";
+import { ConversationRepo as ConversationRepoCls } from "../../src/server/modules/conversation/repo.js";
+import { WorkflowRepo as WorkflowRepoCls } from "../../src/server/modules/workflow/repo.js";
+import { ExecutionRepo as ExecutionRepoCls } from "../../src/server/modules/execution/repo.js";
+import { ExecutionDomainService } from "../../src/server/modules/execution/domain-service.js";
 import { WorkflowRunner } from "../../src/server/modules/workflow/service/workflow_runner.js";
 import { ExecutorRegistry } from "../../src/server/modules/workflow/service/workflow_runner.js";
 import { createAgentDispatcher } from "../../src/server/modules/agent/dispatcher.js";
 
+// NOTE: This file is a subset of full_stack.spec.ts and is kept for targeted test runs.
+
 let db: ReturnType<typeof drizzle>;
 let sqlite: Database;
-let ConversationRepo: ReturnType<typeof createConversationRepo>;
-let WorkflowRepo: ReturnType<typeof createWorkflowRepo>;
-let ExecutionRepo: ReturnType<typeof createExecutionRepo>;
+let ConversationRepo: ConversationRepoCls;
+let WorkflowRepo: WorkflowRepoCls;
+let ExecutionRepo: ExecutionRepoCls;
 
 beforeAll(() => {
   sqlite = new Database(":memory:");
   sqlite.pragma("journal_mode = WAL");
   db = drizzle(sqlite, { schema });
-  const migrationsPath = resolve(process.cwd(), "drizzle", "migrations");
+  const migrationsPath = resolve(process.cwd(), "config", "drizzle", "migrations");
   migrate(db, { migrationsFolder: migrationsPath });
 
-  ConversationRepo = createConversationRepo(db);
-  WorkflowRepo = createWorkflowRepo(db);
-  ExecutionRepo = createExecutionRepo(db);
+  ConversationRepo = new ConversationRepoCls(db);
+  WorkflowRepo = new WorkflowRepoCls(db);
+  ExecutionRepo = new ExecutionRepoCls(db);
 });
 
 afterAll(() => {
@@ -81,9 +84,11 @@ describe("integration: workflow trigger end-to-end", () => {
       .run();
 
     const dispatcher = createAgentDispatcher();
+    const executionDomainService = new ExecutionDomainService(ExecutionRepo);
     const runner = new WorkflowRunner(
       WorkflowRepo,
       ExecutionRepo,
+      executionDomainService,
       new ExecutorRegistry(dispatcher)
     );
 

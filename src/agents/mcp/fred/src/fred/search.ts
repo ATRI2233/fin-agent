@@ -97,7 +97,7 @@ export async function searchSeries(options: FREDSearchOptions = {}) {
         observation_range: `${series.observation_start} to ${series.observation_end}`,
         last_updated: series.last_updated,
         popularity: series.popularity,
-        notes: series.notes?.substring(0, 200) + (series.notes && series.notes.length > 200 ? "..." : "")
+        notes: (series.notes ?? "").substring(0, 200) + (series.notes && series.notes.length > 200 ? "..." : "")
       }))
     };
 

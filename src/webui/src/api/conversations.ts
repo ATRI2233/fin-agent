@@ -18,7 +18,7 @@
  * - createMessage — POST /api/v1/conversations/{id}/messages
  */
 
-import { apiGet, apiPost } from './http'
+import { apiDelete, apiGet, apiPost } from './http'
 import type {
   Conversation,
   Message,
@@ -101,4 +101,16 @@ export async function createMessage(
   data: MessageCreate,
 ): Promise<Message> {
   return apiPost<Message>(ROUTES.conversations.messages(conversationId), data)
+}
+
+/**
+ * DELETE `/api/v1/conversations/{id}` — delete a conversation.
+ *
+ * Removes the conversation and all its messages from the server.
+ * Returns 204 No Content on success.
+ *
+ * @param id Server-assigned conversation UUID.
+ */
+export async function deleteConversation(id: string): Promise<void> {
+  await apiDelete(ROUTES.conversations.delete(id));
 }

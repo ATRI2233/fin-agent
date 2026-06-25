@@ -22,7 +22,7 @@ export default function SessionBoundarySelector({
 }: SessionBoundarySelectorProps) {
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [boundaries, setBoundaries] = useState<SessionBoundary[]>([]);
+  const [, setBoundaries] = useState<SessionBoundary[]>([]);
 
   const {
     selectionBox,
@@ -60,7 +60,7 @@ export default function SessionBoundarySelector({
     const nodeIds = getSelectedNodes();
     if (nodeIds.length < 2) return;
 
-    const boundary = await createBoundary(nodeIds, selectedColor);
+    const boundary = await createBoundary(nodeIds, selectedColor ?? "");
     if (boundary) {
       setBoundaries((prev) => [...prev, boundary]);
       setShowColorPicker(false);
@@ -122,7 +122,7 @@ export default function SessionBoundarySelector({
 
   return (
     <div
-      className="react-flow__pane"
+      className="session-boundary-overlay"
       onMouseDown={handleMouseDown}
       style={{ width: '100%', height: '100%' }}
     >

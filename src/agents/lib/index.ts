@@ -2,7 +2,7 @@
  * lib-mcp-server — 纯逻辑工具 MCP 服务器
  *
  * 包装 agents/lib/ 中的纯逻辑工具为 MCP 服务器，
- * 让 OpenCode Agent 可以调用这些工具。
+ * 让 OpenClaw Agent 可以调用这些工具。
  *
  * 工具列表：
  * - memory_recall 查询历史判断

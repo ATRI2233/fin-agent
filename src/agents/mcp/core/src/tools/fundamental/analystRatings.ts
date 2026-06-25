@@ -101,7 +101,7 @@ function processRatingsData(symbol: string, rawData: any): AnalystRatingsResult 
   const targetLow = rawData?.target_low || rawData?.targetPrice?.low || currentPrice * 0.9;
 
   const ratings = rawData?.ratings || [];
-  const strongBuy = ratings.filter((r: any) => r.rating === "strong_buy" || r.rating === "BUY").length;
+  const strongBuy = ratings.filter((r: any) => r.rating === "strong_buy").length;
   const buy = ratings.filter((r: any) => r.rating === "buy" || r.rating === "BUY").length;
   const hold = ratings.filter((r: any) => r.rating === "hold" || r.rating === "NEUTRAL").length;
   const sell = ratings.filter((r: any) => r.rating === "sell" || r.rating === "SELL").length;
@@ -178,6 +178,8 @@ function generateSimulatedRatings(symbol: string): any {
   }
 
   return {
+    _simulated: true,
+    _dataSource: "FALLBACK_SIMULATION",
     symbol,
     current_price: currentPrice,
     target_mean: targetMean,

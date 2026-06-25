@@ -1,0 +1,681 @@
+
+> fin-agent@2.1.0 lint D:\github_place\fin-agent\project
+> eslint src --ext .ts,.tsx
+
+
+D:\github_place\fin-agent\project\src\agents\lib\conflictResolver.ts
+  113:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\consistencyCheck.ts
+   55:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   77:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   85:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   98:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\dataHub.ts
+  128:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  192:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  317:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  323:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  328:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  329:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  350:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\devilAdvocate.ts
+   97:30  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  143:21  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  271:21  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  284:9   error    'avgBearish' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  318:59  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\index.ts
+  63:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\memoryLearner.ts
+    5:11  error    'AccuracyStats' is defined but never used  @typescript-eslint/no-unused-vars
+   86:30  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  134:21  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  154:17  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\memoryTools.ts
+   32:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   43:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   80:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  172:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  217:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\lib\types.ts
+  8:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  9:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  9:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\index.ts
+  122:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\mcp\mcpClientManager.ts
+  102:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  123:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  146:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  170:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  301:20  error    'connectTimer' is not defined             no-undef
+  303:46  error    Empty block statement                     no-empty
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\memory\memoryStore.ts
+   80:16   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:20   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:58   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:28   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  114:92   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:19   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:19   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  167:14   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:93   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  213:47   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  215:101  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  218:37   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  219:104  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:59   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  223:128  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  226:54   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:141  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\fundamental\analystRatings.ts
+   53:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   97:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  106:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\fundamental\earningsCalendar.ts
+   22:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   30:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:92  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\fundamental\fundamentalScan.ts
+   64:30  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  111:15  error    'price' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  244:21  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\fundamental\secFilings.ts
+   85:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  158:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  228:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\fusion\signalFusion.ts
+    3:10  error    'getSignalWeights' is defined but never used  @typescript-eslint/no-unused-vars
+    3:59  error    'getAllExperience' is defined but never used  @typescript-eslint/no-unused-vars
+  168:30  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  188:33  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  277:17  error    Empty block statement                         no-empty
+  297:21  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  748:12  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\market\fearGreedIndex.ts
+   49:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   68:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\market\marketSnapshot.ts
+   39:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   44:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   71:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  104:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\market\sectorRotation.ts
+   44:30  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   51:25  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   71:17  error    'volume' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  109:21  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\risk\riskGauge.ts
+   15:35  error    'mcpManager' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   50:30  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+  131:21  warning  Unexpected any. Specify a different type                                      @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\sentiment\commodityPrices.ts
+   52:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   57:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\sentiment\insiderTrading.ts
+   64:30  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+   77:26  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+   92:21  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  102:54  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  107:44  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  189:39  error    'symbol' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  189:56  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\sentiment\newsSentiment.ts
+   43:30  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   95:19  error    'source' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  175:38  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  210:21  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\shared\extractData.ts
+  2:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  2:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  6:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  7:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  8:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\technical\optionsGreeks.ts
+   70:30  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   83:26  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   97:21  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  109:12  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+  110:3   error    'expirationDays' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  149:9   error    'nearTermIV' is assigned a value but never used                                   @typescript-eslint/no-unused-vars
+  198:56  warning  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\tools\technical\technicalLevels.ts
+   56:30  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  227:21  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  268:3   error    'sma20' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+D:\github_place\fin-agent\project\src\agents\mcp\core\src\types.ts
+  8:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  9:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  9:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\src\fred\browse.ts
+  118:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  240:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  249:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\src\fred\series.ts
+  61:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\src\fred\tools.ts
+  76:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\test\integration\server.integration.test.ts
+   11:7   error    'MockMcpServer' is assigned a value but never used                       @typescript-eslint/no-unused-vars
+   19:7   error    'server' is defined but never used                                       @typescript-eslint/no-unused-vars
+   20:22  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+   93:30  error    'input' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   93:37  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+   98:69  error    'input' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   98:76  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  120:35  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\test\unit\fred\tools.test.ts
+   30:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\test\unit\index.direct.test.ts
+  19:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\test\unit\index.main.test.ts
+  13:7   error    'mockServer' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  14:7   error    'mockTransport' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  30:33  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  33:44  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\test\unit\index.test.ts
+   9:7  error  'MockServer' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  13:7  error  'MockTransport' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+D:\github_place\fin-agent\project\src\agents\mcp\fred\test\unit\index.wrapper.test.ts
+    3:10  error    'McpServer' is defined but never used               @typescript-eslint/no-unused-vars
+   11:9   error    'mockTransport' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  112:33  warning  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\api\plugins\auth.ts
+  8:40  error  'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+D:\github_place\fin-agent\project\src\server\api\v1\routes\agents.ts
+   6:34  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  10:40  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  15:50  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  17:30  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\api\v1\routes\conversations.ts
+   6:41  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  11:42  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  12:30  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  18:45  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  27:48  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  33:54  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  39:55  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  41:30  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\api\v1\routes\executions.ts
+   6:38  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   8:42  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  11:42  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  17:53  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  20:48  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  23:45  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\api\v1\routes\mcp.ts
+  34:37  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  36:18  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  49:39  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  51:52  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  59:51  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  62:52  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  72:51  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  74:30  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  78:52  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+  83:48  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\api\v1\routes\workflows.ts
+   5:37  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  11:41  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  21:50  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  23:30  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\app.ts
+  77:51  error    'reply' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  92:17  warning  Unexpected any. Specify a different type                                 @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\infra\db.ts
+  27:13  error  'Database' is already defined  no-redeclare
+
+D:\github_place\fin-agent\project\src\server\modules\execution\repo.ts
+  199:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\server\modules\workflow\service\workflow_runner.ts
+  78:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\github_place\fin-agent\project\src\webui\src\App.tsx
+   77:29  warning  Arrow function has too many lines (264). Maximum allowed is 50                                                  max-lines-per-function
+   96:6   warning  React Hook useEffect has a missing dependency: 'agentsPaths'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  356:23  warning  Arrow function has too many lines (96). Maximum allowed is 50                                                   max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\api\http.ts
+   60:33  warning  No magic number: 36                                                      no-magic-numbers
+   60:63  warning  No magic number: 36                                                      no-magic-numbers
+   60:73  warning  No magic number: 2                                                       no-magic-numbers
+   60:76  warning  No magic number: 10                                                      no-magic-numbers
+  102:1   warning  Async function 'request' has too many lines (90). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\api\workflows.ts
+  48:19  warning  No magic number: 50  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\CronEditor.tsx
+   57:36  warning  No magic number: 2                                                        no-magic-numbers
+   57:39  warning  No magic number: 3                                                        no-magic-numbers
+   57:42  warning  No magic number: 4                                                        no-magic-numbers
+   57:45  warning  No magic number: 6                                                        no-magic-numbers
+   57:48  warning  No magic number: 8                                                        no-magic-numbers
+   57:51  warning  No magic number: 12                                                       no-magic-numbers
+   60:8   warning  Function 'describeCron' has too many lines (51). Maximum allowed is 50    max-lines-per-function
+   63:24  warning  No magic number: 5                                                        no-magic-numbers
+   69:30  warning  No magic number: 2                                                        no-magic-numbers
+   72:28  warning  No magic number: 2                                                        no-magic-numbers
+   85:37  warning  No magic number: 2                                                        no-magic-numbers
+   86:45  warning  No magic number: 2                                                        no-magic-numbers
+   90:52  warning  No magic number: 2                                                        no-magic-numbers
+   90:74  warning  No magic number: 2                                                        no-magic-numbers
+  110:32  warning  No magic number: 2                                                        no-magic-numbers
+  110:59  warning  No magic number: 2                                                        no-magic-numbers
+  114:42  warning  No magic number: 2                                                        no-magic-numbers
+  114:69  warning  No magic number: 2                                                        no-magic-numbers
+  117:41  warning  No magic number: 2                                                        no-magic-numbers
+  117:68  warning  No magic number: 2                                                        no-magic-numbers
+  126:27  warning  No magic number: 5                                                        no-magic-numbers
+  182:8   warning  Function 'inferFrequency' has too many lines (57). Maximum allowed is 50  max-lines-per-function
+  187:21  warning  No magic number: 2                                                        no-magic-numbers
+  187:24  warning  No magic number: 3                                                        no-magic-numbers
+  187:27  warning  No magic number: 4                                                        no-magic-numbers
+  187:30  warning  No magic number: 5                                                        no-magic-numbers
+  193:24  warning  No magic number: 5                                                        no-magic-numbers
+  207:77  warning  No magic number: 2                                                        no-magic-numbers
+  256:8   warning  Function 'CronEditor' has too many lines (199). Maximum allowed is 50     max-lines-per-function
+  266:79  warning  No magic number: 2                                                        no-magic-numbers
+  266:82  warning  No magic number: 3                                                        no-magic-numbers
+  266:85  warning  No magic number: 4                                                        no-magic-numbers
+  266:88  warning  No magic number: 5                                                        no-magic-numbers
+  279:38  warning  No magic number: 2                                                        no-magic-numbers
+  279:41  warning  No magic number: 3                                                        no-magic-numbers
+  279:44  warning  No magic number: 4                                                        no-magic-numbers
+  279:47  warning  No magic number: 5                                                        no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\DiffPreview.tsx
+  17:16  warning  Function 'DiffPreview' has too many lines (74). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\components\dashboard\AgentPerformancePanel.tsx
+  19:8   warning  Function 'AgentPerformancePanel' has too many lines (71). Maximum allowed is 50  max-lines-per-function
+  35:23  warning  Arrow function has too many lines (51). Maximum allowed is 50                    max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\components\dashboard\DashboardSkeleton.tsx
+  18:21  warning  No magic number: 20  no-magic-numbers
+  18:25  warning  No magic number: 20  no-magic-numbers
+  19:17  warning  No magic number: 2   no-magic-numbers
+  30:21  warning  No magic number: 20  no-magic-numbers
+  30:25  warning  No magic number: 20  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dashboard\StatCards.tsx
+  28:19  warning  No magic number: 20  no-magic-numbers
+  28:23  warning  No magic number: 20  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\FredRenderer.tsx
+  20:8   warning  Function 'FredRenderer' has too many lines (55). Maximum allowed is 50  max-lines-per-function
+  37:38  warning  No magic number: -30                                                    no-magic-numbers
+  68:27  warning  No magic number: 2                                                      no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\FundFlowRenderer.tsx
+  34:8   warning  Function 'FundFlowRenderer' has too many lines (56). Maximum allowed is 50  max-lines-per-function
+  43:38  warning  No magic number: 10                                                         no-magic-numbers
+  64:52  warning  No magic number: 10000                                                      no-magic-numbers
+  64:67  warning  No magic number: 2                                                          no-magic-numbers
+  70:59  warning  No magic number: 2                                                          no-magic-numbers
+  83:54  warning  No magic number: 10000                                                      no-magic-numbers
+  83:69  warning  No magic number: 2                                                          no-magic-numbers
+  85:43  warning  No magic number: 3                                                          no-magic-numbers
+  85:46  warning  No magic number: 3                                                          no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\GenericRenderer.tsx
+   6:9   warning  'Text' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  12:38  warning  No magic number: 2                         no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\MacroRenderer.tsx
+   31:8   warning  Function 'MacroRenderer' has too many lines (78). Maximum allowed is 50  max-lines-per-function
+   48:40  warning  No magic number: 20                                                      no-magic-numbers
+   64:68  warning  No magic number: 2                                                       no-magic-numbers
+   71:27  warning  No magic number: 2                                                       no-magic-numbers
+   93:60  warning  No magic number: 5                                                       no-magic-numbers
+  101:35  warning  No magic number: 6                                                       no-magic-numbers
+  103:62  warning  No magic number: 5                                                       no-magic-numbers
+  105:80  warning  No magic number: 2                                                       no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\MarketBreadthRenderer.tsx
+   8:8   warning  Function 'MarketBreadthRenderer' has too many lines (52). Maximum allowed is 50  max-lines-per-function
+  22:50  warning  No magic number: 100                                                             no-magic-numbers
+  22:56  warning  No magic number: 50                                                              no-magic-numbers
+  36:35  warning  No magic number: 100                                                             no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\MarketSnapshotRenderer.tsx
+  52:51  warning  No magic number: 2  no-magic-numbers
+  52:92  warning  No magic number: 2  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\RiskRenderer.tsx
+  53:71  warning  No magic number: 2  no-magic-numbers
+  54:71  warning  No magic number: 2  no-magic-numbers
+  56:54  warning  No magic number: 2  no-magic-numbers
+  58:73  warning  No magic number: 2  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\SectorRotationRenderer.tsx
+  33:9   warning  'momentum' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  41:47  warning  No magic number: 2                             no-magic-numbers
+  44:47  warning  No magic number: 2                             no-magic-numbers
+  76:88  warning  No magic number: 100                           no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\SentimentRenderer.tsx
+    3:22   warning  'Tag' is defined but never used                                              @typescript-eslint/no-unused-vars
+   35:55   warning  No magic number: 100                                                         no-magic-numbers
+   35:83   warning  No magic number: 50                                                          no-magic-numbers
+   35:87   warning  No magic number: 100                                                         no-magic-numbers
+   36:33   warning  No magic number: 60                                                          no-magic-numbers
+   36:66   warning  No magic number: 40                                                          no-magic-numbers
+   48:49   warning  No magic number: 100                                                         no-magic-numbers
+   48:56   warning  No magic number: 150.8                                                       no-magic-numbers
+   64:28   warning  No magic number: 60                                                          no-magic-numbers
+   64:57   warning  No magic number: 40                                                          no-magic-numbers
+   71:8    warning  Function 'SentimentRenderer' has too many lines (51). Maximum allowed is 50  max-lines-per-function
+  106:30   warning  No magic number: 6                                                           no-magic-numbers
+  107:114  warning  No magic number: -0.3                                                        no-magic-numbers
+  108:114  warning  No magic number: 0.3                                                         no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\dataRenderers\TechnicalRenderer.tsx
+  21:8   warning  Function 'TechnicalRenderer' has too many lines (70). Maximum allowed is 50  max-lines-per-function
+  47:15  warning  No magic number: 70                                                          no-magic-numbers
+  47:40  warning  No magic number: 30                                                          no-magic-numbers
+  68:47  warning  No magic number: 3                                                           no-magic-numbers
+  75:46  warning  No magic number: 2                                                           no-magic-numbers
+  75:84  warning  No magic number: 2                                                           no-magic-numbers
+  79:80  warning  No magic number: 2                                                           no-magic-numbers
+  80:83  warning  No magic number: 2                                                           no-magic-numbers
+  81:83  warning  No magic number: 2                                                           no-magic-numbers
+  83:44  warning  No magic number: 4                                                           no-magic-numbers
+  84:60  warning  No magic number: 2                                                           no-magic-numbers
+  94:92  warning  No magic number: 2                                                           no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\SessionBoundarySelector.tsx
+   19:16  warning  Function 'SessionBoundarySelector' has too many lines (152). Maximum allowed is 50  max-lines-per-function
+   21:3   warning  'nodes' is assigned a value but never used                                          @typescript-eslint/no-unused-vars
+   25:10  warning  'boundaries' is assigned a value but never used                                     @typescript-eslint/no-unused-vars
+   61:26  warning  No magic number: 2                                                                  no-magic-numbers
+   98:55  warning  No magic number: 2                                                                  no-magic-numbers
+  102:21  warning  No magic number: 4                                                                  no-magic-numbers
+  102:24  warning  No magic number: 4                                                                  no-magic-numbers
+  184:37  warning  No magic number: 2                                                                  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\WorkflowCanvas.tsx
+   86:24  warning  Arrow function has too many lines (165). Maximum allowed is 50                   max-lines-per-function
+  103:51  warning  'selectedNodes' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  126:30  warning  No magic number: 400                                                             no-magic-numbers
+  127:30  warning  No magic number: 100                                                             no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\nodes\AgentNode.tsx
+  20:24  warning  Arrow function has too many lines (78). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\nodes\DebateNode.tsx
+  10:25  warning  Arrow function has too many lines (60). Maximum allowed is 50  max-lines-per-function
+  43:23  warning  No magic number: 40                                            no-magic-numbers
+  43:32  warning  No magic number: 20                                            no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\nodes\InputNode.tsx
+  11:24  warning  Arrow function has too many lines (52). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\nodes\OutputNode.tsx
+  10:25  warning  Arrow function has too many lines (51). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\components\workflow\useSessionBoundary.ts
+   54:8  warning  Function 'useSessionBoundary' has too many lines (89). Maximum allowed is 50                                                 max-lines-per-function
+  137:5  warning  React Hook useCallback has a missing dependency: 'createBoundaryMutation'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\github_place\fin-agent\project\src\webui\src\domain\api-error.ts
+  49:45  warning  No magic number: 2000  no-magic-numbers
+  54:25  warning  No magic number: 2000  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\hooks\useAgents.ts
+  25:15  warning  'Agent' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\github_place\fin-agent\project\src\webui\src\hooks\useDashboardData.ts
+  16:18  warning  'ApiError' is defined but never used                                        @typescript-eslint/no-unused-vars
+  31:8   warning  Function 'useDashboardData' has too many lines (52). Maximum allowed is 50  max-lines-per-function
+  73:40  warning  No magic number: 2                                                          no-magic-numbers
+  73:59  warning  No magic number: 2                                                          no-magic-numbers
+  74:41  warning  No magic number: 3                                                          no-magic-numbers
+  74:60  warning  No magic number: 3                                                          no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\hooks\useWorkflows.ts
+  32:3  warning  'Workflow' is defined but never used      @typescript-eslint/no-unused-vars
+  33:3  warning  'WorkflowMeta' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\github_place\fin-agent\project\src\webui\src\main.tsx
+  24:3  warning  Method 'render' has too many lines (54). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\AgentsPage\columns.tsx
+  43:8  warning  Function 'buildAgentColumns' has too many lines (87). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\AgentsPage\index.tsx
+  30:16  warning  Function 'AgentsPage' has too many lines (60). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\ChatHeader.tsx
+  43:16  warning  Function 'ChatHeader' has too many lines (51). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\ChatInput.tsx
+  62:16  warning  Function 'ChatInput' has too many lines (106). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\ConversationSidebar.tsx
+  34:16  warning  Function 'ConversationSidebar' has too many lines (80). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\MessageBubble.tsx
+   4:15  warning  'Tooltip' is defined but never used                                       @typescript-eslint/no-unused-vars
+   7:3   warning  'ExclamationCircleOutlined' is defined but never used                     @typescript-eslint/no-unused-vars
+  39:16  warning  Function 'MessageBubble' has too many lines (296). Maximum allowed is 50  max-lines-per-function
+  63:31  warning  No magic number: 0.5                                                      no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\MessageThread.tsx
+   78:3   warning  Function 'MessageThread' has too many lines (136). Maximum allowed is 50  max-lines-per-function
+  189:11  warning  'latestWorkflowExtra' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\hooks\useConversationPolling.ts
+   49:8  warning  Function 'useConversationPolling' has too many lines (83). Maximum allowed is 50                                       max-lines-per-function
+   74:5  warning  Arrow function has too many lines (53). Maximum allowed is 50                                                          max-lines-per-function
+  138:5  warning  React Hook useCallback has an unnecessary dependency: 'stopPolling'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\hooks\useMessages.ts
+  46:8  warning  Function 'useMessages' has too many lines (82). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ChatPage\index.tsx
+  41:16  warning  Function 'ChatPage' has too many lines (130). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\Dashboard.tsx
+  30:21  warning  No magic number: 20  no-magic-numbers
+  30:25  warning  No magic number: 20  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\ExecutionTimeline.tsx
+   26:32  warning  No magic number: 60                                                          no-magic-numbers
+   27:40  warning  No magic number: 60                                                          no-magic-numbers
+   41:16  warning  Function 'ExecutionTimeline' has too many lines (94). Maximum allowed is 50  max-lines-per-function
+   69:27  warning  Arrow function has too many lines (64). Maximum allowed is 50                max-lines-per-function
+  115:55  warning  No magic number: 80                                                          no-magic-numbers
+  120:57  warning  No magic number: 80                                                          no-magic-numbers
+  129:46  warning  No magic number: 60                                                          no-magic-numbers
+  129:71  warning  No magic number: 60                                                          no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\FrameworkAgentDetail.tsx
+  19:16  warning  Function 'FrameworkAgentDetail' has too many lines (90). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\FrameworkPage.tsx
+   38:16  warning  Function 'FrameworkPage' has too many lines (154). Maximum allowed is 50  max-lines-per-function
+  189:44  warning  No magic number: 10                                                       no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\NodeDataPanel.tsx
+   2:69  warning  'Tooltip' is defined but never used                                       @typescript-eslint/no-unused-vars
+  24:28  warning  No magic number: 60                                                       no-magic-numbers
+  25:34  warning  No magic number: 60                                                       no-magic-numbers
+  29:46  warning  No magic number: 300                                                      no-magic-numbers
+  31:42  warning  No magic number: 2                                                        no-magic-numbers
+  40:16  warning  Function 'NodeDataPanel' has too many lines (153). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\AgentPalettePanel.tsx
+  65:16  warning  Function 'AgentPalettePanel' has too many lines (108). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\NodeInspector.tsx
+   85:1   warning  Function 'EdgePromptEditor' has too many lines (60). Maximum allowed is 50  max-lines-per-function
+  150:16  warning  Function 'NodeInspector' has too many lines (81). Maximum allowed is 50     max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\WorkflowBlockSelectorModal.tsx
+  42:16  warning  Function 'WorkflowBlockSelectorModal' has too many lines (106). Maximum allowed is 50  max-lines-per-function
+  92:21  warning  Arrow function has too many lines (57). Maximum allowed is 50                          max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\WorkflowCanvasPanel.tsx
+   73:1   warning  Function 'EdgeWithLabel' has too many lines (56). Maximum allowed is 50  max-lines-per-function
+  114:34  warning  No magic number: 28                                                      no-magic-numbers
+  114:39  warning  No magic number: 20                                                      no-magic-numbers
+  115:35  warning  No magic number: 28                                                      no-magic-numbers
+  115:40  warning  No magic number: 20                                                      no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\WorkflowSettingsModal.tsx
+  51:16  warning  Function 'WorkflowSettingsModal' has too many lines (99). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\hooks\useWorkflowAutoSave.ts
+  85:8  warning  No magic number: 30_000  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\index.tsx
+  174:1  warning  Function 'WorkflowEditorInner' has too many lines (440). Maximum allowed is 50  max-lines-per-function
+  606:1  warning  File has too many lines (578). Maximum allowed is 500                           max-lines
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\properties\AgentNodePropertiesPanel.tsx
+  42:16  warning  Function 'AgentNodePropertiesPanel' has too many lines (119). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\properties\DebateNodePropertiesPanel.tsx
+  38:16  warning  Function 'DebateNodePropertiesPanel' has too many lines (115). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\properties\InputNodePropertiesPanel.tsx
+  39:16  warning  Function 'InputNodePropertiesPanel' has too many lines (98). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowEditor\properties\WorkflowBlockNodePropertiesPanel.tsx
+  27:15  warning  'WorkflowBlockNodeData' is defined but never used                                           @typescript-eslint/no-unused-vars
+  35:16  warning  Function 'WorkflowBlockNodePropertiesPanel' has too many lines (65). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowList.tsx
+  28:16  warning  Function 'WorkflowList' has too many lines (102). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowMonitor.tsx
+   76:1   warning  Function 'MonitorCanvas' has too many lines (76). Maximum allowed is 50     max-lines-per-function
+  161:16  warning  Function 'WorkflowMonitor' has too many lines (140). Maximum allowed is 50  max-lines-per-function
+  210:83  warning  No magic number: 100                                                        no-magic-numbers
+  217:62  warning  No magic number: 100                                                        no-magic-numbers
+  330:28  warning  No magic number: 60                                                         no-magic-numbers
+  331:28  warning  No magic number: 60                                                         no-magic-numbers
+  332:34  warning  No magic number: 60                                                         no-magic-numbers
+  332:45  warning  No magic number: 60                                                         no-magic-numbers
+  333:34  warning  No magic number: 60                                                         no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\pages\WorkflowSettings.tsx
+   47:16  warning  Function 'WorkflowSettings' has too many lines (73). Maximum allowed is 50  max-lines-per-function
+  128:1   warning  Function 'WorkflowFormCard' has too many lines (90). Maximum allowed is 50  max-lines-per-function
+
+D:\github_place\fin-agent\project\src\webui\src\utils\statusConfig.ts
+  80:35  warning  No magic number: 3  no-magic-numbers
+  81:32  warning  No magic number: 3  no-magic-numbers
+  81:35  warning  No magic number: 5  no-magic-numbers
+  82:32  warning  No magic number: 5  no-magic-numbers
+  82:35  warning  No magic number: 7  no-magic-numbers
+
+D:\github_place\fin-agent\project\src\webui\src\utils\time.ts
+  86:34  warning  No magic number: 60000  no-magic-numbers
+  88:14  warning  No magic number: 60     no-magic-numbers
+  89:33  warning  No magic number: 60     no-magic-numbers
+  90:13  warning  No magic number: 24     no-magic-numbers
+  91:33  warning  No magic number: 24     no-magic-numbers
+
+✖ 459 problems (47 errors, 412 warnings)
+
+ ELIFECYCLE  Command failed with exit code 1.

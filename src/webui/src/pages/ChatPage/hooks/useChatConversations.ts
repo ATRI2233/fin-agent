@@ -12,6 +12,10 @@ import {
 } from '../../../hooks/useConversations';
 import { useConversationStore } from '../../../store/useConversationStore';
 import type { Conversation } from '../../../domain/conversation';
+import { deleteConversation as deleteConversationApi } from '../../../api/conversations';
+
+/** Default agent name used when creating a new conversation. */
+const DEFAULT_AGENT_NAME = 'fin-orchestrator'; // configured in config/agents/fin-orchestrator.md
 
 export interface UseConversationsResult {
   conversations: Conversation[];
@@ -34,7 +38,7 @@ export function useChatConversations(): UseConversationsResult {
 
   const createConversation = useCallback(async (): Promise<void> => {
     try {
-      const conv = await createMutation.mutate({ agent_name: 'fin-orchestrator', title: 'New Conversation' });
+      const conv = await createMutation.mutate({ agent_name: DEFAULT_AGENT_NAME, title: 'New Conversation' });
       setCurrentConversation(conv);
       setMessages([]);
       refetch();
@@ -44,10 +48,21 @@ export function useChatConversations(): UseConversationsResult {
   }, [createMutation, setCurrentConversation, setMessages, refetch]);
 
   const deleteConversation = useCallback(
-    async (_id: string): Promise<void> => {
-      message.info('Conversation deletion is not available in this version.');
+    async (id: string): Promise<void> => {
+      try {
+        await deleteConversationApi(id);
+        // If the deleted conversation was selected, clear the selection
+        if (currentConversation?.id === id) {
+          setCurrentConversation(null);
+          setMessages([]);
+        }
+        message.success('Conversation deleted');
+        refetch();
+      } catch (err) {
+        message.error('Failed to delete conversation');
+      }
     },
-    [],
+    [currentConversation, setCurrentConversation, setMessages, refetch],
   );
 
   return {

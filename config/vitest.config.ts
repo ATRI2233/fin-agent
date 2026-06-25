@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  root: "..",
+  root: new URL("..", import.meta.url).pathname,
   test: {
     globals: true,
     environment: "node",
@@ -9,12 +9,6 @@ export default defineConfig({
     coverage: {
       reporter: ["text", "html"],
       exclude: ["node_modules", "dist", "src/webui"],
-    },
-  },
-  resolve: {
-    alias: {
-      "@server/": new URL("../src/server/", import.meta.url).pathname,
-      "@agents/": new URL("../src/agents/", import.meta.url).pathname,
     },
   },
 });

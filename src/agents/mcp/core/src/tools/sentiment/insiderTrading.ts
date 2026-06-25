@@ -186,7 +186,7 @@ function processInsiderData(symbol: string, rawData: any, days: number): Insider
   };
 }
 
-function generateSimulatedInsiderData(symbol: string): any {
+function generateSimulatedInsiderData(_symbol: string): any {
   const now = new Date();
   const insiders = [
     { name: "Tim Cook", title: "CEO" },
@@ -214,5 +214,9 @@ function generateSimulatedInsiderData(symbol: string): any {
     });
   }
 
-  return { transactions };
+  return {
+    _simulated: true,
+    _dataSource: "FALLBACK_SIMULATION",
+    transactions,
+  };
 }

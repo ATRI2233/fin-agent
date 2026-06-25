@@ -1,40 +1,25 @@
 import { FastifyPluginAsync } from "fastify";
-import { FinAgentError, ErrorCode } from "../../../infra/errors.js";
-import type { AgentPort } from "../../../infra/agent/AgentPort.js";
+import type { IAgentService } from "../../../modules/agent/service.js";
+import type { DispatchAgentBody, NameParam } from "../../types.js";
 
 const agentRoutes: FastifyPluginAsync = async (app) => {
-  app.get("/agents", async (req, reply) => {
+  app.get("/agents", async (req, _reply) => {
     return { data: [], trace_id: req.traceId };
   });
 
-  app.get("/agents/:name", async (req, reply) => {
-    const { name } = req.params as { name: string };
-    return { data: { name }, trace_id: req.traceId };
+  app.get("/agents/:name", async (req, _reply) => {
+    const { name } = req.params as NameParam;
+    const svc = req.registry!.resolve<IAgentService>("IAgentService");
+    return { data: svc.getAgent(name), trace_id: req.traceId };
   });
 
-  app.post("/agents/:name/dispatch", async (req, reply) => {
-    const { name } = req.params as { name: string };
-    const body = req.body as any || {};
-    const input = body?.input ?? {};
-    const traceId = req.traceId;
-
-    const agentPort = req.registry.resolve<AgentPort>("AgentPort");
-    try {
-      const result = await agentPort.invoke({
-        agentName: name,
-        payload: input,
-        traceId,
-      });
-      return { data: result.content, trace_id: traceId };
-    } catch (e) {
-      if (e instanceof FinAgentError) throw e;
-      throw new FinAgentError(
-        `Agent '${name}' dispatch failed`,
-        ErrorCode.INTERNAL_FAILURE,
-        500,
-        { agent: name, cause: String(e) }
-      );
-    }
+  app.post("/agents/:name/dispatch", async (req, _reply) => {
+    const { name } = req.params as NameParam;
+    const body = (req.body ?? {}) as DispatchAgentBody;
+    const traceId = req.traceId ?? "";
+    const svc = req.registry!.resolve<IAgentService>("IAgentService");
+    const result = await svc.dispatchAgent(name, body.input ?? {}, traceId);
+    return { data: result, trace_id: traceId };
   });
 };
 

@@ -205,7 +205,7 @@ def get_daily_data(symbol):
             url = (
                 f"https://money.finance.sina.com.cn/quotes_service/api/json_v2.php"
                 f"/CN_MarketData.getKLineData"
-                f"?symbol=sh{code}&scale=240&ma=no&datalen=250"
+                f"?symbol={market}{code}&scale=240&ma=no&datalen=250"
             )
             text = http_get(url, encoding="utf-8")
             if not text:

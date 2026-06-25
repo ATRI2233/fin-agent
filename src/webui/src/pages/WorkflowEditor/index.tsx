@@ -84,7 +84,7 @@ export interface AgentNodeData {
   [key: string]: unknown;
 }
 
-export type AgentNode = Node<AgentNodeData, 'agent'>;
+export type AgentNode = Node<AgentNodeData, 'agent'> & { agent?: string };
 
 export interface DebateNodeData {
   label: string;
@@ -328,16 +328,19 @@ function WorkflowEditorInner() {
 
   const onDeleteBlock = useCallback(
     (blockId: string) => {
-      const block = nodes.find((n) => n.id === blockId) as WorkflowBlockNode | undefined;
-      const childIds = new Set(block?.data?.childNodeIds ?? []);
-      setNodes((nds) => nds.filter((n) => n.id !== blockId && !childIds.has(n.id)));
+      let childIds: Set<string> = new Set();
+      setNodes((nds) => {
+        const block = nds.find((n) => n.id === blockId) as WorkflowBlockNode | undefined;
+        childIds = new Set(block?.data?.childNodeIds ?? []);
+        return nds.filter((n) => n.id !== blockId && !childIds.has(n.id));
+      });
       setEdges((eds) =>
         eds.filter((e) => e.source !== blockId && e.target !== blockId && !childIds.has(e.source) && !childIds.has(e.target)),
       );
       setSelectedNode(null);
       setDirty(true);
     },
-    [nodes, setNodes, setEdges, setSelectedNode, setDirty],
+    [setNodes, setEdges, setSelectedNode, setDirty],
   );
 
   const onUngroupBlock = useCallback(
@@ -390,11 +393,27 @@ function WorkflowEditorInner() {
 
   const handleRun = async () => {
     try {
-      if (id && id !== 'new') await handleSave(true);
-      await triggerMut.mutate({ id: id!, params: {} });
+      let runId = id;
+      if (runId === 'new' || !runId) {
+        // Auto-create workflow to get a real id, then run
+        setSaving(true);
+        const created = await createMut.mutate({
+          name: workflowName,
+          nodes: nodes as unknown as Parameters<typeof createMut.mutate>[0]['nodes'],
+          edges: edges as unknown as Parameters<typeof createMut.mutate>[0]['edges'],
+        });
+        setDirty(false);
+        navigate(`/workflows/${created.id}/edit`);
+        runId = created.id;
+      } else {
+        await handleSave(true);
+      }
+      await triggerMut.mutate({ id: runId!, params: {} });
       message.success('工作流已启动');
     } catch {
       message.error('运行工作流失败');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -416,7 +435,11 @@ function WorkflowEditorInner() {
       event.preventDefault();
       const agentType = event.dataTransfer.getData('application/reactflow');
       if (!agentType) return;
-      const position = { x: event.clientX - 280, y: event.clientY - 60 };
+      // Drop offset to align with canvas panel position relative to viewport.
+      // Left palette panel is 240px + padding (16px*2) ≈ 280px; top toolbar ≈ 60px.
+      const DROP_OFFSET_X = 280;
+      const DROP_OFFSET_Y = 60;
+      const position = { x: event.clientX - DROP_OFFSET_X, y: event.clientY - DROP_OFFSET_Y };
       const builtins: PaletteAgent[] = [
         { type: 'input', label: '输入节点', description: '工作流入口' },
         { type: 'output', label: '输出节点', description: '工作流出口' },
@@ -456,7 +479,7 @@ function WorkflowEditorInner() {
           position,
           data: { label: agent?.label ?? agentType, agentType, inputs: {} },
           agent: agentType,
-        } as AgentNode;
+        };
         setNodes((nds) => [...nds, newNode]);
       }
       setDirty(true);
@@ -668,7 +691,7 @@ function BlockSelectorModalShell({ visible, onClose, currentWorkflowId }: BlockS
       destroyOnClose
     >
       <div style={{ padding: '24px 0', color: '#A0A0A0', fontSize: 13 }}>
-        当前工作流：{currentWorkflowId ?? 'new'} — 完整实现在 中提取。
+        当前工作流：{currentWorkflowId ?? 'new'}
       </div>
     </Modal>
   );

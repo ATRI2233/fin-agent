@@ -6,8 +6,9 @@
  */
 
 import Database from "better-sqlite3";
-import path from "path";
+import path, { dirname } from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 
 // ── 简单 LRU 缓存 (TTL + 最大容量) ─────────────────────────
 interface LRUCacheEntry<V> {
@@ -47,6 +48,8 @@ class LRUCache<K, V> {
 }
 
 // ── 数据库路径 ────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const DB_DIR = path.resolve(__dirname, "..", "..", "..", "data");
 const DB_PATH = path.join(DB_DIR, "fin-agent.db");
 
@@ -215,16 +218,21 @@ export function verifyOutcome(analysisId: number, actualPrice: number) {
   if (!analysis) throw new Error(`analysis ${analysisId} not found`);
 
   const keyPrices = JSON.parse(analysis.key_prices || "{}");
-  const support = keyPrices.support?.[0] || 0;
-  const resistance = keyPrices.resistance?.[0] || 0;
+  const support = keyPrices.support?.[0];
+  const resistance = keyPrices.resistance?.[0];
+
+  // 当 key_prices 缺失时跳过验证
+  if (support === undefined && resistance === undefined) {
+    return { analysis_id: analysisId, was_correct: null, deviation_pct: null, skipped: true };
+  }
 
   let wasCorrect: number;
-  if (analysis.direction === "bullish" && actualPrice > support) wasCorrect = 1;
-  else if (analysis.direction === "bearish" && actualPrice < resistance) wasCorrect = 1;
+  if (analysis.direction === "bullish" && actualPrice > (support ?? 0)) wasCorrect = 1;
+  else if (analysis.direction === "bearish" && actualPrice < (resistance ?? Infinity)) wasCorrect = 1;
   else if (analysis.direction === "neutral") wasCorrect = 1;
   else wasCorrect = 0;
 
-  const entryPrice = (support + resistance) / 2 || actualPrice;
+  const entryPrice = ((support ?? 0) + (resistance ?? 0)) / 2 || actualPrice;
   const deviation = ((actualPrice - entryPrice) / entryPrice) * 100;
 
   execute(
@@ -341,8 +349,7 @@ export function getJudgments(symbol: string, limit = 10): any[] {
  * 返回实际删除的行数。调用方负责周期性触发(例如 cron / 启动时)。
  */
 export function cleanupOldLogs(retentionDays = 90): number {
-  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-  const result = execute("DELETE FROM analysis_log WHERE created_at < ?", cutoff);
+  const result = execute("DELETE FROM analysis_log WHERE created_at < datetime('now', '-' || ? || ' days')", retentionDays);
   return result.changes;
 }
 

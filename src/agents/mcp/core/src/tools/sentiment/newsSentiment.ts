@@ -1,21 +1,6 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-
-function extractData(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.content && Array.isArray(raw.content)) {
-    const texts = raw.content
-      .filter((c: any) => c.type === "text" && c.text != null)
-      .map((c: any) => c.text);
-    const results: any[] = [];
-    for (const t of texts) {
-      try { results.push(JSON.parse(t)); }
-      catch { if (t) results.push(t); }
-    }
-    return results;
-  }
-  return [];
-}
+import { extractData } from "../shared/extractData.js";
 
 const SOURCE_CREDIBILITY: Record<string, number> = {
   "reuters": 0.95, "bloomberg": 0.93, "wsj": 0.90, "ft": 0.90,
@@ -107,7 +92,6 @@ export function registerNewsSentiment(
             if (pubTime > 0 && pubTime < cutoff) continue;
 
             const sentiment = analyzeSentimentSimple(n.headline || n.title || "");
-            const source = (n.source || n.publisher || "").toLowerCase();
 
             newsItems.push({
               title: n.headline || n.title || "",

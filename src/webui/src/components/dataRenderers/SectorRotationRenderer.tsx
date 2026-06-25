@@ -30,7 +30,6 @@ function SectorRow({ sector, rank }: { sector: Sector; rank: number }) {
   const name = sector.name || sector.ticker || `#${rank}`;
   const pct1d = sector.pct_1d ?? sector.change_pct_1d ?? 0;
   const pct5d = sector.pct_5d ?? sector.change_pct_5d ?? 0;
-  const momentum = sector.momentum ?? sector.relative_strength ?? 0;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>

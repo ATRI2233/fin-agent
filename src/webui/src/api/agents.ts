@@ -15,14 +15,14 @@ import type { Agent, AgentDetail } from '../domain/agent';
 /**
  * Fetch every registered agent.
  */
-export async function listAgents(): Promise<Agent[]> {
-  return apiGet<Agent[]>(ROUTES.agents.list);
+export async function listAgents(signal?: AbortSignal): Promise<Agent[] | undefined> {
+  return apiGet<Agent[]>(ROUTES.agents.list, signal);
 }
 
 /**
  * Fetch a single agent by registry name.
  */
-export async function getAgent(name: string): Promise<AgentDetail> {
-  return apiGet<AgentDetail>(ROUTES.agents.get(name));
+export async function getAgent(name: string, signal?: AbortSignal): Promise<AgentDetail | undefined> {
+  return apiGet<AgentDetail>(ROUTES.agents.get(name), signal);
 }
 

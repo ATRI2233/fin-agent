@@ -24,7 +24,7 @@
 import { Form, Typography, Input, Button, Space, Popconfirm, Tag, Divider } from 'antd';
 import { DeleteOutlined, UngroupOutlined } from '@ant-design/icons';
 
-import type { WorkflowBlockNodeData, WorkflowBlockNode } from '../index';
+import type { WorkflowBlockNode } from '../index';
 
 export interface WorkflowBlockNodePropertiesPanelProps {
   selectedNode: WorkflowBlockNode;

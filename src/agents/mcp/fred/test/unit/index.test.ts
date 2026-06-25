@@ -4,14 +4,6 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { isMainModule } from '../../src/index.js';
 
-// Create mock class instead of using jest.mock
-// This avoids ESM module mocking issues
-const MockServer = jest.fn().mockImplementation(() => ({
-  connect: jest.fn().mockResolvedValue(undefined)
-}));
-
-const MockTransport = jest.fn().mockImplementation(() => ({}));
-
 describe('Server entry point', () => {
   const indexPath = path.resolve(process.cwd(), 'src/index.ts');
 

@@ -32,9 +32,8 @@ export interface ConversationState {
   messages: Message[];
 
   /**
-   * Set the active conversation. Does NOT clear `messages` — callers should
-   * chain `setMessages([])` (or `setMessages(loadedMsgs)`) when switching
-   * to avoid briefly showing stale messages from a previous conversation.
+   * Set the active conversation and clear the message list. Callers should
+   * then load messages for the new conversation via `setMessages(loadedMsgs)`.
    */
   setCurrentConversation: (conv: Conversation | null) => void;
   /** Convenience: clear the active conversation and its messages in one call. */
@@ -60,7 +59,7 @@ export const useConversationStore = create<ConversationState>()((set) => ({
   currentConversation: null,
   messages: [],
 
-  setCurrentConversation: (conv) => set({ currentConversation: conv }),
+  setCurrentConversation: (conv) => set({ currentConversation: conv, messages: [] }),
 
   clearCurrentConversation: () => set({ currentConversation: null, messages: [] }),
 

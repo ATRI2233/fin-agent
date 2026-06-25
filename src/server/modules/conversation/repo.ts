@@ -1,5 +1,5 @@
 import { eq, desc, asc } from "drizzle-orm";
-import type { Database } from "../../infra/db.js";
+import type { DrizzleDatabase as Database } from "../../infra/db.js";
 import { db, wrapDbCall } from "../../infra/db.js";
 import { conversations, messages } from "../../infra/schema.js";
 
@@ -19,8 +19,17 @@ export interface Message {
   createdAt: Date;
 }
 
+export interface IConversationRepo {
+  create(agentName: string, title?: string): Conversation;
+  get(id: string): Conversation | undefined;
+  list(limit: number, offset: number): Conversation[];
+  appendMessage(conversationId: string, role: string, content: string): Message;
+  getMessages(conversationId: string, limit: number, offset: number): Message[];
+  delete(id: string): void;
+}
+
 /** Repository for conversation persistence. */
-export class ConversationRepo {
+export class ConversationRepo implements IConversationRepo {
   constructor(private db: Database) {}
 
   create(agentName: string, title?: string): Conversation {
@@ -113,3 +122,11 @@ export class ConversationRepo {
 
 /** Default instance bound to the global production db. */
 export const conversationRepo = new ConversationRepo(db);
+
+/**
+ * Factory function for creating a ConversationRepo with a custom database instance.
+ * Used by integration tests to inject an in-memory SQLite database.
+ */
+export function createConversationRepo(db: Database): ConversationRepo {
+  return new ConversationRepo(db);
+}

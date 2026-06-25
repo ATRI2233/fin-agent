@@ -1,29 +1,30 @@
 /**
  * Aggregated server-data hook for the Dashboard page.
  *
- * Wraps `listAgents` / `listTools` / `listServers` / skills count /
- * system health in a single `useQueries` call so Dashboard.tsx can read
- * all five datasets via a single hook and get a uniform `isLoading` /
- * `isError` / `refetch` view.
+ * Wraps `listAgents` / `listTools` / system health in a single
+ * `useQueries` call so Dashboard.tsx can read all three datasets via
+ * a single hook and get a uniform `isLoading` / `isError` / `refetch`
+ * view.
  *
  * Conventions mirror the per-domain hooks (`useMcp`, `useAgents`):
  * 10s refetch interval, `signal`-aware fetchers, snake-case query keys.
  */
 import { useQueries } from "@tanstack/react-query";
 import { listAgents } from "../api/agents";
-import { listTools, listServers } from "../api/mcp";
+import { listTools } from "../api/mcp";
 import { API_V1_BASE } from "../config/env";
-import { apiGet, ApiError } from "../api/http";
+import { apiGet } from "../api/http";
 import type { Agent, ToolItem } from "../domain/agent";
+import { agentKeys } from "./useAgents";
+import { mcpKeys } from "./useMcp";
 
 export interface DashboardData {
   agents: Agent[];
   tools: ToolItem[];
-  servers: unknown[];
-  skillsCount: number;
   systemOnline: boolean;
   isLoading: boolean;
   isError: boolean;
+  errors: Array<{ query: string; error: Error | null }>;
   refetch: () => void;
 }
 
@@ -31,19 +32,14 @@ export function useDashboardData(): DashboardData {
   const results = useQueries({
     queries: [
       {
-        queryKey: ["agents", "list"],
+        queryKey: agentKeys.list(),
         queryFn: () => listAgents(),
         refetchInterval: 10_000,
       },
       {
-        queryKey: ["mcp", "tools"],
+        queryKey: mcpKeys.tools(),
         queryFn: ({ signal }: { signal: AbortSignal }) => listTools(signal),
         refetchInterval: 10_000,
-      },
-      {
-        queryKey: ["mcp", "servers"],
-        queryFn: ({ signal }: { signal: AbortSignal }) => listServers(signal),
-        refetchInterval: 30_000,
       },
       {
         queryKey: ["system", "health"],
@@ -56,16 +52,31 @@ export function useDashboardData(): DashboardData {
         refetchInterval: 10_000,
       },
     ],
-    combine: (results) => ({
-      agents: (results[0].data as Agent[] | undefined) ?? [],
-      tools: (results[1].data as ToolItem[] | undefined) ?? [],
-      servers: (results[2].data as unknown[] | undefined) ?? [],
-      skillsCount: 0, // OpenClaw Control UI 接管 Skills 管理
-      systemOnline: (results[3].data as boolean | undefined) ?? false,
-      isLoading: results.some((r) => r.isLoading),
-      isError: results.some((r) => r.isError),
-      refetch: () => results.forEach((r) => r.refetch()),
-    }),
+    combine: (results) => {
+      function isAgentArray(v: unknown): v is Agent[] {
+        return Array.isArray(v) && v.every((item) => typeof item === 'object' && item !== null && 'name' in item);
+      }
+      function isToolArray(v: unknown): v is ToolItem[] {
+        return Array.isArray(v);
+      }
+      function isBoolean(v: unknown): v is boolean {
+        return typeof v === 'boolean';
+      }
+      const hasData = results.some((r) => r.data !== undefined);
+      return {
+        agents: isAgentArray(results[0].data) ? results[0].data : [],
+        tools: isToolArray(results[1].data) ? results[1].data : [],
+        systemOnline: isBoolean(results[2].data) ? results[2].data : false,
+        isLoading: !hasData && results.some((r) => r.isLoading),
+        isError: !hasData && results.every((r) => r.isError),
+        errors: [
+          { query: 'agents', error: results[0].error ?? null },
+          { query: 'tools', error: results[1].error ?? null },
+          { query: 'health', error: results[2].error ?? null },
+        ],
+        refetch: () => results.forEach((r) => r.refetch()),
+      };
+    },
   });
   return results;
 }

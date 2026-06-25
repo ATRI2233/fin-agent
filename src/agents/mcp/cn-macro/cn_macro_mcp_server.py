@@ -8,9 +8,10 @@ cn-macro-mcp-server — A 股宏观数据 MCP 服务器
 - 北向资金、汇率
 """
 
-import json
 import sys
 from datetime import datetime
+
+from agents.mcp.common import make_handle_request, run_stdio_server
 
 try:
     import akshare as ak
@@ -361,153 +362,40 @@ TOOL_HANDLERS = {
     "cn_macro_fx": get_cn_macro_fx,
 }
 
+TOOL_DISPATCH = {
+    "cn_macro_credit": lambda args: get_cn_macro_credit(args.get("indicator", ""), args.get("periods", 12)),
+    "cn_macro_rates": lambda args: get_cn_macro_rates(args.get("indicator", ""), args.get("periods", 12)),
+    "cn_macro_pmi": lambda args: get_cn_macro_pmi(args.get("indicator", ""), args.get("periods", 12)),
+    "cn_macro_inflation": lambda args: get_cn_macro_inflation(args.get("indicator", ""), args.get("periods", 12)),
+    "cn_macro_industry": lambda args: get_cn_macro_industry(args.get("indicator", ""), args.get("periods", 12)),
+    "cn_macro_northbound": lambda args: get_cn_macro_northbound(args.get("periods", 20)),
+    "cn_macro_fx": lambda args: get_cn_macro_fx(args.get("indicator", ""), args.get("periods", 20)),
+}
+
 # ── MCP 服务器 ────────────────────────────────────────────
 
 
-def handle_request(req):
-    """处理 JSON-RPC 请求"""
-    method = req.get("method")
-    params = req.get("params", {})
-    req_id = req.get("id")
-
-    if method == "initialize":
+def _validate_cn_macro_call(name, args, req_id):
+    """Validate that 'indicator' is provided for tools that require it."""
+    indicator_required = {
+        "cn_macro_credit", "cn_macro_rates", "cn_macro_pmi",
+        "cn_macro_inflation", "cn_macro_industry", "cn_macro_fx",
+    }
+    if name in indicator_required and not args.get("indicator"):
         return {
             "jsonrpc": "2.0",
+            "error": {"code": -32603, "message": "缺少必需参数 'indicator'"},
             "id": req_id,
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "cn-macro-mcp-server", "version": "1.0.0"},
-            },
         }
-
-    elif method == "tools/list":
-        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": TOOLS}}
-
-    elif method == "tools/call":
-        tool_name = params.get("name")
-        arguments = params.get("arguments", {})
-
-        handler = TOOL_HANDLERS.get(tool_name)
-        if not handler:
-            return {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps({"error": f"Unknown tool: {tool_name}"}),
-                        }
-                    ],
-                    "isError": True,
-                },
-            }
-
-        # 调用处理函数
-        if tool_name == "cn_macro_northbound":
-            result = handler(arguments.get("periods", 20))
-        elif tool_name in [
-            "cn_macro_credit",
-            "cn_macro_rates",
-            "cn_macro_pmi",
-            "cn_macro_inflation",
-            "cn_macro_industry",
-        ]:
-            indicator = arguments.get("indicator")
-            if not indicator:
-                return {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": json.dumps({"error": "缺少必需参数 'indicator'"}),
-                            }
-                        ],
-                        "isError": True,
-                    },
-                }
-            result = handler(indicator, arguments.get("periods", 12))
-        elif tool_name == "cn_macro_fx":
-            indicator = arguments.get("indicator")
-            if not indicator:
-                return {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": json.dumps({"error": "缺少必需参数 'indicator'"}),
-                            }
-                        ],
-                        "isError": True,
-                    },
-                }
-            result = handler(indicator, arguments.get("periods", 20))
-        else:
-            result = handler(**arguments)
-
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(result, ensure_ascii=False, default=str),
-                    }
-                ]
-            },
-        }
-
-    elif method == "notifications/initialized":
-        return None
-
-    else:
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "error": {"code": -32601, "message": f"Method not found: {method}"},
-        }
+    return None
 
 
-def main():
-    """主循环：读取 stdin，处理请求，写入 stdout"""
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-
-        try:
-            req = json.loads(line)
-            resp = handle_request(req)
-            if resp:
-                print(json.dumps(resp, ensure_ascii=False), flush=True)
-        except json.JSONDecodeError:
-            print(
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "error": {"code": -32700, "message": "Parse error"},
-                    }
-                ),
-                flush=True,
-            )
-        except Exception as e:
-            print(
-                json.dumps(
-                    {
-                        "jsonrpc": "2.0",
-                        "id": req.get("id", None),
-                        "error": {"code": -32603, "message": str(e)},
-                    }
-                ),
-                flush=True,
-            )
-
+handle_request = make_handle_request(
+    TOOLS,
+    TOOL_DISPATCH,
+    {"name": "cn-macro-mcp-server", "version": "1.0.0"},
+    validate_call=_validate_cn_macro_call,
+)
 
 if __name__ == "__main__":
-    main()
+    run_stdio_server(handle_request, server_name="cn-macro-mcp-server")

@@ -45,7 +45,7 @@ export interface TriggerResult {
 /** List workflows (summary view, newest first). `GET /api/v1/workflows?offset=&limit=`. */
 export function listWorkflows(
   offset: number = 0,
-  limit: number = 1000,
+  limit: number = 50,
   signal?: AbortSignal,
 ): Promise<WorkflowMeta[]> {
   const qs = new URLSearchParams({ offset: String(offset), limit: String(limit) })
@@ -76,7 +76,7 @@ export function updateWorkflow(
 /** Delete a workflow and cascade-delete its executions.
  * `DELETE /api/v1/workflows/{id}` — 204 No Content. */
 export function deleteWorkflow(id: string, signal?: AbortSignal): Promise<void> {
-  return apiDelete<void>(ROUTES.workflows.delete(id), signal)
+  return apiDelete(ROUTES.workflows.delete(id), signal)
 }
 
 /** Trigger a workflow run asynchronously. `POST /api/v1/workflows/{id}/trigger` — 202.

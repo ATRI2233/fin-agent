@@ -16,8 +16,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 export interface UiState {
   /** Whether the left sidebar is collapsed. */
   sidebarCollapsed: boolean;
-  /** Whether dark mode is active. */
-  darkMode: boolean;
   /** Current router pathname (mirrors `react-router-dom` location). */
   currentRoute: string;
 
@@ -25,10 +23,6 @@ export interface UiState {
   toggleSidebar: () => void;
   /** Force the sidebar collapsed flag to a specific value. */
   setSidebarCollapsed: (collapsed: boolean) => void;
-  /** Flip the dark-mode flag. */
-  toggleDarkMode: () => void;
-  /** Force the dark-mode flag to a specific value. */
-  setDarkMode: (dark: boolean) => void;
   /** Update the cached current route. */
   setCurrentRoute: (route: string) => void;
 }
@@ -39,32 +33,27 @@ export const UI_STORAGE_KEY = 'fin-agent-ui';
 /**
  * Global UI store hook.
  *
- * Persisted slices: `sidebarCollapsed`, `darkMode` only.
+ * Persisted slices: `sidebarCollapsed` only.
  * `currentRoute` stays in memory (react-router is the source of truth).
  */
 export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       sidebarCollapsed: false,
-      darkMode: true,
       currentRoute: '/',
 
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
-      toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
-      setDarkMode: (dark) => set({ darkMode: dark }),
-
       setCurrentRoute: (route) => set({ currentRoute: route }),
     }),
     {
       name: UI_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
-        darkMode: state.darkMode,
       }),
     },
   ),

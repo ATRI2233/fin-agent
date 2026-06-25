@@ -86,7 +86,7 @@ export function useSessionBoundary(options: UseSessionBoundaryOptions = DEFAULT_
     const target = event.target as HTMLElement;
     // Only start selection when clicking on the canvas background.
     if (
-      target.classList?.contains('react-flow__pane') ||
+      target.classList?.contains('session-boundary-overlay') ||
       target.classList?.contains('react-flow__background')
     ) {
       isSelectingRef.current = true;
@@ -134,7 +134,7 @@ export function useSessionBoundary(options: UseSessionBoundaryOptions = DEFAULT_
         return null;
       }
     },
-    [createBoundaryMutation, options],
+    [createBoundaryMutation.mutate, options],
   );
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes }) => {

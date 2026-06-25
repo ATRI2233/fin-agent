@@ -15,12 +15,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@server/*": ["src/server/*"],
-      "@agents/*": ["src/agents/*"]
-    }
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "exclude": ["node_modules", "dist", ".opencode"]
+  "exclude": ["node_modules", "dist", ".openclaw"]
 }

@@ -53,14 +53,12 @@ export interface PaginatedResponse<T> {
 /**
  * Modal/dialog state container with entity binding and operation mode.
  *
- * `mode = null` (and typically `data = null`) indicates the modal is
- * closed.
+ * `mode = null` indicates the modal is closed (use `mode !== null` to
+ * check visibility).
  *
  * @typeParam T - Shape of the entity bound to the modal.
  */
 export interface ModalState<T> {
-  /** Whether the modal is currently rendered. */
-  visible: boolean;
   /** Bound entity, or `null` when none is selected. */
   data: T | null;
   /** Operation mode; `null` when the modal is closed. */

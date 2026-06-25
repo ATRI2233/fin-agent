@@ -1,5 +1,6 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
+import { extractData } from "../shared/extractData.js";
 
 const TV_INDEX_MAP: Record<string, string> = {
   "^GSPC": "SP:SPX",
@@ -12,22 +13,6 @@ const TV_INDEX_MAP: Record<string, string> = {
 };
 
 const DEFAULT_INDICES = ["^GSPC", "^IXIC", "^DJI", "VIX"];
-
-function extractData(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.content && Array.isArray(raw.content)) {
-    const texts = raw.content
-      .filter((c: any) => c.type === "text" && c.text != null)
-      .map((c: any) => c.text);
-    const results: any[] = [];
-    for (const t of texts) {
-      try { results.push(JSON.parse(t)); }
-      catch { if (t) results.push(t); }
-    }
-    return results;
-  }
-  return [];
-}
 
 export function registerMarketSnapshot(
   mcpManager: MCPClientManager

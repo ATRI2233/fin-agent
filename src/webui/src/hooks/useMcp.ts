@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { listTools, listServers, listAllowedTools } from "../api/mcp";
+import type { ToolItem } from "../api/mcp";
 
 export const mcpKeys = {
   all: ["mcp"] as const,
@@ -8,11 +9,12 @@ export const mcpKeys = {
   allowedTools: (name: string) => [...mcpKeys.all, "allowed-tools", name] as const,
 };
 
-export function useTools() {
-  return useQuery({
+export function useTools(options?: Omit<UseQueryOptions<ToolItem[], Error, ToolItem[]>, 'queryKey' | 'queryFn'>) {
+  return useQuery<ToolItem[]>({
     queryKey: mcpKeys.tools(),
     queryFn: ({ signal }) => listTools(signal),
     staleTime: 60_000,
+    ...options,
   });
 }
 
@@ -33,3 +35,4 @@ export function useAllowedTools(name: string | undefined) {
 }
 
 export { listAllowedTools as fetchAllowedTools } from "../api/mcp";
+export type { ToolItem } from "../api/mcp";

@@ -17,13 +17,13 @@ export function validateConfig(content: string): ValidationResult {
     if (err instanceof SyntaxError) {
       const match = err.message.match(/position\s+(\d+)/);
       if (match) {
-        const pos = parseInt(match[1], 10);
+        const pos = parseInt(match[1]!, 10);
         const lines = content.substring(0, pos).split('\n');
         return {
           valid: false,
           error: err.message,
           line: lines.length,
-          column: lines[lines.length - 1].length + 1,
+          column: (lines[lines.length - 1] ?? '').length + 1,
         };
       }
       return { valid: false, error: err.message };

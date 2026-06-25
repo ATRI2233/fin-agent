@@ -97,24 +97,20 @@ export function registerSECFilings(
 
       try {
         let filingsData: any = null;
-        try {
-          const [companyInfo, filings] = await Promise.allSettled([
-            mcpManager.callTool("sec-edgar", "edgar_company_info", { ticker: symbol.toUpperCase() }),
-            mcpManager.callTool("sec-edgar", "edgar_search", {
-              ticker: symbol.toUpperCase(),
-              form_type: formTypes.join(","),
-              limit,
-            }),
-          ]);
+        const [companyInfo, filings] = await Promise.allSettled([
+          mcpManager.callTool("sec-edgar", "edgar_company_info", { ticker: symbol.toUpperCase() }),
+          mcpManager.callTool("sec-edgar", "edgar_search", {
+            ticker: symbol.toUpperCase(),
+            form_type: formTypes.join(","),
+            limit,
+          }),
+        ]);
 
-          if (companyInfo.status === "fulfilled") {
-            filingsData = { company_info: companyInfo.value };
-          }
-          if (filings.status === "fulfilled") {
-            filingsData = { ...filingsData, filings: filings.value };
-          }
-        } catch (e) {
-          console.error("[sec_filings] mcp-edgar 不可用，使用模拟数据");
+        if (companyInfo.status === "fulfilled") {
+          filingsData = { company_info: companyInfo.value };
+        }
+        if (filings.status === "fulfilled") {
+          filingsData = { ...filingsData, filings: filings.value };
         }
 
         const result = filingsData || generateSimulatedFilings(symbol);
@@ -229,6 +225,8 @@ function generateSimulatedFilings(symbol: string): any {
   const now = new Date();
 
   return {
+    _simulated: true,
+    _dataSource: "FALLBACK_SIMULATION",
     company_info: {
       name: `${symbol} Inc.`,
       sic_code: "7370",

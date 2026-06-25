@@ -3,7 +3,7 @@
  *
  * Provides functionality for fetching series data and metadata
  */
-import { makeRequest, FREDConfigError, SeriesObservationsResponse } from "../common/request.js";
+import { makeRequest, FREDConfigError, SeriesObservationsResponseSchema } from "../common/request.js";
 import { getSeriesInfo } from "./search.js";
 
 /**
@@ -51,11 +51,12 @@ export async function getSeriesData(options: FREDSeriesOptions) {
     if (queryOptions.output_type !== undefined) queryParams.output_type = queryOptions.output_type;
     if (queryOptions.vintage_dates) queryParams.vintage_dates = queryOptions.vintage_dates;
     
-    // Fetch the series data
-    const dataResponse = await makeRequest<SeriesObservationsResponse>(
+    // Fetch and validate the series data
+    const rawResponse = await makeRequest(
       "series/observations",
       queryParams
     );
+    const dataResponse = SeriesObservationsResponseSchema.parse(rawResponse);
     
     // Try to get series metadata (but don't fail if it's not available)
     let seriesInfo: any = null;

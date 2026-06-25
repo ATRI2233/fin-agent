@@ -153,7 +153,7 @@ def dispatch_tool(
 
     On success returns a standard ``tools/call`` content envelope. On failure
     the exception is logged and converted to a JSON-RPC error (``-32603``) so
-    the host (opencode) sees a structured error rather than a silent ``None``.
+    the host (openclaw) sees a structured error rather than a silent ``None``.
     """
     try:
         result = handler(args)

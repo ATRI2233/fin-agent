@@ -1,5 +1,9 @@
+import { readFileSync } from "fs";
 import pino from "pino";
 import { settings } from "./settings.js";
+
+const pkg = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf-8"));
+export const APP_VERSION: string = pkg.version;
 
 export function createLogger(name: string) {
   return pino({
@@ -12,7 +16,7 @@ export function createLogger(name: string) {
     },
     base: {
       pid: process.pid,
-      version: "2.1",
+      version: APP_VERSION,
     },
   });
 }

@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { settings } from "./infra/settings.js";
-import { createLogger } from "./infra/logging.js";
+import { createLogger, APP_VERSION } from "./infra/logging.js";
 import { Registry } from "./infra/registry.js";
 import { FinAgentError, ErrorCode } from "./infra/errors.js";
 
@@ -74,22 +74,22 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
   app.register(mcpRoutes, { prefix: "/api/v1" });
 
   // ── Health check ──
-  app.get("/api/v1/health", async (req, reply) => {
+  app.get(settings.HEALTH_CHECK_PATH, async (req, _reply) => {
     return {
-      data: { status: "ok", version: "2.1" },
+      data: { status: "ok", version: APP_VERSION },
       trace_id: req.traceId,
     };
   });
 
   // ── Error handler ──
   app.setErrorHandler((err, req, reply) => {
-    if ("httpStatus" in err && err instanceof FinAgentError) {
+    if (err instanceof FinAgentError) {
       const finErr = err as FinAgentError;
       const traceId = req.traceId || "unknown";
       reply.status(finErr.httpStatus).send(finErr.toEnvelope(traceId));
       return;
     }
-    if ((err as any).validation) {
+    if ("validation" in err && Array.isArray((err as any).validation)) {
       reply.status(422).send({
         code: ErrorCode.VALIDATION_FAILED,
         message: err.message,
@@ -100,7 +100,7 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
     }
     log.error({ err, req: req.id }, "Unhandled error");
     reply.status(500).send({
-      code: ErrorCode.DATABASE_FAILURE,
+      code: ErrorCode.INTERNAL_FAILURE,
       message: "Internal server error",
       data: null,
       trace_id: req.traceId || "unknown",

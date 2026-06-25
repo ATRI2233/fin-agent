@@ -30,6 +30,7 @@ import {
 } from '../api/conversations';
 import type {
   Conversation,
+  ConversationCreate,
   Message,
   MessageCreate,
 } from '../domain/conversation';
@@ -100,9 +101,9 @@ export function useCreateConversation() {
   const { mutateAsync, isPending, error } = useMutation<
     Conversation,
     Error,
-    { agent_name: string; title?: string }
+    ConversationCreate
   >({
-    mutationFn: (data) => createConversation(data),
+    mutationFn: (data: ConversationCreate) => createConversation(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: conversationKeys.all });
     },

@@ -39,15 +39,15 @@ export function MacroRenderer({ content }: RendererProps) {
   const tableData = extractTableData(data.data || data.cpi_data || []);
 
   // Try to find date and value columns for chart
-  const keys = tableData.length > 0 ? Object.keys(tableData[0]) : [];
+  const keys = tableData.length > 0 ? Object.keys(tableData[0] ?? {}) : [];
   const dateKey = keys.find(k => /date|日期|月份|月份|时间/i.test(k)) || keys[0];
   const valueKey = keys.find(k => /value|数值|值|rate|比率/i.test(k))
     || keys.find(k => k !== dateKey && k !== '_index' && typeof tableData[0]?.[k] === 'number')
     || keys[1];
 
   const chartData = tableData.slice(0, 20).reverse().map(row => ({
-    name: String(row[dateKey] ?? ''),
-    value: typeof row[valueKey] === 'number' ? row[valueKey] : parseFloat(String(row[valueKey])) || 0,
+    name: String(row[dateKey ?? ''] ?? ''),
+    value: typeof row[valueKey ?? ''] === 'number' ? row[valueKey ?? ''] : parseFloat(String(row[valueKey ?? ''])) || 0,
   }));
 
   const latest = tableData[0];

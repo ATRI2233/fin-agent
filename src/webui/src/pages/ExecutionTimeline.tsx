@@ -1,4 +1,3 @@
-import React from 'react';
 import { Timeline, Tag, Typography, Tooltip, Spin } from 'antd';
 import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
 import { formatTime } from '../utils/time';

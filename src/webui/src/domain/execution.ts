@@ -94,10 +94,13 @@ export interface Execution {
   status: ExecutionStatus;
   /** ISO-8601 UTC timestamp when execution started. */
   started_at: string;
-  /** ISO-8601 UTC timestamp when execution ended (success or fail). */
+  /**
+   * ISO-8601 UTC timestamp when execution ended (terminal state, whether
+   * success or failure). This is the single authoritative end timestamp;
+   * use `ended_at` instead of `completed_at` for `Execution` records.
+   * Node-level completion is tracked via {@link NodeExec.completed_at}.
+   */
   ended_at?: string;
-  /** ISO-8601 UTC timestamp when execution completed. */
-  completed_at?: string;
   /** Wall-clock duration in milliseconds (server-computed). */
   duration_ms?: number;
   /** Wall-clock duration in seconds (server-computed). */

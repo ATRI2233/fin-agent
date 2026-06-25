@@ -325,6 +325,7 @@ function generateConditionalConclusions(
   for (const conflict of conflictAnalysis.conflicting_agents) {
     const agentA = signals[conflict.agent_a];
     const agentB = signals[conflict.agent_b];
+    if (!agentA || !agentB) continue;
 
     if (agentA.assumptions && agentA.assumptions.length > 0) {
       conclusions.push({

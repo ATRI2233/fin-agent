@@ -37,7 +37,7 @@ export default function AgentsPage() {
     agentWhitelistCounts,
   } = useAgentsPage();
 
-  const columns = buildAgentColumns({ agentModels: {}, agentWhitelistCounts });
+  const columns = buildAgentColumns({ agentWhitelistCounts });
 
   if (loading) {
     return (

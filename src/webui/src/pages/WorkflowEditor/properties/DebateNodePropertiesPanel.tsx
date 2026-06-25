@@ -105,7 +105,6 @@ export default function DebateNodePropertiesPanel({
                   label: `${a.label} (${a.type})`,
                   value: a.type,
                 }))}
-                allowClear
               />
               <MinusCircleOutlined
                 style={{ color: '#C47C7C', cursor: 'pointer', paddingTop: 8 }}
@@ -127,7 +126,7 @@ export default function DebateNodePropertiesPanel({
         <Form.Item label="裁判 Agent">
           <Select
             value={data.judge || undefined}
-            onChange={(val) => onUpdateNode(selectedNode.id, { judge: val })}
+            onChange={(val) => onUpdateNode(selectedNode.id, { judge: val ?? '' })}
             placeholder="选择裁判"
             options={judgeOptions}
             allowClear

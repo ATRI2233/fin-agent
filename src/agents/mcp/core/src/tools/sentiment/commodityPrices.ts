@@ -180,5 +180,9 @@ function generateSimulatedCommodityData(commodities: string[]): any {
     });
   }
 
-  return { commodities: prices };
+  return {
+    _simulated: true,
+    _dataSource: "FALLBACK_SIMULATION",
+    commodities: prices,
+  };
 }

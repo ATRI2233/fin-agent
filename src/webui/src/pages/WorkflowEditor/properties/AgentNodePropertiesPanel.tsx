@@ -19,14 +19,15 @@
  * `key: ''` to the workflow graph.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Form, Typography, Input, Select, Button, Space, Popconfirm, Tag } from 'antd';
 import {
   DeleteOutlined,
   PlusOutlined,
   MinusCircleOutlined,
 } from '@ant-design/icons';
-import { useTools } from '../../../hooks/useMcp';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTools, type ToolItem } from '../../../hooks/useMcp';
 
 import type { AgentNodeData, AgentNode } from '../index';
 
@@ -44,15 +45,22 @@ export default function AgentNodePropertiesPanel({
   onDeleteNode,
 }: AgentNodePropertiesPanelProps) {
   const [paramRows, setParamRows] = useState<Array<{ key: string; value: string }>>([]);
-  const { data: toolsData } = useTools();
+  const queryClient = useQueryClient();
+  const cachedTools = queryClient.getQueryData(['mcp', 'tools']) as ToolItem[] | undefined;
+  const { data: toolsData = cachedTools } = useTools({ enabled: !cachedTools });
   const availableTools = (toolsData ?? []).map((t) => t.name);
 
-  // Re-seed the local row mirror when the selected node or its parameters
-  // object change. Lets the user edit empty-key rows without wiping them
-  // on the next parent re-render.
+  const prevNodeIdRef = useRef<string | undefined>();
+
+  // Re-seed the local row mirror only when the selected node id changes.
+  // Avoids discarding user edits when the parent re-renders with the same
+  // node (e.g. because `parameters` was just committed upstream).
   useEffect(() => {
-    const params = selectedNode.data.parameters ?? {};
-    setParamRows(Object.entries(params).map(([key, value]) => ({ key, value })));
+    if (prevNodeIdRef.current !== selectedNode.id) {
+      const params = selectedNode.data.parameters ?? {};
+      setParamRows(Object.entries(params).map(([key, value]) => ({ key, value })));
+      prevNodeIdRef.current = selectedNode.id;
+    }
   }, [selectedNode.id, selectedNode.data.parameters]);
 
   const commitParams = (rows: Array<{ key: string; value: string }>) => {

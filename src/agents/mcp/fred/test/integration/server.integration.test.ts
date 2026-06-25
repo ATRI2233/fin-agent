@@ -7,16 +7,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import * as indexModule from '../../src/index.js';
 const { createServer, startServer } = indexModule;
 
-// Create a mock for McpServer to use in tests
-const MockMcpServer = jest.fn().mockImplementation(() => ({
-  tool: jest.fn(),
-  connect: jest.fn().mockResolvedValue(undefined)
-}));
-
 // This is a more comprehensive integration test
 // It tests the actual server components working together
 describe('FRED MCP Server Integration', () => {
-  let server: McpServer;
   let mockTransport: any;
   
   // Capture console output
@@ -90,12 +83,12 @@ describe('FRED MCP Server Integration', () => {
     const testSeriesIds = ['CPIAUCSL', 'GDP', 'UNRATE'];
     for (const seriesId of testSeriesIds) {
       // Simulate what happens inside registerSeriesTool
-      const handler = async (input: any) => {}; 
+      const handler = async (_input: any) => {};
       mockServer.tool(seriesId, `Retrieve data for ${seriesId}`, {}, handler);
     }
     
     // Also register dynamic series tool
-    mockServer.tool('FREDSeries', 'Retrieve any series', {}, async (input: any) => {});
+    mockServer.tool('FREDSeries', 'Retrieve any series', {}, async (_input: any) => {});
     
     // Verify tools were registered
     expect(mockTool.mock.calls.length).toBe(4); // 3 series + dynamic tool

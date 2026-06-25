@@ -227,13 +227,13 @@ export default function WorkflowCanvasPanel({
 
   return (
     <ReactFlow
-      nodes={nodes as unknown as Node[]}
-      edges={edges as unknown as Edge[]}
-      onNodesChange={onNodesChange as unknown as OnNodesChange}
-      onEdgesChange={onEdgesChange as unknown as OnEdgesChange}
+      nodes={nodes as Node[]}
+      edges={edges as Edge[]}
+      onNodesChange={onNodesChange as OnNodesChange}
+      onEdgesChange={onEdgesChange as OnEdgesChange}
       onConnect={onConnect}
-      onNodeClick={onNodeClick as unknown as (event: React.MouseEvent, node: Node) => void}
-      onEdgeClick={onEdgeClick as unknown as (event: React.MouseEvent, edge: Edge) => void}
+      onNodeClick={onNodeClick as (event: React.MouseEvent, node: Node) => void}
+      onEdgeClick={onEdgeClick as (event: React.MouseEvent, edge: Edge) => void}
       onPaneClick={handlePaneClick}
       onDrop={onDrop}
       onDragOver={onDragOver}

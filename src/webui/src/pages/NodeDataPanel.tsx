@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Card, Tag, Spin, Descriptions, Divider, Empty, Tooltip } from 'antd';
+import { Typography, Card, Tag, Spin, Descriptions, Divider, Empty } from 'antd';
 import { RightOutlined } from '@ant-design/icons';
 import { NODE_STATUS_CONFIG, type NodeStatusKey } from '../utils/statusConfig';
 import { formatTime } from '../utils/time';

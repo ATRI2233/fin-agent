@@ -1,6 +1,5 @@
 import { describe, expect, test, jest, beforeEach, afterEach } from '@jest/globals';
 import { FREDServerWrapper } from '../../src/index.wrapper.js';
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 describe('FREDServerWrapper', () => {
@@ -8,8 +7,7 @@ describe('FREDServerWrapper', () => {
   const mockCreateServer = jest.fn();
   const mockStartServer = jest.fn();
   const mockServer = { connect: jest.fn() };
-  const mockTransport = {};
-  
+
   // Create a wrapper with mock functions
   let wrapper: FREDServerWrapper;
   

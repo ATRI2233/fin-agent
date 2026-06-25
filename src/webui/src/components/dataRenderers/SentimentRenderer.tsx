@@ -1,6 +1,6 @@
 /** Sentiment renderer — score gauge + news list. */
 
-import { Typography, Tag } from 'antd';
+import { Typography } from 'antd';
 import type { RendererProps } from './index';
 
 const { Text } = Typography;
@@ -32,7 +32,7 @@ interface SentimentData {
 
 function ScoreGauge({ score, label }: { score: number; label?: string }) {
   // Normalize to 0-100 range for display
-  const displayScore = score > 1 && score <= 100 ? score : (score + 1) * 50;
+  const displayScore = Math.min(score > 1 && score <= 100 ? score : (score + 1) * 50, 100);
   const color = displayScore >= 60 ? '#D47070' : displayScore <= 40 ? '#5A9E7B' : '#D4A85A';
 
   return (

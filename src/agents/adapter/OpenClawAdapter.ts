@@ -9,20 +9,22 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import type { AgentPort, AgentInput, AgentOutput } from "./AgentPort.js";
-import { settings } from "../settings.js";
-import { createLogger } from "../logging.js";
-import { ValidationError, AgentTimeoutError, AgentHttp5xxError } from "../errors.js";
+import { settings } from "../../server/infra/settings.js";
+import { createLogger } from "../../server/infra/logging.js";
+import { ValidationError, AgentTimeoutError, AgentHttp5xxError } from "../../server/infra/errors.js";
 
 const log = createLogger("openclaw-adapter");
 
-/** Load system prompt from OpenCode agent definition file */
+const OPENCLAW_FETCH_TIMEOUT_MS = 30_000;
+
+/** Load system prompt from OpenClaw agent definition file */
 function loadAgentSystemPrompt(agentName: string): string | undefined {
   try {
     const path = resolve(process.cwd(), `config/agents/${agentName}.md`);
     const content = readFileSync(path, "utf-8");
     // Extract content after YAML frontmatter (--- ... ---)
     const match = content.match(/^---\s*\n[\s\S]*?\n---\s*\n([\s\S]*)$/);
-    return match ? match[1].trim() : content.trim();
+    return match?.[1]?.trim() ?? content.trim();
   } catch {
     return undefined;
   }
@@ -52,7 +54,7 @@ export class OpenClawAdapter implements AgentPort {
     });
 
     const body: Record<string, unknown> = {
-      model: "deepseek-v4-flash",
+      model: settings.OPENCLAW_MODEL,
       messages,
       stream: false,
     };
@@ -73,11 +75,15 @@ export class OpenClawAdapter implements AgentPort {
       headers["Authorization"] = `Bearer ${this.apiKey}`;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), OPENCLAW_FETCH_TIMEOUT_MS);
+
     try {
       const response = await fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -120,7 +126,25 @@ export class OpenClawAdapter implements AgentPort {
       return { content, raw: content, usage };
     } catch (e) {
       if (e instanceof AgentHttp5xxError || e instanceof ValidationError) throw e;
-      throw new AgentTimeoutError(`Agent '${agentName}' unreachable at ${this.baseUrl}`);
+
+      // AbortError from AbortController = genuine timeout
+      if (e instanceof DOMException && e.name === "AbortError") {
+        throw new AgentTimeoutError(
+          `Agent '${agentName}' timed out after ${OPENCLAW_FETCH_TIMEOUT_MS}ms`
+        );
+      }
+
+      // TypeError from fetch = network-level failure (DNS, connection refused, etc.)
+      if (e instanceof TypeError) {
+        throw new AgentHttp5xxError(
+          `Agent '${agentName}' unreachable at ${this.baseUrl}: ${e.message}`
+        );
+      }
+
+      // Unknown error — re-throw rather than misclassify
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

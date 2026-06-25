@@ -1,10 +1,12 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "outDir": "../dist/server",
-    "rootDir": "../src/server",
-    "tsBuildInfoFile": "../dist/server/.tsbuildinfo"
+    "outDir": "../dist",
+    "rootDir": "..",
+    "tsBuildInfoFile": "../dist/.tsbuildinfo",
+    "declaration": false,
+    "declarationMap": false
   },
-  "include": ["../src/server/**/*"],
+  "include": ["../src/server/**/*", "../src/agents/adapter/**/*"],
   "exclude": ["../src/server/**/*.spec.ts"]
 }

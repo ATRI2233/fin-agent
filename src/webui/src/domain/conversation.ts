@@ -43,7 +43,7 @@ export interface Conversation {
  *
  * Mirrors the Pydantic `MessageResponse` model. The backend also allows
  * role='workflow' for DAG-produced messages — not part of the public
- * ChatPage contract yet, so omitted here. Extend the union when 
+ * ChatPage contract yet, so omitted here. Extend the union when
  * wires workflow output back into the chat view.
  */
 export interface Message {
@@ -74,9 +74,15 @@ export interface Message {
  * Request body for `POST /api/v1/conversations`.
  *
  * Mirrors the Pydantic `ConversationCreate` model. The server assigns
- * the UUID and the default agent — the client only chooses a title.
+ * the UUID — the client provides the agent name and optionally a title.
  */
 export interface ConversationCreate {
+  /**
+   * Agent name to assign as the conversation's initial `current_agent`.
+   * Required — the server uses this to wire up the default agent for
+   * subsequent messages (e.g. 'fin-orchestrator').
+   */
+  agent_name: string;
   /**
    * Human-readable conversation title shown in the sidebar.
    * If omitted, the server uses the default 'New Conversation'.
@@ -121,8 +127,10 @@ export interface MessageCreate {
   /**
    * Dispatch mode. Must be one of: 'agent' (single-agent chat) or
    * 'workflow' (DAG execution). Defaults to 'agent'.
+   *
+   * NOTE: When `mode='workflow'`, `workflow_id` is required.
    */
-  mode?: string;
+  mode?: 'agent' | 'workflow';
   /**
    * Target agent name for `mode='agent'`. If omitted, the server uses
    * the conversation's `current_agent` (default: 'fin-orchestrator').
@@ -130,7 +138,7 @@ export interface MessageCreate {
    */
   agent?: string;
   /**
-   * Workflow UUID for `mode='workflow'`. Required when
+   * Workflow UUID for `mode='workflow'`. **Required** when
    * `mode='workflow'`; ignored otherwise.
    */
   workflow_id?: string;

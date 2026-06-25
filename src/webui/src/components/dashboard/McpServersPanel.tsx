@@ -8,6 +8,7 @@
 import { Card } from 'antd';
 import { CloudServerOutlined, ToolOutlined } from '@ant-design/icons';
 import type { ToolItem } from '../../domain/agent';
+import { EmptyState } from './EmptyState';
 
 export interface ServerGroup {
   name: string;
@@ -22,10 +23,6 @@ function groupStyle(last: boolean) {
   return { borderBottom: last ? 'none' : '1px solid var(--border-subtle)' } as const;
 }
 
-function Empty({ msg }: { msg: string }) {
-  return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-tertiary)', fontSize: 15 }}>{msg}</div>;
-}
-
 export function McpServersPanel({ serverGroups }: McpServersPanelProps) {
   return (
     <Card
@@ -37,7 +34,7 @@ export function McpServersPanel({ serverGroups }: McpServersPanelProps) {
       className="card-spacious fade-in fade-in-3"
     >
       {serverGroups.length === 0 ? (
-        <Empty msg="暂无 MCP 服务器数据" />
+        <EmptyState msg="暂无 MCP 服务器数据" />
       ) : (
         <div className="scroll-container">
           {serverGroups.map((group, index) => (

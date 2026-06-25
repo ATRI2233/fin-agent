@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """risk-mcp-server — 本地风控计算 + 仓位管理 + 机构持仓 MCP Server"""
 
+# NOTE: This server is NOT connected to the startup flow (start-all.mjs or openclaw gateway).
+# It is not imported by any config. To use it, register via openclaw gateway config.
+
 import json
 import os
 import sys
+
+from agents.mcp.common import make_handle_request, run_stdio_server
 
 try:
     import numpy as np
@@ -59,7 +64,7 @@ def calculate_risk(symbol):
 
         close = _close_series(data).dropna()
         price = float(close.iloc[-1])
-        high_52w = float(close.rolling(252).max().iloc[-1])
+        high_52w = float(close.rolling(window=min(252, len(close))).max().iloc[-1])
         drawdown = (price - high_52w) / high_52w if high_52w > 0 else 0
         log_ret = np.log(close / close.shift(1)).dropna()
         vol_20d = float(log_ret.tail(20).std() * np.sqrt(252))
@@ -228,8 +233,8 @@ def get_institutional_flow(symbol, top_n=10):
                             "holder": str(row.get("Holder", "")),
                             "shares": int(row["Shares"]) if pd.notna(row.get("Shares")) else 0,
                             "value": float(row["Value"]) if pd.notna(row.get("Value")) else 0,
-                            "pct_held": float(row["pctHeld"]) if pd.notna(row.get("pctHeld")) else 0,
-                            "pct_change": float(row["pctChange"]) if pd.notna(row.get("pctChange")) else 0,
+                            "pct_held": float(row.get("% Out of Shares", 0)) if pd.notna(row.get("% Out of Shares", 0)) else 0,
+                            "pct_change": 0,
                             "date": str(row.get("Date Reported", ""))[:10],
                         }
                         total_value += holder["value"]
@@ -355,112 +360,39 @@ TOOLS = [
     },
 ]
 
+TOOL_DISPATCH = {
+    "risk_gauge": lambda args: calculate_risk(args.get("symbol", "").upper()),
+    "position_sizing": lambda args: calculate_position(
+        args.get("symbol", "").upper(),
+        expected_return=args.get("expected_return"),
+        risk_free_rate=args.get("risk_free_rate", 0.05),
+        kelly_fraction=args.get("kelly_fraction", 0.25),
+    ),
+    "institutional_flow": lambda args: get_institutional_flow(
+        args.get("symbol", "").upper(),
+        top_n=args.get("top_n", 10),
+    ),
+}
 
-def handle_request(req):
-    method = req.get("method", "")
-    params = req.get("params", {})
-    req_id = req.get("id")
-
-    # MCP 协议握手
-    if method == "initialize":
+def _validate_risk_call(name, args, req_id):
+    """Validate that symbol is provided for all risk tools."""
+    symbol = args.get("symbol", "")
+    if not symbol:
         return {
             "jsonrpc": "2.0",
-            "result": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {"tools": {}},
-                "serverInfo": {"name": "risk-mcp-server", "version": "1.0.0"},
-            },
+            "error": {"code": -32603, "message": "缺少 symbol"},
             "id": req_id,
         }
+    return None
 
-    if method == "notifications/initialized":
-        # 握手完成确认，不需要回复
-        return None
 
-    if method == "tools/list":
-        return {"jsonrpc": "2.0", "result": {"tools": TOOLS}, "id": req_id}
-
-    if method == "tools/call":
-        name = params.get("name", "")
-        args = params.get("arguments", {})
-
-        if name == "risk_gauge":
-            symbol = args.get("symbol", "")
-            if not symbol:
-                return {
-                    "jsonrpc": "2.0",
-                    "error": {"code": -32603, "message": "缺少 symbol"},
-                    "id": req_id,
-                }
-            result = calculate_risk(symbol.upper())
-
-        elif name == "position_sizing":
-            symbol = args.get("symbol", "")
-            if not symbol:
-                return {
-                    "jsonrpc": "2.0",
-                    "error": {"code": -32603, "message": "缺少 symbol"},
-                    "id": req_id,
-                }
-            result = calculate_position(
-                symbol.upper(),
-                expected_return=args.get("expected_return"),
-                risk_free_rate=args.get("risk_free_rate", 0.05),
-                kelly_fraction=args.get("kelly_fraction", 0.25),
-            )
-
-        elif name == "institutional_flow":
-            symbol = args.get("symbol", "")
-            if not symbol:
-                return {
-                    "jsonrpc": "2.0",
-                    "error": {"code": -32603, "message": "缺少 symbol"},
-                    "id": req_id,
-                }
-            result = get_institutional_flow(symbol.upper(), top_n=args.get("top_n", 10))
-
-        else:
-            return {
-                "jsonrpc": "2.0",
-                "error": {"code": -32603, "message": f"Unknown tool: {name}"},
-                "id": req_id,
-            }
-
-        return {
-            "jsonrpc": "2.0",
-            "result": {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(result, ensure_ascii=False, default=str),
-                    }
-                ]
-            },
-            "id": req_id,
-        }
-
-    return {
-        "jsonrpc": "2.0",
-        "error": {"code": -32603, "message": f"Unknown method: {method}"},
-        "id": req_id,
-    }
+handle_request = make_handle_request(
+    TOOLS,
+    TOOL_DISPATCH,
+    {"name": "risk-mcp-server", "version": "1.0.0"},
+    validate_call=_validate_risk_call,
+)
 
 
 if __name__ == "__main__":
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            resp = handle_request(json.loads(line))
-            if resp is not None:
-                print(json.dumps(resp, ensure_ascii=False))
-                sys.stdout.flush()
-        except Exception as e:
-            req_id = None
-            try:
-                req_id = json.loads(line).get("id")
-            except Exception:
-                pass
-            print(json.dumps({"jsonrpc": "2.0", "id": req_id, "error": {"code": -32603, "message": str(e)}}))
-            sys.stdout.flush()
+    run_stdio_server(handle_request, server_name="risk-mcp-server")

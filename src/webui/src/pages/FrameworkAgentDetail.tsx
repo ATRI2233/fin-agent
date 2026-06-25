@@ -54,6 +54,9 @@ export default function FrameworkAgentDetail() {
   // (optional in the backend payload). Use a typed view-model with
   // optional fields so the section renderers keep working with
   // permissive `[]` fallbacks.
+  // Defensive null guard: if the backend returns null (no error, no data)
+  // we show a spinner instead of crashing on the view-model assignment below.
+  if (!agent) return <Spin tip="加载代理详情..." />;
   const agentVm: AgentDetailViewModel = agent;
 
   return (

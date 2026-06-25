@@ -104,7 +104,7 @@ async function request<T>(
   url: string,
   body: unknown | undefined,
   signal: AbortSignal | undefined,
-): Promise<T> {
+): Promise<T | undefined> {
   const headers: Record<string, string> = {
     Accept: JSON_CONTENT_TYPE,
     "X-Trace-Id": generateRequestId(),
@@ -143,7 +143,7 @@ async function request<T>(
     }
 
     if (response.status === HTTP_NO_CONTENT) {
-      return undefined as T;
+      return undefined;
     }
 
     const contentType = response.headers.get("Content-Type") ?? "";
@@ -156,7 +156,18 @@ async function request<T>(
       });
     }
 
-    const rawJson = (await response.json()) as unknown;
+    let rawJson: unknown;
+    try {
+      rawJson = await response.json();
+    } catch {
+      throw new ApiError(response.status, {
+        code: -3,
+        message: "Failed to parse JSON response",
+        data: undefined,
+        trace_id: traceId ?? "unknown",
+      });
+    }
+
     if (
       rawJson &&
       typeof rawJson === "object" &&
@@ -171,7 +182,7 @@ async function request<T>(
       // 后端带 code 字段的响应：code === 0 为成功，否则抛错误
       if (typeof envelope.code === "number") {
         if (envelope.code === 0) {
-          return (envelope.data ?? undefined) as T;
+          return (envelope.data ?? undefined) as T | undefined;
         }
         throw new ApiError(response.status, {
           code: envelope.code,
@@ -181,7 +192,7 @@ async function request<T>(
         });
       }
       // 后端无 code 字段的响应（如 { data: ..., trace_id: ... }）— 直接拆 data
-      return (envelope.data ?? undefined) as T;
+      return (envelope.data ?? undefined) as T | undefined;
     }
     return rawJson as T;
   } finally {
@@ -196,9 +207,19 @@ async function request<T>(
  *
  * @param url - Absolute URL or a value built via {@link buildUrl}.
  * @param signal - Optional `AbortSignal` to cancel the request.
+ * @throws {ApiError} When the response is 204 No Content or the JSON
+ * envelope's `data` field is `undefined`.
  */
-export function apiGet<T>(url: string, signal?: AbortSignal): Promise<T> {
-  return request<T>("GET", url, undefined, signal);
+export async function apiGet<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const result = await request<T>("GET", url, undefined, signal);
+  if (result === undefined) {
+    throw new ApiError(404, {
+      code: -4,
+      message: "No data returned",
+      trace_id: "unknown",
+    });
+  }
+  return result;
 }
 
 /**
@@ -209,9 +230,19 @@ export function apiGet<T>(url: string, signal?: AbortSignal): Promise<T> {
  * @param body - Plain object that will be `JSON.stringify`-ed. Omit for an
  * empty body.
  * @param signal - Optional `AbortSignal` to cancel the request.
+ * @throws {ApiError} When the response is 204 No Content or the JSON
+ * envelope's `data` field is `undefined`.
  */
-export function apiPost<T>(url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  return request<T>("POST", url, body, signal);
+export async function apiPost<T>(url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const result = await request<T>("POST", url, body, signal);
+  if (result === undefined) {
+    throw new ApiError(404, {
+      code: -4,
+      message: "No data returned",
+      trace_id: "unknown",
+    });
+  }
+  return result;
 }
 
 /**
@@ -222,19 +253,29 @@ export function apiPost<T>(url: string, body?: unknown, signal?: AbortSignal): P
  * @param body - Plain object that will be `JSON.stringify`-ed. Omit for an
  * empty body.
  * @param signal - Optional `AbortSignal` to cancel the request.
+ * @throws {ApiError} When the response is 204 No Content or the JSON
+ * envelope's `data` field is `undefined`.
  */
-export function apiPut<T>(url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  return request<T>("PUT", url, body, signal);
+export async function apiPut<T>(url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const result = await request<T>("PUT", url, body, signal);
+  if (result === undefined) {
+    throw new ApiError(404, {
+      code: -4,
+      message: "No data returned",
+      trace_id: "unknown",
+    });
+  }
+  return result;
 }
 
 /**
- * Issue a `DELETE` request and decode the response as `T`.
+ * Issue a `DELETE` request and await completion. Throws on non-2xx.
  *
  * @param url - Absolute URL or a value built via {@link buildUrl}.
  * @param signal - Optional `AbortSignal` to cancel the request.
  */
-export function apiDelete<T>(url: string, signal?: AbortSignal): Promise<T> {
-  return request<T>("DELETE", url, undefined, signal);
+export async function apiDelete(url: string, signal?: AbortSignal): Promise<void> {
+  await request<void>("DELETE", url, undefined, signal);
 }
 
 /**

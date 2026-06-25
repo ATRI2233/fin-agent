@@ -1,5 +1,6 @@
 import { ValidationError } from "../../infra/errors.js";
-import { Node } from "./domain/dag.js";
+import type { AgentPort } from "../../../agents/adapter/AgentPort.js";
+import type { Node } from "./domain/dag.js";
 
 export interface NodeContext {
   node: Node;
@@ -9,7 +10,6 @@ export interface NodeContext {
   results: Record<string, NodeResult>;
   edges: Array<{ source: string; target: string }>;
   traceId: string;
-  chainSessions: Record<string, string>;
   failedNodes: Set<string>;
 }
 
@@ -20,11 +20,15 @@ export interface NodeResult {
 }
 
 export interface NodeExecutor {
-  execute(ctx: NodeContext): Promise<NodeResult>;
+  execute(ctx: NodeContext): NodeResult | Promise<NodeResult>;
+}
+
+export interface IExecutorRegistry {
+  create(nodeType: string): NodeExecutor;
 }
 
 export class InputExecutor implements NodeExecutor {
-  async execute(ctx: NodeContext): Promise<NodeResult> {
+  execute(ctx: NodeContext): NodeResult {
     return {
       output: ctx.params,
       sessionId: null,
@@ -34,11 +38,11 @@ export class InputExecutor implements NodeExecutor {
 }
 
 export class OutputExecutor implements NodeExecutor {
-  async execute(ctx: NodeContext): Promise<NodeResult> {
+  execute(ctx: NodeContext): NodeResult {
     const inputs: unknown[] = [];
     for (const pid of ctx.predecessorIds) {
       if (pid in ctx.results) {
-        inputs.push(ctx.results[pid].output);
+        inputs.push(ctx.results[pid]?.output);
       } else if (ctx.failedNodes.has(pid)) {
         continue;
       } else {
@@ -54,6 +58,25 @@ export class OutputExecutor implements NodeExecutor {
     }
     return {
       output: { inputs },
+      sessionId: null,
+      extraData: {},
+    };
+  }
+}
+
+/** Agent node executor -- delegates to AgentPort. */
+export class AgentExecutor implements NodeExecutor {
+  constructor(private port: AgentPort) {}
+
+  async execute(ctx: NodeContext): Promise<NodeResult> {
+    const agentName = ctx.node.agent ?? "default";
+    const output = await this.port.invoke({
+      agentName,
+      payload: ctx.params,
+      traceId: ctx.traceId,
+    });
+    return {
+      output: output.content as any,
       sessionId: null,
       extraData: {},
     };

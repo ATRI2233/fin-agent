@@ -1,21 +1,6 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-
-function extractData(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.content && Array.isArray(raw.content)) {
-    const texts = raw.content
-      .filter((c: any) => c.type === "text" && c.text != null)
-      .map((c: any) => c.text);
-    const results: any[] = [];
-    for (const t of texts) {
-      try { results.push(JSON.parse(t)); }
-      catch { if (t) results.push(t); }
-    }
-    return results;
-  }
-  return [];
-}
+import { extractData } from "../shared/extractData.js";
 
 interface TechnicalResult {
   symbol: string;
@@ -143,7 +128,7 @@ export function registerTechnicalLevels(
         const bbBandwidth = bbMiddle ? ((bbUpper - bbLower) / bbMiddle) * 100 : 0;
 
         // ── ADX (Average Directional Index) ──────────────────
-        const adxValue = tech.ADX ?? tech["ADX"] ?? null;
+        const adxValue = tech.ADX ?? null;
         const plusDI = tech["PLUS_DI"] ?? tech["+DI"] ?? null;
         const minusDI = tech["MINUS_DI"] ?? tech["-DI"] ?? null;
 
@@ -280,7 +265,7 @@ function computeVwap(
   high: number,
   low: number,
   volume: number,
-  sma20: number
+  _sma20: number
 ): { value: number; upper_band: number; lower_band: number } | null {
   if (!volume || volume <= 0) return null;
   const typicalPrice = (high + low + price) / 3;
@@ -426,7 +411,7 @@ function generateActionPoints(
       price: Math.round(pivots.s1 * 100) / 100,
       action: "buy",
       confidence: 70,
-      reason: `RSI=${rsi.toFixed(1)} 超卖，关注S1支撑�?{pivots.s1.toFixed(2)}`,
+      reason: `RSI=${rsi.toFixed(1)} 超卖，关注S1支撑${pivots.s1.toFixed(2)}`,
     });
   }
 
@@ -435,7 +420,7 @@ function generateActionPoints(
       price: Math.round(pivots.r1 * 100) / 100,
       action: "sell",
       confidence: 70,
-      reason: `RSI=${rsi.toFixed(1)} 超买，关注R1阻力�?{pivots.r1.toFixed(2)}`,
+      reason: `RSI=${rsi.toFixed(1)} 超买，关注R1阻力${pivots.r1.toFixed(2)}`,
     });
   }
 

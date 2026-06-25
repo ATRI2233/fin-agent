@@ -8,16 +8,13 @@ import { useState } from 'react';
 import { Card } from 'antd';
 import { RobotOutlined, ToolOutlined } from '@ant-design/icons';
 import type { Agent } from '../../domain/agent';
+import { EmptyState } from './EmptyState';
 
 interface AgentPerformancePanelProps {
   agents: Agent[];
 }
 
 const agentRowStyle = { borderBottom: '1px solid var(--border-subtle)' } as const;
-
-function Empty({ msg }: { msg: string }) {
-  return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-tertiary)', fontSize: 15 }}>{msg}</div>;
-}
 
 export function AgentPerformancePanel({ agents }: AgentPerformancePanelProps) {
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
@@ -32,7 +29,7 @@ export function AgentPerformancePanel({ agents }: AgentPerformancePanelProps) {
       className="card-spacious fade-in fade-in-2"
     >
       {agents.length === 0 ? (
-        <Empty msg="暂无 Agent 数据" />
+        <EmptyState msg="暂无 Agent 数据" />
       ) : (
         <div className="scroll-container">
           {agents.map((agent, index) => {

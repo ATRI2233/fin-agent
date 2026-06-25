@@ -1,21 +1,6 @@
 import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-
-function extractData(raw: any): any[] {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.content && Array.isArray(raw.content)) {
-    const texts = raw.content
-      .filter((c: any) => c.type === "text" && c.text != null)
-      .map((c: any) => c.text);
-    const results: any[] = [];
-    for (const t of texts) {
-      try { results.push(JSON.parse(t)); }
-      catch { if (t) results.push(t); }
-    }
-    return results;
-  }
-  return [];
-}
+import { extractData } from "../shared/extractData.js";
 
 const SECTOR_MAP: Record<string, string> = {
   XLK: "科技", XLF: "金融", XLE: "能源", XLV: "医疗",
@@ -83,7 +68,6 @@ export function registerSectorRotation(
           const change1d = data.change ?? 0;
           const perfW = data.Perf_W ?? data["Perf.W"] ?? 0;
           const perf1M = data.Perf_1M ?? data["Perf.1M"] ?? 0;
-          const volume = data.volume || 0;
 
           // TradingView sector perf 不含 Volume Ratio，用保守默认�?
           const volumeRatio = 1.0;
