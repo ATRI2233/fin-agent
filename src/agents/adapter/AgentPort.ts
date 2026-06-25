@@ -38,6 +38,12 @@ export interface AgentOutput {
   readonly usage?: TokenUsage;
 }
 
+/** Lifecycle — 可选的生命周期管理接口 */
+export interface Lifecycle {
+  init?(): Promise<void>;
+  shutdown?(): Promise<void>;
+}
+
 /** AgentPort — 调用 Agent 的通用接口 */
 export interface AgentPort {
   invoke(input: AgentInput): Promise<AgentOutput>;

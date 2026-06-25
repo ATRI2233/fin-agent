@@ -8,3 +8,12 @@ export interface ToolRegistration {
   inputSchema: any;
   handler: (request: any) => Promise<any>;
 }
+
+export interface AgentSignal {
+  distribution: { p_bullish: number; p_bearish: number; p_neutral: number };
+  assumptions?: string[];
+  key_drivers?: Array<{ factor: string; weight: number; direction: string }>;
+  timeframe?: string;
+  data_quality?: number;
+  details?: string;
+}

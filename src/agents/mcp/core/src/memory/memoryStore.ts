@@ -10,6 +10,48 @@ const DB_DIR = path.resolve(__dirname, "..", "..", "..", "..", "..", "data");
 const DB_PATH = path.join(DB_DIR, "fin-agent.db");
 let db: Database.Database;
 
+// ── Row type definitions for database queries ──
+interface AnalysisLogRow {
+  id: number;
+  symbol: string;
+  direction: string;
+  confidence: number;
+  key_prices: string | null;
+  reasons: string | null;
+  source_signals: string | null;
+  created_at: string;
+  correct_count?: number;
+  total_verified?: number;
+}
+
+interface SignalStatsRow {
+  tech: string | null;
+  direction: string;
+  was_correct: number | null;
+}
+
+interface TotalStatsRow {
+  total: number;
+  correct: number | null;
+}
+
+interface LearnedRuleRow {
+  id: number;
+  rule: string;
+  confidence: number;
+  source: string;
+  hit_count: number;
+  miss_count: number;
+  active: number;
+  created_at: string;
+}
+
+interface SignalWeightRow {
+  signal_name: string;
+  base_weight: number;
+  accuracy_30d: number | null;
+}
+
 function getDb(): Database.Database {
   if (!db) {
     fs.mkdirSync(DB_DIR, { recursive: true });
@@ -67,13 +109,17 @@ function initTables(database: Database.Database) {
     );
   `);
 
+  // NOTE: These weights can be read at runtime by signalFusion.ts via getSignalWeights(),
+  // with hardcoded DEFAULT_WEIGHTS as fallback. Keep aligned with DEFAULT_WEIGHTS in
+  // signalFusion.ts (technical=0.35, fundamental=0.30, sentiment=0.10, macro=0.10,
+  // risk=0.10, smart_money=0.05).
   database.exec(`INSERT OR IGNORE INTO signal_weights (signal_name, base_weight) VALUES
-    ('technical', 0.40),
-    ('fundamental', 0.35),
+    ('technical', 0.35),
+    ('fundamental', 0.30),
     ('sentiment', 0.10),
     ('macro', 0.10),
-    ('options', 0.03),
-    ('insider', 0.02)`);
+    ('risk', 0.10),
+    ('smart_money', 0.05)`);
 }
 
 export function autoLogAnalysis(result: {
@@ -109,12 +155,12 @@ export function recallMemory(symbol: string, limit = 5): any[] {
     WHERE a.symbol = ?
     ORDER BY a.created_at DESC
     LIMIT ?
-  `).all(symbol, limit) as any[];
+  `).all(symbol, limit) as AnalysisLogRow[];
 }
 
 export function verifyOutcome(analysisId: number, actualPrice: number) {
   const d = getDb();
-  const analysis = d.prepare("SELECT * FROM analysis_log WHERE id = ?").get(analysisId) as any;
+  const analysis = d.prepare("SELECT * FROM analysis_log WHERE id = ?").get(analysisId) as AnalysisLogRow;
   if (!analysis) throw new Error(`analysis ${analysisId} not found`);
 
   const keyPrices = JSON.parse(analysis.key_prices || "{}");
@@ -150,7 +196,7 @@ export function getExperienceSummary(days = 7): string {
     LEFT JOIN market_outcomes m ON m.analysis_id = a.id
     WHERE a.created_at >= datetime('now', '-' || ? || ' days')
       AND m.was_correct IS NOT NULL
-  `).all(days) as any[];
+  `).all(days) as SignalStatsRow[];
 
   const totalStats = d.prepare(`
     SELECT
@@ -159,7 +205,7 @@ export function getExperienceSummary(days = 7): string {
     FROM analysis_log a
     JOIN market_outcomes m ON m.analysis_id = a.id
     WHERE a.created_at >= datetime('now', '-' || ? || ' days')
-  `).get(days) as any;
+  `).get(days) as TotalStatsRow;
 
   const hitRate = totalStats.total > 0
     ? Math.round((totalStats.correct / totalStats.total) * 100)
@@ -167,7 +213,7 @@ export function getExperienceSummary(days = 7): string {
 
   const rules = d.prepare(
     "SELECT rule, confidence, hit_count, miss_count FROM learned_rules WHERE active = 1 ORDER BY confidence DESC"
-  ).all() as any[];
+  ).all() as LearnedRuleRow[];
 
   const parts: string[] = [];
   parts.push(`[记忆系统] 近${days}天经验回顾:`);
@@ -204,7 +250,7 @@ export function updateRuleAccuracy(ruleId: number, wasCorrect: boolean) {
   if (wasCorrect) {
     getDb().prepare("UPDATE learned_rules SET hit_count = hit_count + 1, confidence = MIN(1.0, confidence + 0.05) WHERE id = ?").run(ruleId);
   } else {
-    const rule = getDb().prepare("SELECT * FROM learned_rules WHERE id = ?").get(ruleId) as any;
+    const rule = getDb().prepare("SELECT * FROM learned_rules WHERE id = ?").get(ruleId) as LearnedRuleRow;
     if (rule && rule.miss_count + 1 >= 3 && rule.confidence < 0.3) {
       getDb().prepare("UPDATE learned_rules SET active = 0 WHERE id = ?").run(ruleId);
     } else {
@@ -215,17 +261,17 @@ export function updateRuleAccuracy(ruleId: number, wasCorrect: boolean) {
 
 export function listRules(activeOnly = true): any[] {
   const clause = activeOnly ? "WHERE active = 1" : "";
-  return getDb().prepare(`SELECT * FROM learned_rules ${clause} ORDER BY confidence DESC`).all() as any[];
+  return getDb().prepare(`SELECT * FROM learned_rules ${clause} ORDER BY confidence DESC`).all() as LearnedRuleRow[];
 }
 
 export function getSignalWeights(): any[] {
-  return getDb().prepare("SELECT signal_name, base_weight, accuracy_30d FROM signal_weights").all() as any[];
+  return getDb().prepare("SELECT signal_name, base_weight, accuracy_30d FROM signal_weights").all() as SignalWeightRow[];
 }
 
 export function getJudgments(symbol: string, limit = 10): any[] {
-  return getDb().prepare("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?").all(symbol, limit) as any[];
+  return getDb().prepare("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?").all(symbol, limit) as AnalysisLogRow[];
 }
 
 export function getAllExperience(minConfidence = 0): any[] {
-  return getDb().prepare("SELECT * FROM learned_rules WHERE active = 1 AND confidence >= ? ORDER BY confidence DESC").all(minConfidence) as any[];
+  return getDb().prepare("SELECT * FROM learned_rules WHERE active = 1 AND confidence >= ? ORDER BY confidence DESC").all(minConfidence) as LearnedRuleRow[];
 }

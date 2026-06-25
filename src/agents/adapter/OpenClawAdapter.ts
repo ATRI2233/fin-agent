@@ -17,33 +17,36 @@ const log = createLogger("openclaw-adapter");
 
 const OPENCLAW_FETCH_TIMEOUT_MS = 30_000;
 
-/** Load system prompt from OpenClaw agent definition file */
-function loadAgentSystemPrompt(agentName: string): string | undefined {
-  try {
-    const path = resolve(process.cwd(), `config/agents/${agentName}.md`);
-    const content = readFileSync(path, "utf-8");
-    // Extract content after YAML frontmatter (--- ... ---)
-    const match = content.match(/^---\s*\n[\s\S]*?\n---\s*\n([\s\S]*)$/);
-    return match?.[1]?.trim() ?? content.trim();
-  } catch {
-    return undefined;
-  }
-}
-
 export class OpenClawAdapter implements AgentPort {
   private baseUrl: string;
   private apiKey: string;
+  private systemPromptCache = new Map<string, string>();
 
   constructor(baseUrl?: string, apiKey?: string) {
-    this.baseUrl = baseUrl ?? settings.OPENCLAW_API_BASE;
+    this.baseUrl = (baseUrl ?? settings.OPENCLAW_API_BASE).replace(/\/+$/, '');
     this.apiKey = apiKey ?? settings.OPENCLAW_API_KEY;
+  }
+
+  private loadAgentSystemPrompt(agentName: string): string | undefined {
+    const cached = this.systemPromptCache.get(agentName);
+    if (cached !== undefined) return cached;
+    try {
+      const path = resolve(process.cwd(), `config/agents/${agentName}.md`);
+      const content = readFileSync(path, "utf-8");
+      const match = content.match(/^---\s*\n[\s\S]*?\n---\s*\n([\s\S]*)$/);
+      const result = match?.[1]?.trim() ?? content.trim();
+      this.systemPromptCache.set(agentName, result);
+      return result;
+    } catch {
+      return undefined;
+    }
   }
 
   async invoke(input: AgentInput): Promise<AgentOutput> {
     const { agentName, payload, traceId, options } = input;
     const url = `${this.baseUrl}/chat/completions`;
 
-    const systemPrompt = loadAgentSystemPrompt(agentName);
+    const systemPrompt = this.loadAgentSystemPrompt(agentName);
     const messages: Array<{ role: string; content: string }> = [];
     if (systemPrompt) {
       messages.push({ role: "system", content: systemPrompt });

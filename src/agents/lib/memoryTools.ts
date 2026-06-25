@@ -9,6 +9,19 @@ import {
   logAnalysis,
 } from "./dataHub.js";
 
+/** Wraps a handler function with standardized error handling */
+function wrapHandler<T>(handlerFn: (args: Record<string, any>) => T) {
+  return (request: any) => {
+    const args = request.params.arguments || {};
+    try {
+      const result = handlerFn(args);
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (err: any) {
+      return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }], isError: true };
+    }
+  };
+}
+
 export function registerMemoryRecall(): ToolRegistration {
   return {
     name: "memory_recall",
@@ -29,24 +42,13 @@ export function registerMemoryRecall(): ToolRegistration {
       },
       required: ["symbol"],
     },
-    handler: async (request: any) => {
-      const args = request.params.arguments || {};
+    handler: wrapHandler((args) => {
       const symbol = args.symbol;
       const limit = args.limit || 5;
-
-      try {
-        const results = getHistory(symbol, limit);
-        const summary = getExperienceSummary(7);
-        return {
-          content: [{ type: "text", text: JSON.stringify({ recall: results, experience_context: summary }, null, 2) }],
-        };
-      } catch (err: any) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
-          isError: true,
-        };
-      }
-    },
+      const results = getHistory(symbol, limit);
+      const summary = getExperienceSummary(7);
+      return { recall: results, experience_context: summary };
+    }),
   };
 }
 
@@ -69,21 +71,9 @@ export function registerMemoryVerify(): ToolRegistration {
       },
       required: ["analysis_id", "actual_price"],
     },
-    handler: async (request: any) => {
-      const args = request.params.arguments || {};
-
-      try {
-        const result = verifyOutcome(args.analysis_id, args.actual_price);
-        return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-        };
-      } catch (err: any) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
-          isError: true,
-        };
-      }
-    },
+    handler: wrapHandler((args) => {
+      return verifyOutcome(args.analysis_id, args.actual_price);
+    }),
   };
 }
 
@@ -102,22 +92,11 @@ export function registerExperienceSummary(): ToolRegistration {
         },
       },
     },
-    handler: async (request: any) => {
-      const args = request.params.arguments || {};
+    handler: wrapHandler((args) => {
       const days = args.days || 7;
-
-      try {
-        const text = getExperienceSummary(days);
-        return {
-          content: [{ type: "text", text: JSON.stringify({ summary: text }, null, 2) }],
-        };
-      } catch (err: any) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
-          isError: true,
-        };
-      }
-    },
+      const text = getExperienceSummary(days);
+      return { summary: text };
+    }),
   };
 }
 
@@ -160,29 +139,20 @@ export function registerRuleManage(): ToolRegistration {
       },
       required: ["action"],
     },
-    handler: async (request: any) => {
-      const args = request.params.arguments || {};
-
-      try {
-        switch (args.action) {
-          case "add":
-            addRule(args.rule!, args.confidence || 0.5);
-            return { content: [{ type: "text", text: JSON.stringify({ status: "rule_added", rule: args.rule }) }] };
-          case "list":
-            return { content: [{ type: "text", text: JSON.stringify({ rules: listRules() }, null, 2) }] };
-          case "update":
-            updateRuleAccuracy(args.rule_id!, args.was_correct!);
-            return { content: [{ type: "text", text: JSON.stringify({ status: "updated" }) }] };
-          default:
-            throw new Error(`unknown action: ${args.action}`);
-        }
-      } catch (err: any) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
-          isError: true,
-        };
+    handler: wrapHandler((args) => {
+      switch (args.action) {
+        case "add":
+          addRule(args.rule!, args.confidence || 0.5);
+          return { status: "rule_added", rule: args.rule };
+        case "list":
+          return { rules: listRules() };
+        case "update":
+          updateRuleAccuracy(args.rule_id!, args.was_correct!);
+          return { status: "updated" };
+        default:
+          throw new Error(`unknown action: ${args.action}`);
       }
-    },
+    }),
   };
 }
 
@@ -221,28 +191,17 @@ export function registerMemorySave(): ToolRegistration {
       },
       required: ["symbol", "direction", "confidence"],
     },
-    handler: async (request: any) => {
-      const args = request.params.arguments || {};
+    handler: wrapHandler((args) => {
+      logAnalysis({
+        symbol: args.symbol,
+        direction: args.direction,
+        confidence: args.confidence,
+        key_prices: args.key_prices,
+        reasons: args.reasons,
+        source_signals: args.source_signals,
+      });
 
-      try {
-        logAnalysis({
-          symbol: args.symbol,
-          direction: args.direction,
-          confidence: args.confidence,
-          key_prices: args.key_prices,
-          reasons: args.reasons,
-          source_signals: args.source_signals,
-        });
-
-        return {
-          content: [{ type: "text", text: JSON.stringify({ status: "saved", symbol: args.symbol }) }],
-        };
-      } catch (err: any) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: err.message }) }],
-          isError: true,
-        };
-      }
-    },
+      return { status: "saved", symbol: args.symbol };
+    }),
   };
 }

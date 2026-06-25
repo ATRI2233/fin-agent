@@ -1,14 +1,6 @@
-import { ToolRegistration } from "./types.js";
+import { ToolRegistration, AgentSignal } from "./types.js";
 
 // ── 类型定义 ─────────────────────────────────────────────
-interface AgentSignal {
-  timeframe?: string;
-  distribution: { p_bullish: number; p_bearish: number; p_neutral: number };
-  assumptions?: string[];
-  key_drivers?: Array<{ factor: string; weight: number; direction: string }>;
-  data_quality?: number;
-}
-
 interface TimeframeGroup {
   timeframe: string;
   agents: string[];

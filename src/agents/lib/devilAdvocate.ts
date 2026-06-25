@@ -1,20 +1,7 @@
-import { ToolRegistration } from "./types.js";
+import { ToolRegistration, AgentSignal } from "./types.js";
 import { getHistory } from "./dataHub.js";
 
 // ── 类型定义 ─────────────────────────────────────────────
-interface ProbabilityDistribution {
-  p_bullish: number;
-  p_bearish: number;
-  p_neutral: number;
-}
-
-interface AgentSignal {
-  distribution: ProbabilityDistribution;
-  assumptions?: string[];
-  key_drivers?: Array<{ factor: string; weight: number; direction: string }>;
-  timeframe?: string;
-  details?: string;
-}
 
 interface BlindSpot {
   assumption: string;

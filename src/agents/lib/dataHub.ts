@@ -192,12 +192,25 @@ export function logAnalysis(result: {
 
 /** 查询历史记录 */
 const historyCache = new LRUCache<string, any[]>(100, 60_000);
-export function getHistory(symbol: string, limit = 5): any[] {
-  const cacheKey = `${symbol}:${limit}`;
-  const cached = historyCache.get(cacheKey);
-  if (cached) return cached;
 
-  const result = query(
+/** 共享缓存查询辅助 — 封装 "查缓存→查库→设缓存" 流程 */
+function queryMarketData<T = any>(
+  cache: LRUCache<string, T[]>,
+  symbol: string,
+  limit: number,
+  sql: string,
+  ...params: any[]
+): T[] {
+  const cacheKey = `${symbol}:${limit}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+  const result = query<T>(sql, ...params);
+  cache.set(cacheKey, result);
+  return result;
+}
+
+export function getHistory(symbol: string, limit = 5): any[] {
+  return queryMarketData(historyCache, symbol, limit,
     `SELECT a.*,
        (SELECT COUNT(*) FROM market_outcomes m WHERE m.analysis_id = a.id AND m.was_correct = 1) as correct_count,
        (SELECT COUNT(*) FROM market_outcomes m WHERE m.analysis_id = a.id AND m.was_correct IS NOT NULL) as total_verified
@@ -207,9 +220,6 @@ export function getHistory(symbol: string, limit = 5): any[] {
      LIMIT ?`,
     symbol, limit
   );
-
-  historyCache.set(cacheKey, result);
-  return result;
 }
 
 /** 验证结果 */
@@ -335,13 +345,10 @@ export function getSignalWeights(): any[] {
 /** 获取历史判断 */
 const judgmentCache = new LRUCache<string, any[]>(200, 60_000);
 export function getJudgments(symbol: string, limit = 10): any[] {
-  const cacheKey = `${symbol}:${limit}`;
-  const cached = judgmentCache.get(cacheKey);
-  if (cached) return cached;
-
-  const result = query("SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?", symbol, limit);
-  judgmentCache.set(cacheKey, result);
-  return result;
+  return queryMarketData(judgmentCache, symbol, limit,
+    "SELECT * FROM analysis_log WHERE symbol = ? ORDER BY created_at DESC LIMIT ?",
+    symbol, limit
+  );
 }
 
 /**
@@ -371,13 +378,19 @@ export function closeDb() {
   }
 }
 
-process.on("SIGTERM", () => {
-  closeDb();
-});
+export function registerCleanup() {
+  if (process.listenerCount("SIGTERM") === 0) {
+    process.on("SIGTERM", () => closeDb());
+  }
+  if (process.listenerCount("SIGINT") === 0) {
+    process.on("SIGINT", () => closeDb());
+  }
+}
 
-process.on("SIGINT", () => {
-  closeDb();
-});
+export function unregisterCleanup() {
+  process.removeAllListeners("SIGTERM");
+  process.removeAllListeners("SIGINT");
+}
 
 // ── 导出路径 (供调试) ─────────────────────────────────────
 export const DB_INFO = { dir: DB_DIR, path: DB_PATH };
