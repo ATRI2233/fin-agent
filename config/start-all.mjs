@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Fin-Agent 统一启动器（Node 原生版 —— 无需 pnpm/npm）
+ * Fin-Agent 缁熶竴鍚姩鍣紙Node 鍘熺敓鐗?鈥斺€?鏃犻渶 pnpm/npm锛?
  *
- * 直接调用 node_modules 中的 CLI 入口，兼容无包管理器环境。
- * 启动三个服务：
- *   1. backend   — Fastify TS 后端 (port 8000)
- *   2. frontend  — Vite React 前端 (port 5173)
- *   3. openclaw  — openclaw gateway (port 18789)
+ * 鐩存帴璋冪敤 node_modules 涓殑 CLI 鍏ュ彛锛屽吋瀹规棤鍖呯鐞嗗櫒鐜銆?
+ * 鍚姩涓変釜鏈嶅姟锛?
+ *   1. backend   鈥?Fastify TS 鍚庣 (port 8000)
+ *   2. frontend  鈥?Vite React 鍓嶇 (port 5173)
+ *   3. openclaw  鈥?openclaw gateway (port 18789)
  *
- * 用法：
+ * 鐢ㄦ硶锛?
  *   cd project && node config/start-all.mjs
  */
 import { spawn, execSync } from "child_process";
@@ -22,13 +22,13 @@ const isWin = process.platform === "win32";
 const reset = "\x1b[0m";
 const colors = ["\x1b[36m", "\x1b[32m", "\x1b[35m", "\x1b[33m"]; // cyan, green, magenta, yellow
 
-// ── 端口清理：启动前杀掉占用目标端口的旧进程 ──
+// 鈹€鈹€ 绔彛娓呯悊锛氬惎鍔ㄥ墠鏉€鎺夊崰鐢ㄧ洰鏍囩鍙ｇ殑鏃ц繘绋?鈹€鈹€
 const PORTS = { backend: 8000, frontend: 5173, openclaw: 18789 };
 
 function cleanupPorts() {
   const portList = Object.values(PORTS);
   try {
-    // 直接执行 netstat（无 pipe），JS 侧解析输出
+    // 鐩存帴鎵ц netstat锛堟棤 pipe锛夛紝JS 渚цВ鏋愯緭鍑?
     const output = execSync("netstat -aon -p TCP", { encoding: "utf8", timeout: 5000 });
     const killed = new Set();
     for (const line of output.split(/\r?\n/)) {
@@ -45,12 +45,12 @@ function cleanupPorts() {
         }
       }
     }
-  } catch {} // 无进程在监听、netstat 本身失败等情形一律静默
+  } catch {} // 鏃犺繘绋嬪湪鐩戝惉銆乶etstat 鏈韩澶辫触绛夋儏褰竴寰嬮潤榛?
 }
 
 import { createRequire } from "module";
 
-// ── 工具函数：解析 tsx / vite / openclaw 的入口 ──
+// 鈹€鈹€ 宸ュ叿鍑芥暟锛氳В鏋?tsx / vite / openclaw 鐨勫叆鍙?鈹€鈹€
 const requireRoot = createRequire(resolve(projectRoot, "package.json"));
 const requireWebui = createRequire(resolve(projectRoot, "src/webui/package.json"));
 
@@ -64,7 +64,7 @@ function tsxPath() {
 
 function vitePath() {
   try {
-    // vite 的 bin 路径不在 exports 中，先解析 package.json 所在目录再拼接
+    // vite 鐨?bin 璺緞涓嶅湪 exports 涓紝鍏堣В鏋?package.json 鎵€鍦ㄧ洰褰曞啀鎷兼帴
     const pkgPath = requireWebui.resolve("vite/package.json");
     return resolve(dirname(pkgPath), "bin", "vite.js");
   } catch {
@@ -76,7 +76,7 @@ function openclawCmd() {
   return { cmd: isWin ? "openclaw.cmd" : "openclaw", args: [] };
 }
 
-// ── 服务定义 ──
+// 鈹€鈹€ 鏈嶅姟瀹氫箟 鈹€鈹€
 const services = [
   {
     name: "backend",
@@ -105,7 +105,7 @@ mkdirSync(resolve(projectRoot, "config", "logs"), { recursive: true });
 
 console.log("Starting all services...\n");
 
-// 启动前自动清理占用端口的老进程
+// 鍚姩鍓嶈嚜鍔ㄦ竻鐞嗗崰鐢ㄧ鍙ｇ殑鑰佽繘绋?
 cleanupPorts();
 
 for (let i = 0; i < services.length; i++) {
@@ -113,13 +113,15 @@ for (let i = 0; i < services.length; i++) {
   const color = colors[i % colors.length];
   const prefix = `${color}[${svc.name.padEnd(8)}]${reset}`;
 
-  // 可选服务检测
+  // 鍙€夋湇鍔℃娴?
   if (svc.optional && !existsSync(svc.cmd)) {
     console.log(`${prefix} SKIPPED (not installed: ${svc.cmd})`);
     continue;
   }
 
-  const child = spawn(svc.cmd, svc.args, {
+  // Windows 上 .cmd/.bat 不能直接 spawn，需通过 cmd.exe /c
+  const isCmdFile = isWin && /\.(cmd|bat)$/i.test(svc.cmd);
+  const child = spawn(isCmdFile ? "cmd.exe" : svc.cmd, isCmdFile ? ["/c", svc.cmd, ...svc.args] : svc.args, {
     cwd: svc.cwd,
     stdio: ["inherit", "pipe", "pipe"],
     shell: false,
@@ -154,7 +156,7 @@ for (let i = 0; i < services.length; i++) {
   });
 }
 
-// 保存 PID 文件
+// 淇濆瓨 PID 鏂囦欢
 for (const [name, pid] of Object.entries(pidMap)) {
   writeFileSync(resolve(projectRoot, "config", "logs", `${name}.pid`), String(pid));
 }
@@ -178,7 +180,7 @@ const cleanup = () => {
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
-// Windows 没有 SIGINT 传播到子进程，需要额外处理
+// Windows 娌℃湁 SIGINT 浼犳挱鍒板瓙杩涚▼锛岄渶瑕侀澶栧鐞?
 if (isWin) {
   process.on("exit", cleanup);
 }

@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { resolve } from "path";
-import { existsSync, readdirSync } from "fs";
+import { dirname, resolve } from "path";
+import { existsSync, mkdirSync, readdirSync } from "fs";
 import { settings } from "./settings.js";
 import * as schema from "./schema.js";
 import { DatabaseError } from "./errors.js";
@@ -10,6 +10,12 @@ import { createLogger } from "./logging.js";
 
 const dbPath = settings.DATABASE_URL.replace("sqlite:///", "");
 const absolutePath = resolve(dbPath);
+
+// Ensure the parent directory exists before opening the database.
+const dbDir = dirname(absolutePath);
+if (!existsSync(dbDir)) {
+  mkdirSync(dbDir, { recursive: true });
+}
 
 // sqlite instance — created at module load time. This is intentional:
 // the repos import `db` at module scope, so lazy initialization would not
