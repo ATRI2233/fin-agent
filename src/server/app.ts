@@ -35,7 +35,7 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
 
   // ── CORS ──
   // The CORS spec forbids `Access-Control-Allow-Origin: *` together with
-  // `credentials: true` — browsers reject such responses. Instead we keep an
+  // `credentials: true` �?browsers reject such responses. Instead we keep an
   // explicit allow-list (from settings) and reflect the request Origin back
   // only when it matches, so credentialed requests stay spec-compliant.
   const allowedOrigins = new Set(
@@ -89,7 +89,7 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
       reply.status(finErr.httpStatus).send(finErr.toEnvelope(traceId));
       return;
     }
-    if ("validation" in err && Array.isArray((err as any).validation)) {
+    if ("validation" in err && Array.isArray((err as unknown as Record<string, unknown>).validation)) {
       reply.status(422).send({
         code: ErrorCode.VALIDATION_FAILED,
         message: err.message,

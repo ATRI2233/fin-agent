@@ -26,6 +26,12 @@ const mcpRoutes: FastifyPluginAsync = async (app) => {
     const svc = req.registry!.resolve<IMcpService>("IMcpService");
     await svc.callTool(name, body.tool, traceId);
   });
+
+  app.get("/mcp/agents/:name/allowed-tools", async (req, _reply) => {
+    const { name } = req.params as NameParam;
+    const svc = req.registry!.resolve<IMcpService>("IMcpService");
+    return { data: await svc.getAllowedTools(name), trace_id: req.traceId };
+  });
 };
 
 export default mcpRoutes;

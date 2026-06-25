@@ -11,14 +11,15 @@ const conversationRoutes: FastifyPluginAsync = async (app) => {
   app.post("/conversations", async (req, _reply) => {
     const body = req.body as CreateConversationBody;
     const svc = req.registry!.resolve<IConversationService>("IConversationService");
-    const conv = svc.createConversation(body.title);
+    const conv = svc.createConversation(body.title, body.agent_name);
     return { data: conv, trace_id: req.traceId };
   });
 
   app.get("/conversations/:id", async (req, _reply) => {
     const { id } = req.params as IdParam;
     const svc = req.registry!.resolve<IConversationService>("IConversationService");
-    return { data: svc.getConversation(id), trace_id: req.traceId };
+    const conv = svc.getConversation(id);
+    return { data: { conversation: conv, messages: svc.getMessages(id) }, trace_id: req.traceId };
   });
 
   app.delete("/conversations/:id", async (req, _reply) => {

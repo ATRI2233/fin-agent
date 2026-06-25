@@ -4,13 +4,18 @@ import type { DispatchAgentBody, NameParam } from "../../types.js";
 
 const agentRoutes: FastifyPluginAsync = async (app) => {
   app.get("/agents", async (req, _reply) => {
-    return { data: [], trace_id: req.traceId };
+    const svc = req.registry!.resolve<IAgentService>("IAgentService");
+    return { data: svc.listAgents(), trace_id: req.traceId };
   });
 
-  app.get("/agents/:name", async (req, _reply) => {
+  app.get("/agents/:name", async (req, reply) => {
     const { name } = req.params as NameParam;
     const svc = req.registry!.resolve<IAgentService>("IAgentService");
-    return { data: svc.getAgent(name), trace_id: req.traceId };
+    const agent = svc.getAgent(name);
+    if (!agent) {
+      return reply.code(404).send({ message: `Agent "${name}" not found`, trace_id: req.traceId });
+    }
+    return { data: agent, trace_id: req.traceId };
   });
 
   app.post("/agents/:name/dispatch", async (req, _reply) => {

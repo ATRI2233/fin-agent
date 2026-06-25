@@ -26,6 +26,7 @@ export interface NameParam {
 
 export interface CreateConversationBody {
   title?: string;
+  agent_name?: string;
 }
 
 export interface CreateMessageBody {

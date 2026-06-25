@@ -34,6 +34,7 @@ export interface IMcpService {
   listServers(): Promise<ServerInfo[]>;
   getServerTools(name: string): Promise<{ name: string; description?: string }[]>;
   callTool(serverName: string, toolName: string, traceId: string): Promise<void>;
+  getAllowedTools(agentName: string): Promise<string[]>;
 }
 
 export class McpService implements IMcpService {
@@ -95,5 +96,18 @@ export class McpService implements IMcpService {
       `MCP tool invocation is not implemented (server='${serverName}', tool='${toolName}')`,
       { server: serverName, tool: toolName, traceId }
     );
+  }
+
+  async getAllowedTools(agentName: string): Promise<string[]> {
+    // For now, return all tool names as the allowed tools for any agent.
+    // The MCP config doesn't have per-agent tool whitelists yet.
+    const config = await this.loadMcpConfig();
+    const tools: string[] = [];
+    for (const server of config.servers || []) {
+      for (const tool of server.tools || []) {
+        tools.push(tool.name);
+      }
+    }
+    return tools;
   }
 }

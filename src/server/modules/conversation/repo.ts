@@ -80,14 +80,23 @@ export class ConversationRepo implements IConversationRepo {
     const now = new Date();
     const id = crypto.randomUUID();
     return wrapDbCall("append message", () => {
-      this.db.update(conversations)
-        .set({ updatedAt: now })
-        .where(eq(conversations.id, conversationId))
-        .run();
+      // 1. Existence check
+      const existing = this.db.select().from(conversations).where(eq(conversations.id, conversationId)).get();
+      if (!existing) {
+        throw new Error(`Conversation not found: ${conversationId}`);
+      }
 
-      this.db.insert(messages)
-        .values({ id, conversationId, role, content, createdAt: now })
-        .run();
+      // 2. Transaction-wrapped operations
+      this.db.transaction((tx) => {
+        tx.update(conversations)
+          .set({ updatedAt: now })
+          .where(eq(conversations.id, conversationId))
+          .run();
+
+        tx.insert(messages)
+          .values({ id, conversationId, role, content, createdAt: now })
+          .run();
+      });
 
       return { id, conversationId, role, content, createdAt: now };
     });

@@ -18,6 +18,7 @@ import { ConversationService } from "./modules/conversation/service.js";
 import { ExecutionService } from "./modules/execution/service.js";
 import { AgentService } from "./modules/agent/service.js";
 import { McpService } from "./modules/mcp/service.js";
+import { cleanupOldLogs } from "../agents/lib/dataHub.js";
 
 const log = createLogger("index");
 
@@ -111,6 +112,23 @@ async function main() {
   try {
     await app.listen({ host, port });
     log.info(`Server listening on http://${host}:${port}`);
+
+    // Schedule periodic cleanup of old analysis logs
+    try {
+      const deleted = cleanupOldLogs(30);
+      log.info({ deleted }, "Running initial cleanupOldLogs...");
+    } catch (err) {
+      log.error({ err }, "Initial cleanupOldLogs failed");
+    }
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    setInterval(() => {
+      try {
+        cleanupOldLogs(30);
+      } catch (err) {
+        log.error({ err }, "Scheduled cleanupOldLogs failed");
+      }
+    }, TWENTY_FOUR_HOURS);
+    log.info("Scheduled cleanupOldLogs every 24h (retention: 30 days)");
   } catch (err) {
     log.error({ err }, "Failed to start server");
     registry.shutdown();

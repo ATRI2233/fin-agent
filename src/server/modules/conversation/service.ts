@@ -3,7 +3,7 @@ import { ConversationNotFoundError, ValidationError } from "../../infra/errors.j
 
 export interface IConversationService {
   listConversations(): Conversation[];
-  createConversation(title?: string): Conversation;
+  createConversation(title?: string, agentName?: string): Conversation;
   getConversation(id: string): Conversation;
   deleteConversation(id: string): void;
   getMessages(id: string): Message[];
@@ -17,8 +17,8 @@ export class ConversationService implements IConversationService {
     return this.repo.list(50, 0);
   }
 
-  createConversation(title?: string): Conversation {
-    return this.repo.create("fin-orchestrator", title);
+  createConversation(title?: string, agentName?: string): Conversation {
+    return this.repo.create(agentName ?? "fin-orchestrator", title);
   }
 
   getConversation(id: string): Conversation {

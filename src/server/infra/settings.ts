@@ -77,13 +77,15 @@ const settingsSchema = z.object({
 // ── 解析 ──
 
 const rawEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([k]) => k.startsWith("FIN_AGENT_"))
+  Object.entries(process.env)
+    .filter(([k]) => k.startsWith("FIN_AGENT_"))
+    .map(([k, v]) => [k.replace(/^FIN_AGENT_/, ""), v])
 );
 
 // 手动处理 boolean 字段，避免 z.coerce.boolean 的 bug
 const envWithBooleans = {
   ...rawEnv,
-  AUTH_SKIP_LOCALHOST: parseBoolean(rawEnv.FIN_AGENT_AUTH_SKIP_LOCALHOST, false),
+  AUTH_SKIP_LOCALHOST: parseBoolean(rawEnv.AUTH_SKIP_LOCALHOST, false),
 };
 
 const parsed = settingsSchema.safeParse(envWithBooleans);
