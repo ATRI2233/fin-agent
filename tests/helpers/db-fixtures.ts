@@ -34,15 +34,6 @@ export type WorkflowRecord = {
   updatedAt: Date;
 };
 
-/** Result shape returned by {@link createTestConversation}. */
-export type ConversationRecord = {
-  id: string;
-  agentName: string;
-  title: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
 /** Result shape returned by {@link createTestExecution}. */
 export type ExecutionRecord = {
   id: string;
@@ -92,33 +83,6 @@ export function createTestWorkflow(
 }
 
 /**
- * Insert a test conversation record with sensible defaults.
- *
- * @param db        - Drizzle client bound to the project schema
- * @param overrides - Optional fields to override defaults
- * @returns The inserted record values
- */
-export function createTestConversation(
-  db: DrizzleClient,
-  overrides?: Partial<typeof schema.conversations.$inferInsert>,
-): ConversationRecord {
-  const id = overrides?.id ?? crypto.randomUUID();
-  const now = new Date();
-
-  const values: typeof schema.conversations.$inferInsert = {
-    id,
-    agentName: "test-agent",
-    title: null,
-    createdAt: now,
-    updatedAt: now,
-    ...overrides,
-  };
-
-  db.insert(schema.conversations).values(values).run();
-  return values as ConversationRecord;
-}
-
-/**
  * Insert a test workflow execution record with sensible defaults.
  *
  * @param db        - Drizzle client bound to the project schema
@@ -158,12 +122,10 @@ export function createTestExecution(
  */
 export function cleanTestData(db: DrizzleClient): void {
   // Leaf tables first (no dependents, or dependents already cascade-deleted).
-  db.delete(schema.messages).run();
   db.delete(schema.executionLogs).run();
   db.delete(schema.executionNodes).run();
 
   // Parent tables after dependents are cleared.
-  db.delete(schema.conversations).run();
   db.delete(schema.workflowExecutions).run();
   db.delete(schema.workflows).run();
 }

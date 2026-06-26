@@ -5,7 +5,6 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { eq } from "drizzle-orm";
 import { resolve } from "path";
 import * as schema from "../../src/server/infra/schema.js";
-import { ConversationRepo as ConversationRepoCls } from "../../src/server/modules/conversation/repo.js";
 import { WorkflowRepo as WorkflowRepoCls } from "../../src/server/modules/workflow/repo.js";
 import { ExecutionRepo as ExecutionRepoCls } from "../../src/server/modules/execution/repo.js";
 import { ExecutionDomainService } from "../../src/server/modules/execution/domain-service.js";
@@ -16,7 +15,6 @@ import { createTestWorkflow } from "../helpers/db-fixtures.js";
 
 let db: ReturnType<typeof drizzle>;
 let sqlite: Database;
-let ConversationRepo: ConversationRepoCls;
 let WorkflowRepo: WorkflowRepoCls;
 let ExecutionRepo: ExecutionRepoCls;
 
@@ -27,7 +25,6 @@ beforeAll(() => {
   const migrationsPath = resolve(process.cwd(), "config", "drizzle", "migrations");
   migrate(db, { migrationsFolder: migrationsPath });
 
-  ConversationRepo = new ConversationRepoCls(db);
   WorkflowRepo = new WorkflowRepoCls(db);
   ExecutionRepo = new ExecutionRepoCls(db);
 });
@@ -36,91 +33,6 @@ afterAll(() => {
   sqlite.close();
 });
 
-describe("integration: conversation CRUD + cascade delete (H1)", () => {
-  it("should create and retrieve a conversation", () => {
-    const conv = ConversationRepo.create("test-agent", "Test Title");
-    expect(conv.id).toBeDefined();
-    expect(conv.agentName).toBe("test-agent");
-
-    const retrieved = ConversationRepo.get(conv.id);
-    expect(retrieved).toBeDefined();
-    expect(retrieved!.title).toBe("Test Title");
-  });
-
-  it("should list conversations with pagination", () => {
-    const c1 = ConversationRepo.create("agent-1", "First");
-    const c2 = ConversationRepo.create("agent-2", "Second");
-    const c3 = ConversationRepo.create("agent-3", "Third");
-
-    const all = ConversationRepo.list(10, 0);
-    const ids = all.map((c) => c.id);
-    expect(ids.length).toBeGreaterThanOrEqual(3);
-    expect(ids).toContain(c1.id);
-    expect(ids).toContain(c2.id);
-    expect(ids).toContain(c3.id);
-  });
-
-  it("should append messages and update conversation updatedAt", () => {
-    const conv = ConversationRepo.create("msg-test");
-    const before = conv.updatedAt;
-
-    const msg = ConversationRepo.appendMessage(conv.id, "user", "hello");
-    expect(msg.role).toBe("user");
-    expect(msg.content).toBe("hello");
-
-    const after = ConversationRepo.get(conv.id)!;
-    expect(after.updatedAt.getTime() / 1000).toBeGreaterThanOrEqual(
-      Math.floor(before.getTime() / 1000)
-    );
-  });
-
-  it("should retrieve messages in order", () => {
-    const conv = ConversationRepo.create("order-test");
-    ConversationRepo.appendMessage(conv.id, "user", "msg1");
-    ConversationRepo.appendMessage(conv.id, "assistant", "msg2");
-    ConversationRepo.appendMessage(conv.id, "user", "msg3");
-
-    const msgs = ConversationRepo.getMessages(conv.id, 10, 0);
-    expect(msgs).toHaveLength(3);
-    expect(msgs[0].content).toBe("msg1");
-    expect(msgs[1].content).toBe("msg2");
-    expect(msgs[2].content).toBe("msg3");
-  });
-
-  it("should cascade delete messages when conversation is deleted (H1 fix)", () => {
-    const conv = ConversationRepo.create("cascade-test");
-    ConversationRepo.appendMessage(conv.id, "user", "hello");
-    ConversationRepo.appendMessage(conv.id, "assistant", "hi");
-
-    const msgsBefore = ConversationRepo.getMessages(conv.id, 10, 0);
-    expect(msgsBefore).toHaveLength(2);
-
-    ConversationRepo.delete(conv.id);
-
-    const msgsAfter = ConversationRepo.getMessages(conv.id, 10, 0);
-    expect(msgsAfter).toHaveLength(0);
-
-    const convAfter = ConversationRepo.get(conv.id);
-    expect(convAfter).toBeUndefined();
-  });
-
-  it("should paginate messages", () => {
-    const conv = ConversationRepo.create("page-test");
-    for (let i = 0; i < 5; i++) {
-      ConversationRepo.appendMessage(conv.id, "user", `msg-${i}`);
-    }
-
-    const page1 = ConversationRepo.getMessages(conv.id, 2, 0);
-    expect(page1).toHaveLength(2);
-    expect(page1[0].content).toBe("msg-0");
-    expect(page1[1].content).toBe("msg-1");
-
-    const page2 = ConversationRepo.getMessages(conv.id, 2, 2);
-    expect(page2).toHaveLength(2);
-    expect(page2[0].content).toBe("msg-2");
-    expect(page2[1].content).toBe("msg-3");
-  });
-});
 
 describe("integration: execution state machine", () => {
   it("should create execution and mark status transitions", () => {
