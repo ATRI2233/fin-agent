@@ -9,7 +9,6 @@ import { FinAgentError, ErrorCode } from "./infra/errors.js";
 import "./api/types.js";
 
 import authPlugin from "./api/plugins/auth.js";
-import conversationRoutes from "./api/v1/routes/conversations.js";
 import workflowRoutes from "./api/v1/routes/workflows.js";
 import executionRoutes from "./api/v1/routes/executions.js";
 import agentRoutes from "./api/v1/routes/agents.js";
@@ -27,15 +26,15 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
     },
   });
 
-  // ── Decorate request with typed registry & traceId ──
+  // â”€â”€ Decorate request with typed registry & traceId â”€â”€
   app.decorateRequest("registry", null);
   app.addHook("onRequest", async (req) => {
     req.registry = registry;
   });
 
-  // ── CORS ──
+  // â”€â”€ CORS â”€â”€
   // The CORS spec forbids `Access-Control-Allow-Origin: *` together with
-  // `credentials: true` �?browsers reject such responses. Instead we keep an
+  // `credentials: true` â€?browsers reject such responses. Instead we keep an
   // explicit allow-list (from settings) and reflect the request Origin back
   // only when it matches, so credentialed requests stay spec-compliant.
   const allowedOrigins = new Set(
@@ -55,10 +54,10 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
     credentials: true,
   });
 
-  // ── Auth ──
+  // â”€â”€ Auth â”€â”€
   app.register(authPlugin);
 
-  // ── Trace injection ──
+  // â”€â”€ Trace injection â”€â”€
   app.addHook("onRequest", async (req) => {
     const traceId =
       req.headers[settings.TRACE_ID_HEADER.toLowerCase()]?.toString() ||
@@ -66,14 +65,13 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
     req.traceId = traceId;
   });
 
-  // ── v1 routers ──
-  app.register(conversationRoutes, { prefix: "/api/v1" });
+  // â”€â”€ v1 routers â”€â”€
   app.register(workflowRoutes, { prefix: "/api/v1" });
   app.register(executionRoutes, { prefix: "/api/v1" });
   app.register(agentRoutes, { prefix: "/api/v1" });
   app.register(mcpRoutes, { prefix: "/api/v1" });
 
-  // ── Health check ──
+  // â”€â”€ Health check â”€â”€
   app.get(settings.HEALTH_CHECK_PATH, async (req, _reply) => {
     return {
       data: { status: "ok", version: APP_VERSION },
@@ -81,7 +79,7 @@ export function createApp(registry: Registry): ReturnType<typeof Fastify> {
     };
   });
 
-  // ── Error handler ──
+  // â”€â”€ Error handler â”€â”€
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof FinAgentError) {
       const finErr = err as FinAgentError;

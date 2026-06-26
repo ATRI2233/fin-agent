@@ -26,6 +26,7 @@
   ],
   "dependencies": {
     "@fastify/cors": "^9.0.0",
+    "@noble/ed25519": "^3.1.0",
     "better-sqlite3": "^11.0.0",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.32.0",
@@ -33,12 +34,14 @@
     "ip-address": "^9.0.0",
     "p-limit": "^5.0.0",
     "pino": "^9.0.0",
+    "ws": "^8.21.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^20.0.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "drizzle-kit": "^0.23.0",

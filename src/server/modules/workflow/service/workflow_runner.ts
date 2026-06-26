@@ -10,6 +10,7 @@ import type { IWorkflowRepo } from "../repo.js";
 import type { IExecutionRepo } from "../../execution/repo.js";
 import type { ExecutionDomainService } from "../../execution/domain-service.js";
 import type { AgentPort } from "../../../../agents/adapter/AgentPort.js";
+import type { IExecutionObserver } from "./execution_observer.js";
 
 export interface ExecutionSummary {
   executionId: string;
@@ -24,7 +25,12 @@ export interface IWorkflowRunner {
   run(
     workflowId: string,
     params: Record<string, unknown>,
-    traceId: string
+    traceId: string,
+    options?: {
+      conversationId?: string;
+      sessionKey?: string;
+      observer?: IExecutionObserver;
+    }
   ): Promise<ExecutionSummary>;
 }
 
@@ -65,6 +71,11 @@ export class WorkflowRunner implements IWorkflowRunner {
     workflowId: string,
     params: Record<string, unknown>,
     traceId: string,
+    options?: {
+      conversationId?: string;
+      sessionKey?: string;
+      observer?: IExecutionObserver;
+    },
   ): Promise<ExecutionSummary> {
     const workflow = this.workflowRepo.get(workflowId);
     if (!workflow) {
@@ -85,25 +96,63 @@ export class WorkflowRunner implements IWorkflowRunner {
     this.executionRepo.createExecutionNodes(executionId, nodes);
     this.executionRepo.markExecution(executionId, "running");
 
+    // Observer: execution started (fire-and-forget)
+    if (options?.observer && (options.conversationId || options.sessionKey)) {
+      options.observer.onExecutionStart(workflow, executionId, options.conversationId ?? "");
+    }
+
     const tracker = new ExecutionTracker();
 
-    await this.nodeScheduler.executeAll(
-      workflow, executionId, params, traceId, tracker,
-    );
+    try {
+      await this.nodeScheduler.executeAll(
+        workflow, executionId, params, traceId, tracker,
+      );
 
-    const finalStatus: ExecutionStatus = tracker.failedNodes.size > 0 ? "failed" : "completed";
-    await this.markExecutionWithRetry(executionId, finalStatus);
+      const finalStatus: ExecutionStatus = tracker.failedNodes.size > 0 ? "failed" : "completed";
+      await this.markExecutionWithRetry(executionId, finalStatus);
 
-    const { failedNodes, skippedNodes } = tracker.toSummary();
+      const { failedNodes, skippedNodes } = tracker.toSummary();
 
-    return {
-      executionId,
-      workflowId,
-      status: finalStatus,
-      results: tracker.results,
-      failedNodes,
-      skippedNodes,
-    };
+      const summary: ExecutionSummary = {
+        executionId,
+        workflowId,
+        status: finalStatus,
+        results: tracker.results,
+        failedNodes,
+        skippedNodes,
+      };
+
+      // Observer: node status + completion (fire-and-forget)
+      if (options?.observer && (options.conversationId || options.sessionKey)) {
+        const nodeStatuses = this.buildNodeStatusList(workflow, tracker);
+        const cid = options.conversationId ?? "";
+        options.observer.onNodeStatusChange(workflow, executionId, cid, nodeStatuses);
+        options.observer.onExecutionComplete(workflow, executionId, cid, summary);
+      }
+
+      return summary;
+    } catch (error) {
+      const { failedNodes, skippedNodes } = tracker.toSummary();
+      const errorSummary: ExecutionSummary = {
+        executionId,
+        workflowId,
+        status: "failed",
+        results: tracker.results,
+        failedNodes,
+        skippedNodes,
+      };
+
+      // Observer: node status + error (fire-and-forget)
+      if (options?.observer && (options.conversationId || options.sessionKey)) {
+        const nodeStatuses = this.buildNodeStatusList(workflow, tracker);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const cid = options.conversationId ?? "";
+        options.observer.onNodeStatusChange(workflow, executionId, cid, nodeStatuses);
+        options.observer.onExecutionError(workflow, executionId, cid, errorSummary, errorMsg);
+      }
+
+      throw error;
+    }
   }
 
   private async markExecutionWithRetry(
@@ -126,5 +175,37 @@ export class WorkflowRunner implements IWorkflowRunner {
       );
       throw e;
     }
+  }
+
+  /** Build a snapshot of current node statuses from the tracker and workflow definition. */
+  private buildNodeStatusList(
+    workflow: import("../domain/dag.js").Workflow,
+    tracker: ExecutionTracker,
+  ): Array<{ nodeId: string; agent: string; status: string; output?: string; error?: string }> {
+    const statuses: Array<{ nodeId: string; agent: string; status: string; output?: string; error?: string }> = [];
+
+    for (const node of workflow.nodes) {
+      const agent = node.agent ?? node.type;
+
+      if (tracker.failedNodes.has(node.id)) {
+        statuses.push({ nodeId: node.id, agent, status: "failed" });
+      } else if (tracker.skippedNodes.has(node.id)) {
+        statuses.push({ nodeId: node.id, agent, status: "skipped" });
+      } else {
+        const result = tracker.results[node.id];
+        if (result) {
+          statuses.push({
+            nodeId: node.id,
+            agent,
+            status: "completed",
+            output: typeof result.output === "string" ? result.output : JSON.stringify(result.output),
+          });
+        } else {
+          statuses.push({ nodeId: node.id, agent, status: "unknown" });
+        }
+      }
+    }
+
+    return statuses;
   }
 }

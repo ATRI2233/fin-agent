@@ -15,6 +15,13 @@
       "when": 1782377790866,
       "tag": "0001_shallow_nick_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782443567844,
+      "tag": "0002_add_message_meta",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,99 @@
+{
+  "servers": [
+    {
+      "name": "fin-agent-mcp-server",
+      "description": "Core financial analysis MCP server: multi-source data aggregation, signal fusion, technical analysis, fundamental analysis, sentiment, risk, and options",
+      "tools": [
+        { "name": "market_snapshot", "description": "市场快照：获取指数/板块/成交量等综合市场数据" },
+        { "name": "sector_rotation", "description": "板块轮动分析：识别资金流向和板块轮动信号" },
+        { "name": "fear_greed_index", "description": "恐惧贪婪指数：市场情绪量化指标" },
+        { "name": "technical_levels", "description": "技术位计算：支撑位/阻力位/趋势线自动标注" },
+        { "name": "options_greeks", "description": "期权 Greeks：Delta/Gamma/Theta/Vega/Rho" },
+        { "name": "fundamental_scan", "description": "基本面扫描：财报/估值/盈利质量分析" },
+        { "name": "analyst_ratings", "description": "分析师评级/目标价查询" },
+        { "name": "earnings_calendar", "description": "财报日历：未来7日财报发布查询" },
+        { "name": "sec_filings", "description": "SEC 文件查询：10-K/10-Q/8-K 等文件检索" },
+        { "name": "news_sentiment", "description": "新闻情绪分析：带衰减因子的新闻情绪评分" },
+        { "name": "commodity_prices", "description": "大宗商品价格查询" },
+        { "name": "insider_trading", "description": "内部交易追踪" },
+        { "name": "risk_gauge", "description": "风控指标计算：波动率/回撤/VaR" },
+        { "name": "signal_fusion", "description": "多信号融合：技术面35%+基本面30%+情绪10%+宏观10%+风控10%+聪明钱5%，含一致性校验" }
+      ]
+    },
+    {
+      "name": "fred-mcp-server",
+      "description": "Federal Reserve Economic Data (FRED) MCP server for retrieving US economic data series",
+      "tools": [
+        { "name": "fred_browse", "description": "Browse FRED's complete catalog through categories, releases, or sources" },
+        { "name": "fred_search", "description": "Search for FRED economic data series by keywords, tags, or filters. Returns matching series with their IDs, titles, and metadata" },
+        { "name": "fred_get_series", "description": "Retrieve data for any FRED series by its ID. Supports data transformations, frequency changes, and date ranges" }
+      ]
+    },
+    {
+      "name": "sec-edgar-mcp-server",
+      "description": "SEC EDGAR MCP server providing access to US public company filings via the SEC EDGAR API",
+      "tools": [
+        { "name": "get_cik_by_ticker", "description": "Convert a stock ticker symbol to its SEC CIK (Central Index Key)" },
+        { "name": "get_company_info", "description": "Retrieve company information from SEC records including name, CIK, SIC code, exchange, and fiscal year end" },
+        { "name": "search_companies", "description": "Search for companies by name in SEC records" },
+        { "name": "get_company_facts", "description": "Retrieve all available XBRL facts for a company from SEC filings" },
+        { "name": "get_recent_filings", "description": "Get recent SEC filings for a company or across all filers" },
+        { "name": "get_filing_content", "description": "Get the content of a specific SEC filing with paging support" },
+        { "name": "analyze_8k", "description": "Analyze an 8-K current report for material events" },
+        { "name": "get_filing_sections", "description": "Extract specific sections from 10-K or 10-Q filings" },
+        { "name": "get_financials", "description": "Extract financial statements from the latest SEC filing" },
+        { "name": "get_segment_data", "description": "Get revenue breakdown by business or geographic segments" },
+        { "name": "get_key_metrics", "description": "Retrieve specific financial metrics from SEC filings" },
+        { "name": "compare_periods", "description": "Compare a financial metric across multiple fiscal years" },
+        { "name": "discover_company_metrics", "description": "Discover what financial metrics are available for a company" },
+        { "name": "get_xbrl_concepts", "description": "Extract specific XBRL concepts from a filing" },
+        { "name": "discover_xbrl_concepts", "description": "Discover all XBRL concepts available in a filing" },
+        { "name": "get_insider_transactions", "description": "Get insider trading transactions from Forms 3, 4, and 5" },
+        { "name": "get_insider_summary", "description": "Get a summary of insider trading activity" },
+        { "name": "get_form4_details", "description": "Get detailed information from a specific Form 4 filing" },
+        { "name": "analyze_form4_transactions", "description": "Extract detailed transaction data from Form 4 filings" },
+        { "name": "analyze_insider_sentiment", "description": "Analyze insider trading patterns and frequency" },
+        { "name": "get_recommended_tools", "description": "Get recommended tools for analyzing a specific SEC form type" }
+      ]
+    },
+    {
+      "name": "risk-mcp-server",
+      "description": "Risk MCP server providing position sizing (Kelly formula), risk metrics, and institutional holdings analysis",
+      "tools": [
+        { "name": "risk_gauge", "description": "风控指标计算：基于历史价格计算20日/60日年化波动率、距52周高点回撤、95% VaR，输出风险等级和预警" },
+        { "name": "position_sizing", "description": "仓位计算：基于凯利公式和波动率目标，输出建议仓位比例" },
+        { "name": "institutional_flow", "description": "机构持仓分析：基于13F数据输出前十大机构持有人、持仓市值、持股变化趋势" }
+      ]
+    },
+    {
+      "name": "ashare-mcp-server",
+      "description": "A股数据 MCP server: 行情/技术面/基本面/资金流向/龙虎榜/板块轮动",
+      "tools": [
+        { "name": "ashare_stock_lookup", "description": "根据股票名称查询A股代码（必须在调用其他ashare工具前使用，确保代码正确）" },
+        { "name": "ashare_quote", "description": "获取A股实时行情：价格/涨跌幅/成交量/涨跌额等" },
+        { "name": "ashare_technical_levels", "description": "获取A股技术指标：RSI/EMA/布林带/MACD/枢轴点/波动率" },
+        { "name": "ashare_fundamental_scan", "description": "获取A股基本面：ROE/净利润/营收/PE/PB/每股收益/股息率/资产负债率等" },
+        { "name": "ashare_news_sentiment", "description": "获取A股新闻及情绪评分" },
+        { "name": "ashare_market_snapshot", "description": "获取A股大盘指数（上证/深证/创业板/沪深300/科创50等）" },
+        { "name": "ashare_fund_flow", "description": "获取A股个股资金流向（超大单/大单/中单/小单净流入）" },
+        { "name": "ashare_lhb", "description": "获取龙虎榜数据（最近上榜股票）" },
+        { "name": "ashare_sector_rotation", "description": "获取A股板块轮动分析：行业板块涨跌幅排名、动量信号、轮入/轮出板块" },
+        { "name": "ashare_fund_flow_real", "description": "获取A股个股实时资金流向：主力/超大单/大单/中单/小单净流入与净占比" },
+        { "name": "ashare_market_breadth", "description": "获取A股市场广度：涨跌家数、涨停/跌停家数、涨跌家数比、市场情绪" }
+      ]
+    },
+    {
+      "name": "cn-macro-mcp-server",
+      "description": "中国宏观数据 MCP server: 社融/M1/M2/国债收益率/LPR/PMI/CPI/PPI/北向资金/汇率",
+      "tools": [
+        { "name": "cn_macro_credit", "description": "中国信贷数据：社融增量、新增人民币贷款、M1/M2同比、M1-M2剪刀差" },
+        { "name": "cn_macro_rates", "description": "中国利率数据：10年期国债收益率、LPR、公开市场操作" },
+        { "name": "cn_macro_pmi", "description": "中国PMI数据：官方制造业PMI、非制造业PMI、财新制造业PMI" },
+        { "name": "cn_macro_inflation", "description": "中国通胀数据：CPI同比、PPI同比、CPI-PPI剪刀差" },
+        { "name": "cn_macro_industry", "description": "中国工业数据：工业增加值" },
+        { "name": "cn_macro_northbound", "description": "北向资金净流入/流出数据" },
+        { "name": "cn_macro_fx", "description": "人民币汇率数据：在岸CNY、离岸CNH" }
+      ]
+    }
+  ]
+}

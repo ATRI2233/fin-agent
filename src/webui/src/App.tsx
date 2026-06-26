@@ -10,7 +10,6 @@ import {
   ToolOutlined,
   SettingOutlined,
   BranchesOutlined,
-  SendOutlined,
 } from '@ant-design/icons';
 import './styles/theme.css';
 
@@ -31,11 +30,6 @@ const menuItems: MenuItem[] = [
     key: '/framework',
     icon: <BranchesOutlined />,
     label: <Link to="/framework">Framework</Link>,
-  },
-  {
-    key: '/chat',
-    icon: <SendOutlined />,
-    label: <Link to="/chat">Chat</Link>,
   },
   {
     key: 'agents-group',

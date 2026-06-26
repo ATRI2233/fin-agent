@@ -6,7 +6,6 @@ export const ErrorCode = {
   // 1xxx: BizError
   WORKFLOW_NOT_FOUND: 1001,
   EXECUTION_NOT_FOUND: 1002,
-  CONVERSATION_NOT_FOUND: 1006,
   VALIDATION_FAILED: 1100,
   UNAUTHORIZED: 1101,
 
@@ -114,12 +113,6 @@ export class BizError extends DomainError {
 export class WorkflowNotFoundError extends BizError {
   constructor(message = "Workflow not found", details: ErrorDetails = {}, cause?: Error) {
     super(message, ErrorCode.WORKFLOW_NOT_FOUND, 404, details, cause);
-  }
-}
-
-export class ConversationNotFoundError extends BizError {
-  constructor(message = "Conversation not found", details: ErrorDetails = {}, cause?: Error) {
-    super(message, ErrorCode.CONVERSATION_NOT_FOUND, 404, details, cause);
   }
 }
 

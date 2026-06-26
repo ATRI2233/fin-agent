@@ -22,22 +22,16 @@ export interface NameParam {
   name: string;
 }
 
-// ── Conversation contracts ──
-
-export interface CreateConversationBody {
-  title?: string;
-  agent_name?: string;
-}
-
-export interface CreateMessageBody {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-
 // ── Workflow contracts ──
 
 export interface TriggerWorkflowBody {
   params?: Record<string, unknown>;
+}
+
+export interface DagTriggerBody {
+  sessionKey: string;
+  workflowId: string;
+  message?: string;
 }
 
 export interface TriggerWorkflowResponse {
@@ -82,6 +76,8 @@ export interface ExecutionNode {
   status: ExecutionStatus;
   input: unknown;
 }
+
+// ── Conversation contracts ──
 
 import "fastify";
 import type { Registry } from "../infra/registry.js";

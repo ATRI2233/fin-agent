@@ -1,31 +1,6 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
-
-export const conversations = sqliteTable("conversations", {
-  id: text("id").primaryKey(),
-  agentName: text("agent_name").notNull(),
-  title: text("title"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: integer("updated_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-});
-
-export const messages = sqliteTable("messages", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversations.id, { onDelete: "cascade" }),
-  role: text("role").notNull(),
-  content: text("content").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-  conversationCreatedAtIndex: index("idx_messages_conversation_created_at").on(table.conversationId, table.createdAt),
-}));
+import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 
 export const workflowExecutions = sqliteTable("workflow_executions", {
   id: text("id").primaryKey(),
@@ -81,3 +56,12 @@ export const workflows = sqliteTable("workflows", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
+
+export type Execution = InferSelectModel<typeof workflowExecutions>;
+export type NewExecution = InferInsertModel<typeof workflowExecutions>;
+export type ExecutionNode = InferSelectModel<typeof executionNodes>;
+export type NewExecutionNode = InferInsertModel<typeof executionNodes>;
+export type ExecutionLog = InferSelectModel<typeof executionLogs>;
+export type NewExecutionLog = InferInsertModel<typeof executionLogs>;
+export type Workflow = InferSelectModel<typeof workflows>;
+export type NewWorkflow = InferInsertModel<typeof workflows>;

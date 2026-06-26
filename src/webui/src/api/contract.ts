@@ -9,13 +9,6 @@ export const ROUTES = {
     list:  "/api/v1/agents",
     get:   (name: string) => `/api/v1/agents/${encodeURIComponent(name)}`,
   },
-  conversations: {
-    list:     "/api/v1/conversations",
-    create:   "/api/v1/conversations",
-    get:      (id: string) => `/api/v1/conversations/${encodeURIComponent(id)}`,
-    messages: (id: string) => `/api/v1/conversations/${encodeURIComponent(id)}/messages`,
-    delete:   (id: string) => `/api/v1/conversations/${encodeURIComponent(id)}`,
-  },
   executions: {
     list:  "/api/v1/executions",
     get:   (id: string) => `/api/v1/executions/${encodeURIComponent(id)}`,

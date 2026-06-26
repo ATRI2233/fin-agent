@@ -1,4 +1,4 @@
-﻿import { createApp } from "./app.js";
+import { createApp } from "./app.js";
 import { Registry } from "./infra/registry.js";
 import { validateSettings, settings } from "./infra/settings.js";
 import { createLogger } from "./infra/logging.js";
@@ -11,14 +11,11 @@ import { ExecutionDomainService } from "./modules/execution/domain-service.js";
 import { WorkflowRunner, ExecutorRegistry } from "./modules/workflow/service/workflow_runner.js";
 import { OpenClawAdapter } from "../agents/adapter/OpenClawAdapter.js";
 import type { AgentPort } from "../agents/adapter/AgentPort.js";
-import { conversationRepo } from "./modules/conversation/repo.js";
-import type { IConversationRepo } from "./modules/conversation/repo.js";
 import { WorkflowService } from "./modules/workflow/service/workflow_service.js";
-import { ConversationService } from "./modules/conversation/service.js";
 import { ExecutionService } from "./modules/execution/service.js";
 import { AgentService } from "./modules/agent/service.js";
 import { McpService } from "./modules/mcp/service.js";
-import { cleanupOldLogs } from "../agents/lib/dataHub.js";
+import { GatewayClient, gatewayClient } from "./infra/gateway-client.js";
 
 const log = createLogger("index");
 
@@ -36,7 +33,6 @@ async function main() {
   // Register repositories
   registry.register("WorkflowRepo", () => workflowRepo);
   registry.register("ExecutionRepo", () => executionRepo);
-  registry.register("ConversationRepo", () => conversationRepo);
 
   // Register agent port (OpenClaw adapter)
   registry.register("AgentPort", () => new OpenClawAdapter());
@@ -82,11 +78,6 @@ async function main() {
     const wfRepo = r.resolve<IWorkflowRepo>("WorkflowRepo");
     const runner = r.resolve<WorkflowRunner>("WorkflowRunner");
     return new WorkflowService(wfRepo, runner);
-  });
-
-  registry.register("IConversationService", (r) => {
-    const repo = r.resolve<IConversationRepo>("ConversationRepo");
-    return new ConversationService(repo);
   });
 
   registry.register("IExecutionService", (r) => {

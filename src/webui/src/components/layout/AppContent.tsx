@@ -12,7 +12,6 @@ const WorkflowList = React.lazy(() => import('../../pages/WorkflowList'));
 const WorkflowEditor = React.lazy(() => import('../../pages/WorkflowEditor'));
 const WorkflowSettings = React.lazy(() => import('../../pages/WorkflowSettings'));
 const WorkflowMonitor = React.lazy(() => import('../../pages/WorkflowMonitor'));
-const ChatPage = React.lazy(() => import('../../pages/ChatPage'));
 
 const AppContent: React.FC = () => {
   return (
@@ -28,7 +27,6 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/framework" element={<FrameworkPage />} />
-          <Route path="/chat" element={<ChatPage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/tools" element={<ToolsPage />} />
           <Route path="/workflows" element={<WorkflowList />} />
