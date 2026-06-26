@@ -79,11 +79,11 @@ export class WorkflowService implements IWorkflowService {
 
     // Session TTL: 7 days — tracked locally for periodic cleanup
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-    const childSessionKey = await gatewayClient.createSession(
+    const childSessionKey = await this.gatewayClient.createSession(
       "fin-agent-execution-" + Date.now(),
       sessionKey,
     );
-    gatewayClient.trackSession(childSessionKey, SEVEN_DAYS_MS);
+    this.gatewayClient.trackSession(childSessionKey, SEVEN_DAYS_MS);
     const msgSvc = new GatewayWorkflowMessageServiceImpl(sessionKey, childSessionKey);
     const observer = new SessionAwareExecutionObserver(msgSvc);
 

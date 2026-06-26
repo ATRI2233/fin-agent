@@ -59,11 +59,10 @@ export class WorkflowRunner implements IWorkflowRunner {
     private executionRepo: IExecutionRepo,
     private executionDomainService: ExecutionDomainService,
     executorRegistry: ExecutorRegistry,
+    nodeScheduler?: NodeScheduler,
   ) {
-    this.nodeScheduler = new NodeScheduler(
-      this.executionRepo,
-      this.executionDomainService,
-      executorRegistry,
+    this.nodeScheduler = nodeScheduler ?? new NodeScheduler(
+      this.executionRepo, this.executionDomainService, executorRegistry,
     );
   }
 

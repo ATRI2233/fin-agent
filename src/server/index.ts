@@ -50,23 +50,8 @@ async function main() {
     return new ExecutorRegistry(port);
   });
 
-  // Register IExecutorRegistry (typed interface for DI)
-  registry.register("IExecutorRegistry", (r) => {
-    const port = r.resolve<AgentPort>("AgentPort");
-    return new ExecutorRegistry(port);
-  });
-
   // Register workflow runner
   registry.register("WorkflowRunner", (r) => {
-    const wfRepo = r.resolve<WorkflowRepo>("WorkflowRepo");
-    const execRepo = r.resolve<ExecutionRepo>("ExecutionRepo");
-    const execDomainSvc = r.resolve<ExecutionDomainService>("ExecutionDomainService");
-    const execReg = r.resolve<ExecutorRegistry>("ExecutorRegistry");
-    return new WorkflowRunner(wfRepo, execRepo, execDomainSvc, execReg);
-  });
-
-  // Register IWorkflowRunner (typed interface for DI)
-  registry.register("IWorkflowRunner", (r) => {
     const wfRepo = r.resolve<WorkflowRepo>("WorkflowRepo");
     const execRepo = r.resolve<ExecutionRepo>("ExecutionRepo");
     const execDomainSvc = r.resolve<ExecutionDomainService>("ExecutionDomainService");
