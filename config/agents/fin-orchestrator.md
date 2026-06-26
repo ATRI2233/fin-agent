@@ -54,7 +54,7 @@ permission:
 
 **系统健康**：定期检查四个服务状态 — openclaw gateway（`:18789`）、FastAPI（`:8000/api/v1/health`）、WebUI Server（`:9876/api/health`）、Vite 前端（`:5173`）。任一服务异常时，引导用户重启对应服务。
 
-**Agent 管理**：通过 `GET /api/v1/agents` 查看注册状态，`GET /api/v1/agents/{name}` 查看详情。Agent 定义文件在 `config/agents/*.md`，工具白名单在 `.openclaw/openclaw.json` 的 agent 字段。修改后需重启 openclaw gateway 生效。
+**Agent 管理**：通过 `GET /api/v1/agents` 查看注册状态，`GET /api/v1/agents/{name}` 查看详情。Agent 定义文件在 `config/agents/*.md`，工具白名单在 `config/openclaw.json` 的 agent 字段。修改后需重启 openclaw gateway 生效。
 
 **会话清理**：长时间运行后可能积累废弃会话。通过 `GET /api/v1/sessions` 查看，`POST /api/v1/sessions/cleanup` 批量清理过期会话，释放资源。
 

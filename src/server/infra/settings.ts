@@ -7,8 +7,8 @@ import { ConfigError } from "./errors.js";
 const envPath = resolve(process.cwd(), "config", ".env");
 dotenv.config({ path: envPath, override: false });
 
-// ── 布尔值解析辅助函数 ──
-// z.coerce.boolean 会把非空字符串（包括 "false"）转为 true
+// ── 布尔值解析辅助函�?──
+// z.coerce.boolean 会把非空字符串（包括 "false"）转�?true
 function parseBoolean(val: string | undefined, def: boolean): boolean {
   if (val == null) return def;
   const v = val.trim().toLowerCase();
@@ -36,7 +36,7 @@ const settingsSchema = z.object({
   OPENCLAW_API_KEY: z.string().default(""),
   OPENCLAW_AUTH_TOKEN: z.string().default(""),
   OPENCLAW_MODEL: z.string().default("deepseek-v4-flash"),
-  MCP_CONFIG_PATH: z.string().default(".openclaw/openclaw.json"),
+  MCP_CONFIG_PATH: z.string().default("config/openclaw.json"),
 
   // Workflow
   NODE_TIMEOUT_SECONDS: z.coerce.number().default(600.0),
@@ -61,7 +61,7 @@ const settingsSchema = z.object({
   API_KEY: z.string().default(""),
   AUTH_SKIP_LOCALHOST: z.boolean().default(false),
 
-  // CORS — comma-separated allow-list of origins permitted to send credentialed
+  // CORS �?comma-separated allow-list of origins permitted to send credentialed
   // requests. The wildcard "*" is intentionally NOT used: per the CORS spec,
   // `Access-Control-Allow-Origin: *` is forbidden together with
   // `Access-Control-Allow-Credentials: true`. The default covers the Vite dev
@@ -82,7 +82,7 @@ const rawEnv = Object.fromEntries(
     .map(([k, v]) => [k.replace(/^FIN_AGENT_/, ""), v])
 );
 
-// 手动处理 boolean 字段，避免 z.coerce.boolean 的 bug
+// 手动处理 boolean 字段，避�?z.coerce.boolean �?bug
 const envWithBooleans = {
   ...rawEnv,
   AUTH_SKIP_LOCALHOST: parseBoolean(rawEnv.AUTH_SKIP_LOCALHOST, false),
@@ -102,7 +102,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 
 export const settings: Settings = parsed.data;
 
-// ── 运行时校验（与 Python validate() 等效）──
+// ── 运行时校验（�?Python validate() 等效）──
 
 export function validateSettings(s: Settings): void {
   if (s.OPENCLAW_GATEWAY_PORT === s.API_PORT) {
