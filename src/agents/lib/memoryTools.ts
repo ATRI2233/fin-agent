@@ -1,13 +1,4 @@
 import { ToolRegistration } from "./types.js";
-import {
-  getHistory,
-  verifyOutcome,
-  getExperienceSummary,
-  addRule,
-  listRules,
-  updateRuleAccuracy,
-  logAnalysis,
-} from "./dataHub.js";
 
 /** Wraps a handler function with standardized error handling */
 function wrapHandler<T>(handlerFn: (args: Record<string, any>) => T) {
@@ -45,9 +36,7 @@ export function registerMemoryRecall(): ToolRegistration {
     handler: wrapHandler((args) => {
       const symbol = args.symbol;
       const limit = args.limit || 5;
-      const results = getHistory(symbol, limit);
-      const summary = getExperienceSummary(7);
-      return { recall: results, experience_context: summary };
+      return { recall: [], experience_context: "[记忆系统已关闭]" };
     }),
   };
 }
@@ -72,7 +61,7 @@ export function registerMemoryVerify(): ToolRegistration {
       required: ["analysis_id", "actual_price"],
     },
     handler: wrapHandler((args) => {
-      return verifyOutcome(args.analysis_id, args.actual_price);
+      return { analysis_id: args.analysis_id, was_correct: null, deviation_pct: null, skipped: true };
     }),
   };
 }
@@ -94,8 +83,7 @@ export function registerExperienceSummary(): ToolRegistration {
     },
     handler: wrapHandler((args) => {
       const days = args.days || 7;
-      const text = getExperienceSummary(days);
-      return { summary: text };
+      return { summary: "[记忆系统已关闭]" };
     }),
   };
 }
@@ -141,14 +129,12 @@ export function registerRuleManage(): ToolRegistration {
     },
     handler: wrapHandler((args) => {
       switch (args.action) {
-        case "add":
-          addRule(args.rule!, args.confidence || 0.5);
-          return { status: "rule_added", rule: args.rule };
         case "list":
-          return { rules: listRules() };
+          return { rules: [] };
+        case "add":
+          return { status: "memory_disabled", rule: args.rule };
         case "update":
-          updateRuleAccuracy(args.rule_id!, args.was_correct!);
-          return { status: "updated" };
+          return { status: "memory_disabled" };
         default:
           throw new Error(`unknown action: ${args.action}`);
       }
@@ -192,16 +178,7 @@ export function registerMemorySave(): ToolRegistration {
       required: ["symbol", "direction", "confidence"],
     },
     handler: wrapHandler((args) => {
-      logAnalysis({
-        symbol: args.symbol,
-        direction: args.direction,
-        confidence: args.confidence,
-        key_prices: args.key_prices,
-        reasons: args.reasons,
-        source_signals: args.source_signals,
-      });
-
-      return { status: "saved", symbol: args.symbol };
+      return { status: "memory_disabled", symbol: args.symbol };
     }),
   };
 }

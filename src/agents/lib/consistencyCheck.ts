@@ -1,5 +1,4 @@
 import { ToolRegistration } from "./types.js";
-import { getJudgments } from "./dataHub.js";
 
 /** Parse an ISO-ish timestamp, normalising missing 'Z' suffix. */
 function _parseDate(ts: string): Date {
@@ -60,80 +59,13 @@ export function registerConsistencyCheck(): ToolRegistration {
       const checkOnly = args.check_only || false;
 
       try {
-        const judgments = getJudgments(symbol, 20);
-
-        if (!Array.isArray(judgments) || judgments.length === 0) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({
-              symbol,
-              timestamp: new Date().toISOString(),
-              consistency_score: 100,
-              message: "无历史判断，无法做一致性校验",
-            }, null, 2) }],
-          };
-        }
-
-        const thirtyDaysAgo = Date.now() - 30 * 86400000;
-        const previousDirections = judgments.slice(0, 10).map((j: any) => ({
-          timestamp: j.created_at || j.timestamp,
-          direction: j.direction,
-          confidence: j.confidence,
-          age_days: Math.round((Date.now() - _parseDate(j.created_at || j.timestamp).getTime()) / 86400000),
-        }));
-
-        const recentFlips = previousDirections.filter(
-          (d: any) => _parseDate(d.timestamp).getTime() > thirtyDaysAgo
-        );
-        let flipCount30d = 0;
-        for (let i = 1; i < recentFlips.length; i++) {
-          if (recentFlips[i].direction !== recentFlips[i - 1].direction &&
-              recentFlips[i].direction !== "neutral" &&
-              recentFlips[i - 1].direction !== "neutral") {
-            flipCount30d++;
-          }
-        }
-
-        const flipWarning = flipCount30d >= 3;
-
-        const confidenceValues = judgments.slice(0, 10).map((j: any) => j.confidence as number);
-        const avgConfidence = confidenceValues.length > 0
-          ? confidenceValues.reduce((a: number, b: number) => a + b, 0) / confidenceValues.length
-          : 50;
-        const maxDeviation = confidenceValues.length > 0
-          ? Math.max(...confidenceValues.map((c: number) => Math.abs(c - avgConfidence)))
-          : 0;
-        const confidenceStability = Math.max(0, 100 - maxDeviation * 2);
-
-        let consistencyScore = 100;
-        let currentDir = currentDirection;
-        if (!checkOnly && currentDir) {
-          const lastDirection = judgments[0]?.direction;
-          if (lastDirection && lastDirection !== "neutral" && currentDir !== "neutral" && lastDirection !== currentDir) {
-            consistencyScore -= 30;
-          }
-          if (Math.abs(currentConfidence - (judgments[0]?.confidence || 50)) > 40) {
-            consistencyScore -= 20;
-          }
-          consistencyScore -= flipCount30d * 10;
-          consistencyScore = Math.max(0, consistencyScore);
-        } else {
-          consistencyScore = 100 - flipCount30d * 10;
-          consistencyScore = Math.max(0, consistencyScore);
-        }
-
-        const result: ConsistencyReport = {
-          symbol,
-          timestamp: new Date().toISOString(),
-          consistency_score: consistencyScore,
-          current_direction: currentDir || "N/A",
-          previous_directions: previousDirections,
-          flip_count_30d: flipCount30d,
-          flip_warning: flipWarning,
-          confidence_stability: Math.round(confidenceStability),
-        };
-
         return {
-          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+          content: [{ type: "text", text: JSON.stringify({
+            symbol,
+            timestamp: new Date().toISOString(),
+            consistency_score: 100,
+            message: "记忆系统已关闭，无法做一致性校验",
+          }, null, 2) }],
         };
       } catch (err: any) {
         return {

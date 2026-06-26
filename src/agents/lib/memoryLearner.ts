@@ -1,5 +1,4 @@
 import { ToolRegistration } from "./types.js";
-import { query, queryOne, execute, getSignalWeights } from "./dataHub.js";
 
 // ── 类型定义 ─────────────────────────────────────────────
 interface AgentAccuracy {
@@ -144,235 +143,34 @@ function getNextReviewDate(): string {
 }
 
 function computeAccuracy(lookbackDays: number, symbol?: string): MemoryLearnerResult["accuracy_report"] {
-  let whereClause = `WHERE a.created_at >= datetime('now', '-' || ? || ' days') AND m.was_correct IS NOT NULL`;
-  const params: any[] = [lookbackDays];
-
-  if (symbol) {
-    whereClause += ` AND a.symbol = ?`;
-    params.push(symbol);
-  }
-
-  // 总体准确率
-  const totalStats = queryOne(`
-    SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN m.was_correct = 1 THEN 1 ELSE 0 END) as correct
-    FROM analysis_log a
-    JOIN market_outcomes m ON m.analysis_id = a.id
-    ${whereClause}
-  `, ...params);
-
-  const total = totalStats?.total || 0;
-  const correct = totalStats?.correct || 0;
-  const hitRate = total > 0 ? correct / total : 0;
-
-  // 按 agent 统计
-  const byAgent: Record<string, AgentAccuracy> = {};
-  const agentStats = query(`
-    SELECT
-      a.source_signals,
-      m.was_correct
-    FROM analysis_log a
-    JOIN market_outcomes m ON m.analysis_id = a.id
-    ${whereClause}
-  `, ...params);
-
-  const agentCounts: Record<string, { hits: number; total: number }> = {};
-  for (const row of agentStats) {
-    try {
-      const signals = JSON.parse(row.source_signals || "{}");
-      for (const agent of Object.keys(signals)) {
-        if (!agentCounts[agent]) agentCounts[agent] = { hits: 0, total: 0 };
-        agentCounts[agent].total++;
-        if (row.was_correct === 1) agentCounts[agent].hits++;
-      }
-    } catch (e) { console.error("[memoryLearner] parse source_signals failed:", e); }
-  }
-
-  for (const [agent, stats] of Object.entries(agentCounts)) {
-    byAgent[agent] = {
-      hit_rate: stats.total > 0 ? Math.round((stats.hits / stats.total) * 100) / 100 : 0,
-      sample_count: stats.total,
-    };
-  }
-
   return {
-    overall_hit_rate: Math.round(hitRate * 100) / 100,
-    total_predictions: total,
-    correct_predictions: correct,
-    by_agent: byAgent,
+    overall_hit_rate: 0,
+    total_predictions: 0,
+    correct_predictions: 0,
+    by_agent: {},
   };
 }
 
 function computeWeightUpdates(accuracy: MemoryLearnerResult["accuracy_report"]): Record<string, WeightUpdate> {
   const updates: Record<string, WeightUpdate> = {};
-  const avgHitRate = accuracy.overall_hit_rate;
-
-  // 获取当前权重
-  let currentWeights: Record<string, number> = { ...DEFAULT_WEIGHTS };
-  try {
-    const dbWeights = getSignalWeights();
-    if (dbWeights && dbWeights.length > 0) {
-      for (const w of dbWeights) {
-        currentWeights[w.signal_name] = w.base_weight;
-      }
-    }
-  } catch (e) { console.error("[memoryLearner] getSignalWeights failed:", e); }
-
-  // 贝叶斯更新
-  for (const [agent, stats] of Object.entries(accuracy.by_agent)) {
-    if (stats.sample_count < 5) {
-      updates[agent] = {
-        old: currentWeights[agent] || 0,
-        new: currentWeights[agent] || 0,
-        reason: `样本不足(${stats.sample_count}个)，维持`,
-      };
-      continue;
-    }
-
-    const oldWeight = currentWeights[agent] || 0;
-    const hitRate = stats.hit_rate;
-
-    // 新权重 = 旧权重 × (准确率 / 平均准确率)
-    let newWeight = avgHitRate > 0 ? oldWeight * (hitRate / avgHitRate) : oldWeight;
-
-    // 限制调整幅度（单次最多调整30%）
-    const maxAdjustment = 0.3;
-    const adjustment = oldWeight === 0 ? 0 : (newWeight - oldWeight) / oldWeight;
-    if (Math.abs(adjustment) > maxAdjustment) {
-      newWeight = oldWeight * (1 + Math.sign(adjustment) * maxAdjustment);
-    }
-
+  for (const [agent, weight] of Object.entries(DEFAULT_WEIGHTS)) {
     updates[agent] = {
-      old: Math.round(oldWeight * 1000) / 1000,
-      new: Math.round(newWeight * 1000) / 1000,
-      reason: hitRate > avgHitRate
-        ? `准确率${(hitRate * 100).toFixed(0)}%→略升`
-        : hitRate < avgHitRate
-        ? `准确率${(hitRate * 100).toFixed(0)}%→略降`
-        : `准确率${(hitRate * 100).toFixed(0)}%，维持`,
+      old: weight,
+      new: weight,
+      reason: "记忆系统已关闭，维持默认权重",
     };
   }
-
-  // 归一化
-  const totalNew = Object.values(updates).reduce((sum, u) => sum + u.new, 0);
-  if (totalNew > 0) {
-    for (const agent of Object.keys(updates)) {
-      updates[agent].new = Math.round((updates[agent].new / totalNew) * 1000) / 1000;
-    }
-  } else {
-    // 冷启动：所有 new 权重为 0，回退到 old 字段的比例归一化 (M4)。
-    const totalOld = Object.values(updates).reduce((sum, u) => sum + u.old, 0);
-    if (totalOld > 0) {
-      for (const agent of Object.keys(updates)) {
-        updates[agent].new = Math.round((updates[agent].old / totalOld) * 1000) / 1000;
-      }
-    } else {
-      // 更极端冷启动：old 也为 0，均分。
-      const count = Object.keys(updates).length;
-      const even = count > 0 ? Math.round((1 / count) * 1000) / 1000 : 0;
-      for (const agent of Object.keys(updates)) {
-        updates[agent].new = even;
-      }
-    }
-  }
-
   return updates;
 }
 
 function extractPatterns(lookbackDays: number): PatternAlert[] {
-  const patterns: PatternAlert[] = [];
-
-  // 查询所有有验证结果的分布
-  const rows = query(`
-    SELECT
-      a.direction,
-      a.source_signals,
-      m.was_correct
-    FROM analysis_log a
-    JOIN market_outcomes m ON m.analysis_id = a.id
-    WHERE a.created_at >= datetime('now', '-' || ? || ' days')
-      AND m.was_correct IS NOT NULL
-  `, lookbackDays);
-
-  // 模式1: 技术面在熊市的失败率
-  const bearishTechRows = rows.filter(r => {
-    try {
-      const signals = JSON.parse(r.source_signals || "{}");
-      return r.direction === "bearish" && "technical" in signals;
-    } catch { return false; }
-  });
-  if (bearishTechRows.length >= 5) {
-    const failures = bearishTechRows.filter(r => r.was_correct === 0).length;
-    const failureRate = failures / bearishTechRows.length;
-    if (failureRate > 0.5) {
-      patterns.push({
-        pattern: `技术面在熊市判断失败率${(failureRate * 100).toFixed(0)}%`,
-        condition: "bear_market",
-        signal: "technical",
-        action: "降低熊市中技术面权重",
-      });
-    }
-  }
-
-  // 模式2: 高估值股票的回调率
-  const highValuationRows = rows.filter(r => {
-    try {
-      const signals = JSON.parse(r.source_signals || "{}");
-      return signals.fundamental?.score > 0.5 && r.direction === "bullish";
-    } catch { return false; }
-  });
-  if (highValuationRows.length >= 5) {
-    const failures = highValuationRows.filter(r => r.was_correct === 0).length;
-    const failureRate = failures / highValuationRows.length;
-    if (failureRate > 0.6) {
-      patterns.push({
-        pattern: `高估值股票看多失败率${(failureRate * 100).toFixed(0)}%`,
-        condition: "high_valuation",
-        signal: "fundamental",
-        action: "对高估值股票更谨慎",
-      });
-    }
-  }
-
-  return patterns;
+  return [];
 }
 
 function retireRules(): RetiredRule[] {
-  const retired: RetiredRule[] = [];
-  const today = new Date().toISOString().split("T")[0];
-
-  // 查询需要淘汰的规则
-  const rules = query(`
-    SELECT id, rule, confidence, hit_count, miss_count
-    FROM learned_rules
-    WHERE active = 1
-      AND (miss_count >= 3 OR (hit_count + miss_count >= 5 AND CAST(hit_count AS REAL) / (hit_count + miss_count) < 0.4))
-  `);
-
-  for (const rule of rules) {
-    // 标记为淘汰
-    execute("UPDATE learned_rules SET active = 0 WHERE id = ?", rule.id);
-
-    retired.push({
-      rule_id: rule.id,
-      rule: rule.rule,
-      reason: rule.miss_count >= 3 ? `连续失误${rule.miss_count}次` : `命中率过低`,
-      retired_at: today,
-    });
-  }
-
-  return retired;
+  return [];
 }
 
 function saveWeightUpdates(updates: Record<string, WeightUpdate>) {
-  for (const [agent, update] of Object.entries(updates)) {
-    execute(`
-      INSERT INTO signal_weights (signal_name, base_weight, last_updated)
-      VALUES (?, ?, datetime('now'))
-      ON CONFLICT(signal_name) DO UPDATE SET
-        base_weight = excluded.base_weight,
-        last_updated = excluded.last_updated
-    `, agent, update.new);
-  }
+  // no-op
 }

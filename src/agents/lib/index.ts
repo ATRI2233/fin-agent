@@ -21,7 +21,6 @@ import { registerConsistencyCheck } from "./consistencyCheck.js";
 import { registerDevilAdvocate } from "./devilAdvocate.js";
 import { registerConflictResolver } from "./conflictResolver.js";
 import { registerMemoryLearner } from "./memoryLearner.js";
-import { closeDb } from "./dataHub.js";
 import { ToolRegistration } from "./types.js";
 
 // ── 收集所有工具注册 ──────────────────────────────────────
@@ -92,7 +91,6 @@ async function gracefulShutdown(signal: string) {
   } catch (err) {
     console.error("[lib-mcp-server] 关闭服务器失败:", err);
   }
-  closeDb();
   process.exit(0);
 }
 

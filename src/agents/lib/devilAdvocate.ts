@@ -1,5 +1,4 @@
 import { ToolRegistration, AgentSignal } from "./types.js";
-import { getHistory } from "./dataHub.js";
 
 // ── 类型定义 ─────────────────────────────────────────────
 
@@ -101,10 +100,7 @@ export function registerDevilAdvocate(): ToolRegistration {
         // 5. 计算数据质量
         const agentCount = Object.keys(agent_signals).length;
         let historicalSamples = 0;
-        try {
-          const history = getHistory(symbol, 20);
-          historicalSamples = history.length;
-        } catch (e) { console.error("[devilAdvocate] getHistory failed:", e); }
+        historicalSamples = 0;
 
         const confidence = agentCount >= 5 && historicalSamples >= 5 ? "high" :
                           agentCount >= 3 || historicalSamples >= 3 ? "medium" : "low";

@@ -1,6 +1,5 @@
 ﻿import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-import { getJudgments, getSignalWeights } from '../../memory/memoryStore.js';
 import { extractData } from "../shared/extractData.js";
 
 // 鈹€鈹€ 姒傜巼鍒嗗竷绫诲瀷瀹氫箟 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
@@ -110,18 +109,6 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
  * This allows dynamic weight adjustment via DB updates without code changes.
  */
 function getEffectiveWeights(): Record<string, number> {
-  try {
-    const rows = getSignalWeights();
-    if (rows.length > 0) {
-      const weights: Record<string, number> = {};
-      for (const row of rows) {
-        weights[row.signal_name] = row.base_weight;
-      }
-      return weights;
-    }
-  } catch {
-    // DB unavailable, fall through to defaults
-  }
   return { ...DEFAULT_WEIGHTS };
 }
 
@@ -244,7 +231,7 @@ export function registerSignalFusion(
         const conditionalConclusions = generateConditionalConclusions(signals, conflictAnalysis);
 
         // 鈹€鈹€ 涓€鑷存€ф牎楠?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-        const history = getJudgments(symbol, 10);
+        const history: any[] = [];
         const consistencyReport = checkConsistency(history, fusedDistribution);
 
         // 鈹€鈹€ 鑾峰彇褰撳墠浠锋牸 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
