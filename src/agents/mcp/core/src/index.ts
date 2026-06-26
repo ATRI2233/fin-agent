@@ -129,25 +129,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   }
   const result = await tool.handler(request);
 
-  // ── 自动记录中间件（仅 MCP 工具）────────────────────────
-  const AUTO_LOG_TOOLS = ["market_snapshot", "signal_fusion"];
-  if (AUTO_LOG_TOOLS.includes(request.params.name)) {
-    try {
-      const { autoLogAnalysis } = await import("./memory/memoryStore.js");
-      const args = request.params.arguments || {};
-      const parsed = result.content?.[0]?.text ? JSON.parse(result.content[0].text) : {};
-      autoLogAnalysis({
-        symbol: parsed?.symbol || args?.symbol || args?.indices?.[0] || "SPX",
-        direction: parsed?.direction || parsed?.signal || "neutral",
-        confidence: parsed?.confidence || 50,
-        key_prices: parsed?.key_prices || parsed?.pivot_points,
-        reasons: typeof parsed === "string" ? parsed : JSON.stringify(parsed).slice(0, 500),
-        source_signals: parsed?.signals || parsed?.signal_sources,
-      });
-    } catch (e) {
-      console.error("[memory] auto-log failed:", e);
-    }
-  }
 
   return result;
 });

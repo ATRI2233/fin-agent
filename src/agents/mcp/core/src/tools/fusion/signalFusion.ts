@@ -1,9 +1,9 @@
-import { ToolRegistration } from '../../types.js';
+﻿import { ToolRegistration } from '../../types.js';
 import { MCPClientManager } from '../../mcp/mcpClientManager.js';
-import { autoLogAnalysis, getJudgments, getSignalWeights } from '../../memory/memoryStore.js';
+import { getJudgments, getSignalWeights } from '../../memory/memoryStore.js';
 import { extractData } from "../shared/extractData.js";
 
-// ── 概率分布类型定义 ─────────────────────────────────────
+// 鈹€鈹€ 姒傜巼鍒嗗竷绫诲瀷瀹氫箟 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 interface ProbabilityDistribution {
   p_bullish: number;
   p_bearish: number;
@@ -93,7 +93,7 @@ interface FusionResult {
   warnings: string[];
 }
 
-// ── 默认权重 ─────────────────────────────────────────────
+// 鈹€鈹€ 榛樿鏉冮噸 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const DEFAULT_WEIGHTS: Record<string, number> = {
   technical: 0.35,
   fundamental: 0.30,
@@ -103,7 +103,7 @@ const DEFAULT_WEIGHTS: Record<string, number> = {
   smart_money: 0.05,
 };
 
-// ── 数据库权重加载（回退到硬编码默认值）───────────────────
+// 鈹€鈹€ 鏁版嵁搴撴潈閲嶅姞杞斤紙鍥為€€鍒扮‖缂栫爜榛樿鍊硷級鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 /**
  * Load signal weights from the signal_weights DB table with fallback to DEFAULT_WEIGHTS.
  * The signal_weights table is populated in memoryStore.ts schema initialization.
@@ -125,7 +125,7 @@ function getEffectiveWeights(): Record<string, number> {
   return { ...DEFAULT_WEIGHTS };
 }
 
-// ── 默认时间框架 ─────────────────────────────────────────
+// 鈹€鈹€ 榛樿鏃堕棿妗嗘灦 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const DEFAULT_TIMEFRAMES: Record<string, string> = {
   technical: "1d-5d",
   fundamental: "3m-12m",
@@ -144,18 +144,18 @@ export function registerSignalFusion(
 ): ToolRegistration {
   return {
       name: "signal_fusion",
-      description: "概率分布融合引擎：接收多个 agent 的概率分布，检测冲突并触发信号调整（Arithmetic Adjustment），输出条件化结论与一致性报告。",
+      description: "姒傜巼鍒嗗竷铻嶅悎寮曟搸锛氭帴鏀跺涓?agent 鐨勬鐜囧垎甯冿紝妫€娴嬪啿绐佸苟瑙﹀彂淇″彿璋冩暣锛圓rithmetic Adjustment锛夛紝杈撳嚭鏉′欢鍖栫粨璁轰笌涓€鑷存€ф姤鍛娿€?,
     inputSchema: {
       type: "object",
       properties: {
-        symbol: { type: "string", description: "股票代码" },
+        symbol: { type: "string", description: "鑲＄エ浠ｇ爜" },
         signals: {
           type: "object",
-          description: "7个agent的概率分布信号",
+          description: "7涓猘gent鐨勬鐜囧垎甯冧俊鍙?,
           additionalProperties: {
             type: "object",
             properties: {
-              timeframe: { type: "string", description: "信号时间框架: 1d-5d/1w-1m/1m-3m/3m-12m" },
+              timeframe: { type: "string", description: "淇″彿鏃堕棿妗嗘灦: 1d-5d/1w-1m/1m-3m/3m-12m" },
               distribution: {
                 type: "object",
                 properties: {
@@ -183,7 +183,7 @@ export function registerSignalFusion(
             required: ["distribution"],
           },
         },
-        timeframe: { type: "string", description: "时间框架: 1d/1w/1m/3m", default: "1m" },
+        timeframe: { type: "string", description: "鏃堕棿妗嗘灦: 1d/1w/1m/3m", default: "1m" },
       },
       required: ["symbol", "signals"],
     },
@@ -195,20 +195,20 @@ export function registerSignalFusion(
 
       if (!symbol) {
         return {
-          content: [{ type: "text", text: JSON.stringify({ error: "缺少 symbol 参数" }) }],
+          content: [{ type: "text", text: JSON.stringify({ error: "缂哄皯 symbol 鍙傛暟" }) }],
           isError: true,
         };
       }
 
       try {
-        // ── 加载信号权重（DB优先，回退到硬编码默认值）─────
+        // 鈹€鈹€ 鍔犺浇淇″彿鏉冮噸锛圖B浼樺厛锛屽洖閫€鍒扮‖缂栫爜榛樿鍊硷級鈹€鈹€鈹€鈹€鈹€
         const effectiveWeights = getEffectiveWeights();
 
-        // ── 如果没有传入signals，从外部MCP获取 ─────────────
+        // 鈹€鈹€ 濡傛灉娌℃湁浼犲叆signals锛屼粠澶栭儴MCP鑾峰彇 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         let signals: SignalInput[] = [];
 
         if (Object.keys(signalsInput).length > 0) {
-          // 使用传入的概率分布
+          // 浣跨敤浼犲叆鐨勬鐜囧垎甯?
           for (const [source, data] of Object.entries(signalsInput)) {
             const sig = data as any;
             signals.push({
@@ -222,32 +222,32 @@ export function registerSignalFusion(
             });
           }
         } else {
-          // 从外部MCP获取数据，转换为概率分布
+          // 浠庡閮∕CP鑾峰彇鏁版嵁锛岃浆鎹负姒傜巼鍒嗗竷
           signals = await fetchAndConvertSignals(mcpManager, symbol);
         }
 
-        // ── 冲突检测 ─────────────────────────────────────
+        // 鈹€鈹€ 鍐茬獊妫€娴?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const conflictAnalysis = detectConflicts(signals);
 
-        // ── 如果是根本性冲突，执行信号调整（算术调整，非 LLM 辩论） ───
+        // 鈹€鈹€ 濡傛灉鏄牴鏈€у啿绐侊紝鎵ц淇″彿璋冩暣锛堢畻鏈皟鏁达紝闈?LLM 杈╄锛?鈹€鈹€鈹€
         if (conflictAnalysis.conflict_type === "fundamental") {
           conflictAnalysis.debate_triggered = true;
           conflictAnalysis.debate_rounds = runArithmeticAdjustment(signals);
-          // 算术调整后修正概率分布
+          // 绠楁湳璋冩暣鍚庝慨姝ｆ鐜囧垎甯?
           adjustDistributionsAfterAdjustment(signals, conflictAnalysis.debate_rounds);
         }
 
-        // ── 融合概率分布 ─────────────────────────────────
+        // 鈹€鈹€ 铻嶅悎姒傜巼鍒嗗竷 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const fusedDistribution = fuseDistributions(signals, effectiveWeights);
 
-        // ── 生成条件化结论 ────────────────────────────────
+        // 鈹€鈹€ 鐢熸垚鏉′欢鍖栫粨璁?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const conditionalConclusions = generateConditionalConclusions(signals, conflictAnalysis);
 
-        // ── 一致性校验 ───────────────────────────────────
+        // 鈹€鈹€ 涓€鑷存€ф牎楠?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const history = getJudgments(symbol, 10);
         const consistencyReport = checkConsistency(history, fusedDistribution);
 
-        // ── 获取当前价格 ─────────────────────────────────
+        // 鈹€鈹€ 鑾峰彇褰撳墠浠锋牸 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         let currentPrice = 0;
         try {
           const rawQuote = await mcpManager.callTool("stock-scanner", "tradingview_quote", { tickers: [symbol] }, 15000);
@@ -255,10 +255,10 @@ export function registerSignalFusion(
           currentPrice = quoteItems[0]?.data?.close ?? quoteItems[0]?.close ?? 0;
         } catch (e) { console.error("[signalFusion] failed to fetch quote:", e); }
 
-        // ── 生成行动计划 ─────────────────────────────────
+        // 鈹€鈹€ 鐢熸垚琛屽姩璁″垝 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const actionPlan = generateActionPlan(fusedDistribution, currentPrice, timeframe, conflictAnalysis, conditionalConclusions);
 
-        // ── 构建信号分解 ─────────────────────────────────
+        // 鈹€鈹€ 鏋勫缓淇″彿鍒嗚В 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const signalBreakdown: Record<string, { distribution: ProbabilityDistribution; weight: number; contribution: number; timeframe: string }> = {};
         for (const sig of signals) {
           const weight = effectiveWeights[sig.source] || 0;
@@ -270,38 +270,27 @@ export function registerSignalFusion(
           };
         }
 
-        // ── 关键因素和警告 ────────────────────────────────
+        // 鈹€鈹€ 鍏抽敭鍥犵礌鍜岃鍛?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const keyFactors: string[] = [];
         const warnings: string[] = [];
 
         for (const sig of signals) {
           for (const driver of sig.key_drivers) {
             if (driver.weight > 0.3) {
-              keyFactors.push(`[${sig.source}] ${driver.factor} (${driver.direction}, 权重${(driver.weight * 100).toFixed(0)}%)`);
+              keyFactors.push(`[${sig.source}] ${driver.factor} (${driver.direction}, 鏉冮噸${(driver.weight * 100).toFixed(0)}%)`);
             }
           }
         }
 
         if (conflictAnalysis.has_conflict) {
-          warnings.push(`${conflictAnalysis.conflict_type}冲突: ${conflictAnalysis.root_cause}`);
+          warnings.push(`${conflictAnalysis.conflict_type}鍐茬獊: ${conflictAnalysis.root_cause}`);
         }
         if (consistencyReport.direction_conflicts > 0) {
-          warnings.push(`与历史${consistencyReport.direction_conflicts}次判断方向冲突`);
+          warnings.push(`涓庡巻鍙?{consistencyReport.direction_conflicts}娆″垽鏂柟鍚戝啿绐乣);
         }
 
-        // ── 记录本次判断 ─────────────────────────────────
-        try {
-          autoLogAnalysis({
-            symbol,
-            direction: fusedDistribution.p_bullish > 0.5 ? "bullish" : fusedDistribution.p_bearish > 0.5 ? "bearish" : "neutral",
-            confidence: Math.round(Math.max(fusedDistribution.p_bullish, fusedDistribution.p_bearish) * 100),
-            key_prices: { support: [actionPlan.stop_loss], resistance: [actionPlan.target_price] },
-            reasons: keyFactors.join("; "),
-            source_signals: Object.fromEntries(signals.map((s) => [s.source, { distribution: s.distribution, weight: effectiveWeights[s.source] || 0 }])),
-          });
-        } catch { /* intentionally empty */ }
 
-        // ── 构建结果 ─────────────────────────────────────
+        // 鈹€鈹€ 鏋勫缓缁撴灉 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
         const result: FusionResult = {
           symbol,
           timestamp: new Date().toISOString(),
@@ -329,7 +318,7 @@ export function registerSignalFusion(
   };
 }
 
-// ── 从外部MCP获取数据并转换为概率分布 ─────────────────────
+// 鈹€鈹€ 浠庡閮∕CP鑾峰彇鏁版嵁骞惰浆鎹负姒傜巼鍒嗗竷 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: string): Promise<SignalInput[]> {
   const signals: SignalInput[] = [];
 
@@ -343,7 +332,7 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
     mcpManager.callTool("stock-scanner", "sentiment_fear_greed", {}, 15000),
   ]);
 
-  // 技术面转换
+  // 鎶€鏈潰杞崲
   const rawTech = techResult.status === "fulfilled" ? techResult.value : null;
   const techItems = extractData(rawTech);
   const tech = techItems[0]?.data || techItems[0] || null;
@@ -357,17 +346,17 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
     const drivers: KeyDriver[] = [];
     const assumptions: string[] = [];
 
-    if (rsi < 30) { bullishScore += 0.2; drivers.push({ factor: `RSI=${rsi.toFixed(0)}超卖`, weight: 0.3, direction: "bullish" }); }
-    else if (rsi > 70) { bullishScore -= 0.2; drivers.push({ factor: `RSI=${rsi.toFixed(0)}超买`, weight: 0.3, direction: "bearish" }); }
+    if (rsi < 30) { bullishScore += 0.2; drivers.push({ factor: `RSI=${rsi.toFixed(0)}瓒呭崠`, weight: 0.3, direction: "bullish" }); }
+    else if (rsi > 70) { bullishScore -= 0.2; drivers.push({ factor: `RSI=${rsi.toFixed(0)}瓒呬拱`, weight: 0.3, direction: "bearish" }); }
 
-    if (macd > 0) { bullishScore += 0.15; drivers.push({ factor: "MACD金叉", weight: 0.25, direction: "bullish" }); }
-    else if (macd < 0) { bullishScore -= 0.15; drivers.push({ factor: "MACD死叉", weight: 0.25, direction: "bearish" }); }
+    if (macd > 0) { bullishScore += 0.15; drivers.push({ factor: "MACD閲戝弶", weight: 0.25, direction: "bullish" }); }
+    else if (macd < 0) { bullishScore -= 0.15; drivers.push({ factor: "MACD姝诲弶", weight: 0.25, direction: "bearish" }); }
 
-    if (recAll > 0.3) { bullishScore += 0.1; drivers.push({ factor: "TradingView看多", weight: 0.2, direction: "bullish" }); }
-    else if (recAll < -0.3) { bullishScore -= 0.1; drivers.push({ factor: "TradingView看空", weight: 0.2, direction: "bearish" }); }
+    if (recAll > 0.3) { bullishScore += 0.1; drivers.push({ factor: "TradingView鐪嬪", weight: 0.2, direction: "bullish" }); }
+    else if (recAll < -0.3) { bullishScore -= 0.1; drivers.push({ factor: "TradingView鐪嬬┖", weight: 0.2, direction: "bearish" }); }
 
-    if (sma20 && sma50 && sma20 > sma50) { bullishScore += 0.1; assumptions.push("均线多头排列，趋势延续"); }
-    else if (sma20 && sma50 && sma20 < sma50) { bullishScore -= 0.1; assumptions.push("均线空头排列，趋势下行"); }
+    if (sma20 && sma50 && sma20 > sma50) { bullishScore += 0.1; assumptions.push("鍧囩嚎澶氬ご鎺掑垪锛岃秼鍔垮欢缁?); }
+    else if (sma20 && sma50 && sma20 < sma50) { bullishScore -= 0.1; assumptions.push("鍧囩嚎绌哄ご鎺掑垪锛岃秼鍔夸笅琛?); }
 
     bullishScore = Math.max(0, Math.min(1, bullishScore));
     signals.push({
@@ -377,11 +366,11 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
       assumptions,
       key_drivers: drivers,
       data_quality: 0.85,
-      details: drivers.map(d => d.factor).join(", ") || "技术面中性",
+      details: drivers.map(d => d.factor).join(", ") || "鎶€鏈潰涓€?,
     });
   }
 
-  // 基本面转换
+  // 鍩烘湰闈㈣浆鎹?
   const rawFund = fundResult.status === "fulfilled" ? fundResult.value : null;
   const fundItems = extractData(rawFund);
   const fund = fundItems[0]?.data || fundItems[0] || null;
@@ -392,11 +381,11 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
     const pe = fund.price_earnings_ttm;
     const roe = fund.return_on_equity_fq != null ? fund.return_on_equity_fq / 100 : null;
 
-    if (pe && pe < 15) { bullishScore += 0.2; drivers.push({ factor: `PE=${pe.toFixed(1)}低估值`, weight: 0.3, direction: "bullish" }); }
-    else if (pe && pe > 35) { bullishScore -= 0.15; drivers.push({ factor: `PE=${pe.toFixed(1)}高估值`, weight: 0.3, direction: "bearish" }); }
+    if (pe && pe < 15) { bullishScore += 0.2; drivers.push({ factor: `PE=${pe.toFixed(1)}浣庝及鍊糮, weight: 0.3, direction: "bullish" }); }
+    else if (pe && pe > 35) { bullishScore -= 0.15; drivers.push({ factor: `PE=${pe.toFixed(1)}楂樹及鍊糮, weight: 0.3, direction: "bearish" }); }
 
-    if (roe && roe > 0.15) { bullishScore += 0.15; drivers.push({ factor: `ROE=${(roe * 100).toFixed(1)}%优秀`, weight: 0.25, direction: "bullish" }); }
-    if (roe && roe < 0) { bullishScore -= 0.15; drivers.push({ factor: "ROE为负", weight: 0.25, direction: "bearish" }); }
+    if (roe && roe > 0.15) { bullishScore += 0.15; drivers.push({ factor: `ROE=${(roe * 100).toFixed(1)}%浼樼`, weight: 0.25, direction: "bullish" }); }
+    if (roe && roe < 0) { bullishScore -= 0.15; drivers.push({ factor: "ROE涓鸿礋", weight: 0.25, direction: "bearish" }); }
 
     bullishScore = Math.max(0, Math.min(1, bullishScore));
     signals.push({
@@ -406,11 +395,11 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
       assumptions,
       key_drivers: drivers,
       data_quality: 0.8,
-      details: drivers.map(d => d.factor).join(", ") || "基本面中性",
+      details: drivers.map(d => d.factor).join(", ") || "鍩烘湰闈腑鎬?,
     });
   }
 
-  // 宏观/情绪转换
+  // 瀹忚/鎯呯华杞崲
   const fg = fgResult.status === "fulfilled" ? fgResult.value : null;
   if (fg) {
     const fgScore = fg.score != null ? fg.score : 50;
@@ -421,48 +410,48 @@ async function fetchAndConvertSignals(mcpManager: MCPClientManager, symbol: stri
       source: "macro",
       timeframe: "1m-3m",
       distribution: { p_bullish: bullishScore, p_bearish: 1 - bullishScore - 0.1, p_neutral: 0.1 },
-      assumptions: ["恐惧贪婪指数反映市场整体情绪"],
-      key_drivers: [{ factor: `恐惧贪婪指数: ${fgScore}/100`, weight: 0.5, direction: bullishScore > 0.5 ? "bullish" : "bearish" }],
+      assumptions: ["鎭愭儳璐┆鎸囨暟鍙嶆槧甯傚満鏁翠綋鎯呯华"],
+      key_drivers: [{ factor: `鎭愭儳璐┆鎸囨暟: ${fgScore}/100`, weight: 0.5, direction: bullishScore > 0.5 ? "bullish" : "bearish" }],
       data_quality: 0.7,
-      details: `恐惧贪婪指数: ${fgScore}/100 (${rating})`,
+      details: `鎭愭儳璐┆鎸囨暟: ${fgScore}/100 (${rating})`,
     });
 
     signals.push({
       source: "sentiment",
       timeframe: "1d-3d",
       distribution: { p_bullish: bullishScore * 0.8 + 0.1, p_bearish: (1 - bullishScore) * 0.8 + 0.1, p_neutral: 0.2 },
-      assumptions: ["情绪是价格的放大器"],
-      key_drivers: [{ factor: `市场情绪: ${rating}`, weight: 0.4, direction: bullishScore > 0.5 ? "bullish" : "bearish" }],
+      assumptions: ["鎯呯华鏄环鏍肩殑鏀惧ぇ鍣?],
+      key_drivers: [{ factor: `甯傚満鎯呯华: ${rating}`, weight: 0.4, direction: bullishScore > 0.5 ? "bullish" : "bearish" }],
       data_quality: 0.6,
-      details: `市场情绪: ${rating}`,
+      details: `甯傚満鎯呯华: ${rating}`,
     });
   }
 
   return signals;
 }
 
-// ── 冲突检测 ─────────────────────────────────────────────
+// 鈹€鈹€ 鍐茬獊妫€娴?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
   if (signals.length < 2) {
     return { has_conflict: false, conflict_type: "none", root_cause: null, conflicting_agents: [], debate_triggered: false };
   }
 
-  // ── 第一步：时间框架对齐检查 ────────────────────────────
+  // 鈹€鈹€ 绗竴姝ワ細鏃堕棿妗嗘灦瀵归綈妫€鏌?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const timeframeAnalysis = analyzeTimeframes(signals);
 
-  // 如果时间框架不一致，这不是冲突，是共存
+  // 濡傛灉鏃堕棿妗嗘灦涓嶄竴鑷达紝杩欎笉鏄啿绐侊紝鏄叡瀛?
   if (timeframeAnalysis.has_mismatch) {
     return {
       has_conflict: false,
       conflict_type: "timeframe_mismatch",
-      root_cause: "信号时间框架不一致，不是冲突而是不同维度的共存",
+      root_cause: "淇″彿鏃堕棿妗嗘灦涓嶄竴鑷达紝涓嶆槸鍐茬獊鑰屾槸涓嶅悓缁村害鐨勫叡瀛?,
       conflicting_agents: [],
       debate_triggered: false,
       timeframe_analysis: timeframeAnalysis,
     };
   }
 
-  // ── 第二步：同时间框架内检测方向冲突 ───────────────────
+  // 鈹€鈹€ 绗簩姝ワ細鍚屾椂闂存鏋跺唴妫€娴嬫柟鍚戝啿绐?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const agentDirections: Record<string, { direction: string; assumptions: string[] }> = {};
   for (const sig of signals) {
     const dist = sig.distribution;
@@ -486,7 +475,7 @@ function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
     };
   }
 
-  // 有方向冲突，判断是表面分歧还是根本性冲突
+  // 鏈夋柟鍚戝啿绐侊紝鍒ゆ柇鏄〃闈㈠垎姝ц繕鏄牴鏈€у啿绐?
   const conflictingAgents = [...bullishAgents, ...bearishAgents];
   const bullishAssumptions = bullishAgents.flatMap(a => agentDirections[a].assumptions);
   const bearishAssumptions = bearishAgents.flatMap(a => agentDirections[a].assumptions);
@@ -496,7 +485,7 @@ function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
     return {
       has_conflict: true,
       conflict_type: "fundamental",
-      root_cause: `${bullishAgents.join(",")}看多 vs ${bearishAgents.join(",")}看空，假设前提冲突`,
+      root_cause: `${bullishAgents.join(",")}鐪嬪 vs ${bearishAgents.join(",")}鐪嬬┖锛屽亣璁惧墠鎻愬啿绐乣,
       conflicting_agents: conflictingAgents,
       debate_triggered: false,
       timeframe_analysis: timeframeAnalysis,
@@ -506,16 +495,16 @@ function detectConflicts(signals: SignalInput[]): ConflictAnalysis {
   return {
     has_conflict: true,
     conflict_type: "surface",
-    root_cause: `${bullishAgents.join(",")}看多 vs ${bearishAgents.join(",")}看空，但假设前提一致`,
+    root_cause: `${bullishAgents.join(",")}鐪嬪 vs ${bearishAgents.join(",")}鐪嬬┖锛屼絾鍋囪鍓嶆彁涓€鑷碻,
     conflicting_agents: conflictingAgents,
     debate_triggered: false,
     timeframe_analysis: timeframeAnalysis,
   };
 }
 
-// ── 时间框架分析 ─────────────────────────────────────────
+// 鈹€鈹€ 鏃堕棿妗嗘灦鍒嗘瀽 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
-  // 按时间框架分组
+  // 鎸夋椂闂存鏋跺垎缁?
   const grouped: Record<string, string[]> = {};
   for (const sig of signals) {
     const tf = sig.timeframe || "unknown";
@@ -526,11 +515,11 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
   const timeframes = Object.keys(grouped);
   const hasMismatch = timeframes.length > 1;
 
-  // 生成分层建议
+  // 鐢熸垚鍒嗗眰寤鸿
   const layeredRecommendations: LayeredRecommendation[] = [];
 
   if (hasMismatch) {
-    // 按时间框架从短到长排序
+    // 鎸夋椂闂存鏋朵粠鐭埌闀挎帓搴?
     const timeframeOrder = ["1d-3d", "1d-5d", "1w-1m", "1m-3m", "3m-12m"];
     const sortedTimeframes = timeframes.sort((a, b) => {
       const ia = timeframeOrder.indexOf(a);
@@ -542,7 +531,7 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
       const agentsInTf = grouped[tf];
       const signalsInTf = signals.filter(s => agentsInTf.includes(s.source));
 
-      // 计算该时间框架的综合方向
+      // 璁＄畻璇ユ椂闂存鏋剁殑缁煎悎鏂瑰悜
       let avgBullish = 0;
       let avgBearish = 0;
       for (const sig of signalsInTf) {
@@ -556,13 +545,13 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
       if (avgBullish > 0.5) direction = "bullish";
       else if (avgBearish > 0.5) direction = "bearish";
 
-      // 根据时间框架调整仓位
+      // 鏍规嵁鏃堕棿妗嗘灦璋冩暣浠撲綅
       let positionPct = 0;
       if (direction === "bullish") {
-        if (tf.includes("1d")) positionPct = 3; // 超短线，小仓位
-        else if (tf.includes("1w")) positionPct = 5; // 短线
-        else if (tf.includes("1m")) positionPct = 8; // 中线
-        else positionPct = 10; // 长线
+        if (tf.includes("1d")) positionPct = 3; // 瓒呯煭绾匡紝灏忎粨浣?
+        else if (tf.includes("1w")) positionPct = 5; // 鐭嚎
+        else if (tf.includes("1m")) positionPct = 8; // 涓嚎
+        else positionPct = 10; // 闀跨嚎
       }
 
       layeredRecommendations.push({
@@ -570,7 +559,7 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
         direction,
         agents: agentsInTf,
         position_pct: positionPct,
-        reason: `${agentsInTf.join("+")}在${tf}维度${direction === "bullish" ? "看多" : direction === "bearish" ? "看空" : "中性"}`,
+        reason: `${agentsInTf.join("+")}鍦?{tf}缁村害${direction === "bullish" ? "鐪嬪" : direction === "bearish" ? "鐪嬬┖" : "涓€?}`,
       });
     }
   }
@@ -582,15 +571,15 @@ function analyzeTimeframes(signals: SignalInput[]): TimeframeAnalysis {
   };
 }
 
-// ── 检查假设是否矛盾 ─────────────────────────────────────
+// 鈹€鈹€ 妫€鏌ュ亣璁炬槸鍚︾煕鐩?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function checkContradictoryAssumptions(bullish: string[], bearish: string[]): boolean {
-  // 简单的关键词匹配检测矛盾
+  // 绠€鍗曠殑鍏抽敭璇嶅尮閰嶆娴嬬煕鐩?
   const contradictionPairs = [
-    ["加息", "降息"],
-    ["衰退", "复苏"],
-    ["通胀", "通缩"],
-    ["鹰派", "鸽派"],
-    ["收紧", "宽松"],
+    ["鍔犳伅", "闄嶆伅"],
+    ["琛伴€€", "澶嶈嫃"],
+    ["閫氳儉", "閫氱缉"],
+    ["楣版淳", "楦芥淳"],
+    ["鏀剁揣", "瀹芥澗"],
   ];
 
   for (const [a, b] of contradictionPairs) {
@@ -606,11 +595,11 @@ function checkContradictoryAssumptions(bullish: string[], bearish: string[]): bo
   return false;
 }
 
-// ── 算术调整（占位实现，真正的 LLM 辩论尚未接入）─────────
+// 鈹€鈹€ 绠楁湳璋冩暣锛堝崰浣嶅疄鐜帮紝鐪熸鐨?LLM 杈╄灏氭湭鎺ュ叆锛夆攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function runArithmeticAdjustment(signals: SignalInput[]): DebateRound[] {
   const rounds: DebateRound[] = [];
 
-  // 找到冲突双方
+  // 鎵惧埌鍐茬獊鍙屾柟
   const bullishSignals = signals.filter(s => s.distribution.p_bullish > 0.5);
   const bearishSignals = signals.filter(s => s.distribution.p_bearish > 0.5);
 
@@ -619,32 +608,32 @@ function runArithmeticAdjustment(signals: SignalInput[]): DebateRound[] {
   const bullAgent = bullishSignals[0];
   const bearAgent = bearishSignals[0];
 
-  // Round 1: 陈述立场
+  // Round 1: 闄堣堪绔嬪満
   rounds.push({
     round: 1,
-    [bullAgent.source]: `看多，关键假设: ${bullAgent.assumptions.join("; ")}`,
-    [bearAgent.source]: `看空，关键假设: ${bearAgent.assumptions.join("; ")}`,
+    [bullAgent.source]: `鐪嬪锛屽叧閿亣璁? ${bullAgent.assumptions.join("; ")}`,
+    [bearAgent.source]: `鐪嬬┖锛屽叧閿亣璁? ${bearAgent.assumptions.join("; ")}`,
   });
 
-  // Round 2: 质疑假设
-  const bullChallenges = bearAgent.assumptions.map(a => `质疑: "${a}"是否成立？`);
-  const bearChallenges = bullAgent.assumptions.map(a => `质疑: "${a}"是否成立？`);
+  // Round 2: 璐ㄧ枒鍋囪
+  const bullChallenges = bearAgent.assumptions.map(a => `璐ㄧ枒: "${a}"鏄惁鎴愮珛锛焋);
+  const bearChallenges = bullAgent.assumptions.map(a => `璐ㄧ枒: "${a}"鏄惁鎴愮珛锛焋);
 
   rounds.push({
     round: 2,
-    [`${bearAgent.source}_质疑_${bullAgent.source}`]: bullChallenges.join("; "),
-    [`${bullAgent.source}_质疑_${bearAgent.source}`]: bearChallenges.join("; "),
+    [`${bearAgent.source}_璐ㄧ枒_${bullAgent.source}`]: bullChallenges.join("; "),
+    [`${bullAgent.source}_璐ㄧ枒_${bearAgent.source}`]: bearChallenges.join("; "),
   });
 
-  // Round 3: 算术调整（占位实现 — 硬编码 0.1 后退；真正的 LLM 辩论尚未接入，
-  //          未来应调用 LLM 根据对方论点动态计算调整幅度）
-  const bullAdjustment = 0.1; // 看多方后退10%
-  const bearAdjustment = 0.1; // 看空方后退10%
+  // Round 3: 绠楁湳璋冩暣锛堝崰浣嶅疄鐜?鈥?纭紪鐮?0.1 鍚庨€€锛涚湡姝ｇ殑 LLM 杈╄灏氭湭鎺ュ叆锛?
+  //          鏈潵搴旇皟鐢?LLM 鏍规嵁瀵规柟璁虹偣鍔ㄦ€佽绠楄皟鏁村箙搴︼級
+  const bullAdjustment = 0.1; // 鐪嬪鏂瑰悗閫€10%
+  const bearAdjustment = 0.1; // 鐪嬬┖鏂瑰悗閫€10%
 
   rounds.push({
     round: 3,
-    [`${bullAgent.source}_调整`]: `p_bullish: ${bullAgent.distribution.p_bullish.toFixed(2)} → ${(bullAgent.distribution.p_bullish - bullAdjustment).toFixed(2)}`,
-    [`${bearAgent.source}_调整`]: `p_bearish: ${bearAgent.distribution.p_bearish.toFixed(2)} → ${(bearAgent.distribution.p_bearish - bearAdjustment).toFixed(2)}`,
+    [`${bullAgent.source}_璋冩暣`]: `p_bullish: ${bullAgent.distribution.p_bullish.toFixed(2)} 鈫?${(bullAgent.distribution.p_bullish - bullAdjustment).toFixed(2)}`,
+    [`${bearAgent.source}_璋冩暣`]: `p_bearish: ${bearAgent.distribution.p_bearish.toFixed(2)} 鈫?${(bearAgent.distribution.p_bearish - bearAdjustment).toFixed(2)}`,
   });
 
   return rounds;
@@ -653,17 +642,17 @@ function runArithmeticAdjustment(signals: SignalInput[]): DebateRound[] {
 // NOTE: This function mutates signal distributions in place for simplicity.
 // If re-entrant or concurrent access is needed, shallow-copy distributions first:
 //   const sig = { ...s, distribution: { ...s.distribution } };
-// ── 算术调整后概率修正（非 LLM 辩论）─────────────────────
+// 鈹€鈹€ 绠楁湳璋冩暣鍚庢鐜囦慨姝ｏ紙闈?LLM 杈╄锛夆攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function adjustDistributionsAfterAdjustment(signals: SignalInput[], rounds: DebateRound[]): void {
   if (rounds.length < 3) return;
 
-  // 找到冲突双方
+  // 鎵惧埌鍐茬獊鍙屾柟
   const bullishSignals = signals.filter(s => s.distribution.p_bullish > 0.5);
   const bearishSignals = signals.filter(s => s.distribution.p_bearish > 0.5);
 
   if (bullishSignals.length === 0 || bearishSignals.length === 0) return;
 
-  // 调整概率分布（向中间靠拢）
+  // 璋冩暣姒傜巼鍒嗗竷锛堝悜涓棿闈犳嫝锛?
   for (const sig of bullishSignals) {
     const adjustment = 0.1;
     sig.distribution.p_bullish -= adjustment;
@@ -679,7 +668,7 @@ function adjustDistributionsAfterAdjustment(signals: SignalInput[], rounds: Deba
   }
 }
 
-// ── 融合概率分布 ─────────────────────────────────────────
+// 鈹€鈹€ 铻嶅悎姒傜巼鍒嗗竷 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function fuseDistributions(signals: SignalInput[], weights: Record<string, number>): ProbabilityDistribution {
   let p_bullish = 0;
   let p_bearish = 0;
@@ -700,7 +689,7 @@ function fuseDistributions(signals: SignalInput[], weights: Record<string, numbe
     p_neutral /= totalWeight;
   }
 
-  // 归一化
+  // 褰掍竴鍖?
   const sum = p_bullish + p_bearish + p_neutral;
   if (sum > 0) {
     p_bullish /= sum;
@@ -708,11 +697,11 @@ function fuseDistributions(signals: SignalInput[], weights: Record<string, numbe
     p_neutral /= sum;
   }
 
-  // NOTE: 置信区间是近似值，有以下局限：
-  //   1. 忽略了协方差项（假设各信号独立，实际存在关联）
-  //   2. 1.96 来自正态分布，但对 bounded [0,1] 概率应用不严谨
-  //   3. 改进方向：对 bounded [0,1] 概率可用 Beta 分布或其他适当方法
-  const expectedReturn = (p_bullish - p_bearish) * 0.1; // 简化：假设牛市涨10%，熊市跌10%
+  // NOTE: 缃俊鍖洪棿鏄繎浼煎€硷紝鏈変互涓嬪眬闄愶細
+  //   1. 蹇界暐浜嗗崗鏂瑰樊椤癸紙鍋囪鍚勪俊鍙风嫭绔嬶紝瀹為檯瀛樺湪鍏宠仈锛?
+  //   2. 1.96 鏉ヨ嚜姝ｆ€佸垎甯冿紝浣嗗 bounded [0,1] 姒傜巼搴旂敤涓嶄弗璋?
+  //   3. 鏀硅繘鏂瑰悜锛氬 bounded [0,1] 姒傜巼鍙敤 Beta 鍒嗗竷鎴栧叾浠栭€傚綋鏂规硶
+  const expectedReturn = (p_bullish - p_bearish) * 0.1; // 绠€鍖栵細鍋囪鐗涘競娑?0%锛岀唺甯傝穼10%
   const uncertainty = Math.sqrt(p_bullish * (1 - p_bullish) + p_bearish * (1 - p_bearish));
   const confidenceInterval: [number, number] = [
     Math.round((expectedReturn - uncertainty * 1.96) * 100) / 100,
@@ -728,16 +717,16 @@ function fuseDistributions(signals: SignalInput[], weights: Record<string, numbe
   };
 }
 
-// ── 生成条件化结论 ───────────────────────────────────────
+// 鈹€鈹€ 鐢熸垚鏉′欢鍖栫粨璁?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function generateConditionalConclusions(signals: SignalInput[], conflict: ConflictAnalysis): ConditionalConclusion[] {
   const conclusions: ConditionalConclusion[] = [];
 
   if (!conflict.has_conflict || conflict.conflict_type === "surface") {
-    // 无冲突或表面分歧，不需要条件化结论
+    // 鏃犲啿绐佹垨琛ㄩ潰鍒嗘锛屼笉闇€瑕佹潯浠跺寲缁撹
     return conclusions;
   }
 
-  // 找到冲突双方
+  // 鎵惧埌鍐茬獊鍙屾柟
   const bullishSignals = signals.filter(s => s.distribution.p_bullish > 0.5);
   const bearishSignals = signals.filter(s => s.distribution.p_bearish > 0.5);
 
@@ -746,25 +735,25 @@ function generateConditionalConclusions(signals: SignalInput[], conflict: Confli
   const bullAgent = bullishSignals[0];
   const bearAgent = bearishSignals[0];
 
-  // 基于双方的假设生成条件化结论
-  // 看多方的条件
+  // 鍩轰簬鍙屾柟鐨勫亣璁剧敓鎴愭潯浠跺寲缁撹
+  // 鐪嬪鏂圭殑鏉′欢
   if (bullAgent.assumptions.length > 0) {
     conclusions.push({
       condition: bullAgent.assumptions[0],
       probability: bullAgent.distribution.p_bullish,
       dominant_view: bullAgent.source,
-      conclusion: `看多，预期收益${(bullAgent.distribution.p_bullish * 10).toFixed(1)}%`,
+      conclusion: `鐪嬪锛岄鏈熸敹鐩?{(bullAgent.distribution.p_bullish * 10).toFixed(1)}%`,
       position_pct: Math.round(bullAgent.distribution.p_bullish * 15),
     });
   }
 
-  // 看空方的条件
+  // 鐪嬬┖鏂圭殑鏉′欢
   if (bearAgent.assumptions.length > 0) {
     conclusions.push({
       condition: bearAgent.assumptions[0],
       probability: bearAgent.distribution.p_bearish,
       dominant_view: bearAgent.source,
-      conclusion: `看空，预期收益${(-bearAgent.distribution.p_bearish * 10).toFixed(1)}%`,
+      conclusion: `鐪嬬┖锛岄鏈熸敹鐩?{(-bearAgent.distribution.p_bearish * 10).toFixed(1)}%`,
       position_pct: 0,
     });
   }
@@ -772,7 +761,7 @@ function generateConditionalConclusions(signals: SignalInput[], conflict: Confli
   return conclusions;
 }
 
-// ── 一致性校验 ───────────────────────────────────────────
+// 鈹€鈹€ 涓€鑷存€ф牎楠?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function checkConsistency(
   history: any[],
   distribution: ProbabilityDistribution
@@ -787,7 +776,7 @@ function checkConsistency(
       consistent: true,
       previous_judgments: 0,
       direction_conflicts: 0,
-      explanation: "无历史判断，首次分析",
+      explanation: "鏃犲巻鍙插垽鏂紝棣栨鍒嗘瀽",
     };
   }
 
@@ -799,7 +788,7 @@ function checkConsistency(
     if (j.direction !== currentDirection && j.direction !== "neutral" && currentDirection !== "neutral") {
       conflicts++;
       const age = Math.round((Date.now() - new Date(j.created_at).getTime()) / 86400000);
-      recentConflicts.push(`${age}天前判断为${j.direction === "bullish" ? "看多" : "看空"}(置信度${j.confidence}%)`);
+      recentConflicts.push(`${age}澶╁墠鍒ゆ柇涓?{j.direction === "bullish" ? "鐪嬪" : "鐪嬬┖"}(缃俊搴?{j.confidence}%)`);
     }
   }
 
@@ -808,12 +797,12 @@ function checkConsistency(
     previous_judgments: history.length,
     direction_conflicts: conflicts,
     explanation: conflicts > 0
-      ? `与近期${conflicts}次判断方向冲突: ${recentConflicts.join("; ")}`
-      : `与近期${Math.min(5, history.length)}次判断方向一致`,
+      ? `涓庤繎鏈?{conflicts}娆″垽鏂柟鍚戝啿绐? ${recentConflicts.join("; ")}`
+      : `涓庤繎鏈?{Math.min(5, history.length)}娆″垽鏂柟鍚戜竴鑷碻,
   };
 }
 
-// ── 生成行动计划 ─────────────────────────────────────────
+// 鈹€鈹€ 鐢熸垚琛屽姩璁″垝 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function generateActionPlan(
   distribution: ProbabilityDistribution,
   currentPrice: number,
@@ -828,34 +817,34 @@ function generateActionPlan(
       entry_price: 0,
       target_price: 0,
       stop_loss: 0,
-      reason: "无法获取当前价格",
+      reason: "鏃犳硶鑾峰彇褰撳墠浠锋牸",
       contingency: "",
     };
   }
 
-  // ── 时间框架不匹配：生成分层持仓建议 ───────────────────
+  // 鈹€鈹€ 鏃堕棿妗嗘灦涓嶅尮閰嶏細鐢熸垚鍒嗗眰鎸佷粨寤鸿 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   if (conflict.conflict_type === "timeframe_mismatch" && conflict.timeframe_analysis) {
     const layered = conflict.timeframe_analysis.layered_recommendations;
     const totalPosition = layered.reduce((sum, l) => sum + l.position_pct, 0);
 
-    // 综合方向：短线主导
+    // 缁煎悎鏂瑰悜锛氱煭绾夸富瀵?
     const shortTerm = layered.find(l => l.timeframe.includes("1d") || l.timeframe.includes("1w"));
     const mediumTerm = layered.find(l => l.timeframe.includes("1m"));
     const longTerm = layered.find(l => l.timeframe.includes("3m"));
 
-    let reason = "时间框架分层: ";
-    if (shortTerm) reason += `短线${shortTerm.direction === "bullish" ? "看多" : "看空"} `;
-    if (mediumTerm) reason += `中线${mediumTerm.direction === "bullish" ? "看多" : "看空"} `;
-    if (longTerm) reason += `长线${longTerm.direction === "bullish" ? "看多" : "看空"}`;
+    let reason = "鏃堕棿妗嗘灦鍒嗗眰: ";
+    if (shortTerm) reason += `鐭嚎${shortTerm.direction === "bullish" ? "鐪嬪" : "鐪嬬┖"} `;
+    if (mediumTerm) reason += `涓嚎${mediumTerm.direction === "bullish" ? "鐪嬪" : "鐪嬬┖"} `;
+    if (longTerm) reason += `闀跨嚎${longTerm.direction === "bullish" ? "鐪嬪" : "鐪嬬┖"}`;
 
     return {
       action: totalPosition > 5 ? "buy" : totalPosition > 0 ? "hold" : "watch",
-      position_pct: Math.min(totalPosition, 15), // 上限15%
+      position_pct: Math.min(totalPosition, 15), // 涓婇檺15%
       entry_price: currentPrice,
       target_price: Math.round(currentPrice * (1 + 0.1) * 100) / 100,
       stop_loss: Math.round(currentPrice * (1 - 0.05) * 100) / 100,
       reason,
-      contingency: "短线仓位需更严格止损，中长线可适当放宽",
+      contingency: "鐭嚎浠撲綅闇€鏇翠弗鏍兼鎹燂紝涓暱绾垮彲閫傚綋鏀惧",
       layered_positions: layered,
     };
   }
@@ -864,7 +853,7 @@ function generateActionPlan(
   const confidence = Math.max(distribution.p_bullish, distribution.p_bearish);
   const conflictPenalty = conflict.has_conflict ? 0.5 : 1.0;
 
-  // 如果有根本性冲突，使用条件化结论
+  // 濡傛灉鏈夋牴鏈€у啿绐侊紝浣跨敤鏉′欢鍖栫粨璁?
   if (conflict.conflict_type === "fundamental" && conditionalConclusions.length > 0) {
     const primaryConclusion = conditionalConclusions[0];
     return {
@@ -877,12 +866,12 @@ function generateActionPlan(
       stop_loss: isBullish
         ? Math.round(currentPrice * (1 - 0.05) * 100) / 100
         : Math.round(currentPrice * (1 + 0.05) * 100) / 100,
-      reason: `条件化结论: ${primaryConclusion.condition}`,
-      contingency: `如果${conditionalConclusions[1]?.condition || "相反条件发生"}，立即调整仓位`,
+      reason: `鏉′欢鍖栫粨璁? ${primaryConclusion.condition}`,
+      contingency: `濡傛灉${conditionalConclusions[1]?.condition || "鐩稿弽鏉′欢鍙戠敓"}锛岀珛鍗宠皟鏁翠粨浣峘,
     };
   }
 
-  // 常规情况
+  // 甯歌鎯呭喌
   if (isBullish) {
     return {
       action: "buy",
@@ -890,8 +879,8 @@ function generateActionPlan(
       entry_price: currentPrice,
       target_price: Math.round(currentPrice * (1 + confidence * 0.15) * 100) / 100,
       stop_loss: Math.round(currentPrice * (1 - 0.05) * 100) / 100,
-      reason: `看多概率${(distribution.p_bullish * 100).toFixed(0)}%，预期收益${(distribution.expected_return! * 100).toFixed(1)}%`,
-      contingency: conflict.has_conflict ? "存在分歧，仓位控制在8%以内" : "",
+      reason: `鐪嬪姒傜巼${(distribution.p_bullish * 100).toFixed(0)}%锛岄鏈熸敹鐩?{(distribution.expected_return! * 100).toFixed(1)}%`,
+      contingency: conflict.has_conflict ? "瀛樺湪鍒嗘锛屼粨浣嶆帶鍒跺湪8%浠ュ唴" : "",
     };
   } else if (distribution.p_bearish > 0.5) {
     return {
@@ -900,7 +889,7 @@ function generateActionPlan(
       entry_price: currentPrice,
       target_price: Math.round(currentPrice * (1 - confidence * 0.15) * 100) / 100,
       stop_loss: Math.round(currentPrice * (1 + 0.05) * 100) / 100,
-      reason: `看空概率${(distribution.p_bearish * 100).toFixed(0)}%，建议观望或做空`,
+      reason: `鐪嬬┖姒傜巼${(distribution.p_bearish * 100).toFixed(0)}%锛屽缓璁鏈涙垨鍋氱┖`,
       contingency: "",
     };
   } else {
@@ -910,7 +899,7 @@ function generateActionPlan(
       entry_price: currentPrice,
       target_price: currentPrice,
       stop_loss: 0,
-      reason: "方向不明确，建议观望",
+      reason: "鏂瑰悜涓嶆槑纭紝寤鸿瑙傛湜",
       contingency: "",
     };
   }
