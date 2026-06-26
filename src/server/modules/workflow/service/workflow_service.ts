@@ -18,6 +18,7 @@ export class WorkflowService implements IWorkflowService {
   constructor(
     private workflowRepo: IWorkflowRepo,
     private workflowRunner: WorkflowRunner,
+    private gatewayClient: GatewayClient,
   ) {}
 
   listWorkflows(): unknown[] {

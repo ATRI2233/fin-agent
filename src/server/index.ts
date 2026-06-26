@@ -15,6 +15,7 @@ import { WorkflowService } from "./modules/workflow/service/workflow_service.js"
 import { ExecutionService } from "./modules/execution/service.js";
 import { AgentService } from "./modules/agent/service.js";
 import { McpService } from "./modules/mcp/service.js";
+import { cleanupOldLogs } from "../agents/lib/dataHub.js";
 import { GatewayClient, gatewayClient } from "./infra/gateway-client.js";
 
 const log = createLogger("index");
@@ -73,11 +74,15 @@ async function main() {
     return new WorkflowRunner(wfRepo, execRepo, execDomainSvc, execReg);
   });
 
+  // Register gateway client
+  registry.register("GatewayClient", () => gatewayClient);
+
   // Register services
   registry.register("IWorkflowService", (r) => {
     const wfRepo = r.resolve<IWorkflowRepo>("WorkflowRepo");
     const runner = r.resolve<WorkflowRunner>("WorkflowRunner");
-    return new WorkflowService(wfRepo, runner);
+    const gc = r.resolve<GatewayClient>("GatewayClient");
+    return new WorkflowService(wfRepo, runner, gc);
   });
 
   registry.register("IExecutionService", (r) => {
