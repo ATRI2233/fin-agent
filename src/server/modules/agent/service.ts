@@ -10,12 +10,15 @@ export interface IAgentService {
 }
 
 export class AgentService implements IAgentService {
-  constructor(private agentPort: AgentPort) {}
+  private agentsDir: string;
+
+  constructor(private agentPort: AgentPort, agentsDir?: string) {
+    this.agentsDir = agentsDir ?? resolve(process.cwd(), "config/agents");
+  }
 
   getAgent(name: string): { name: string } | null {
     try {
-      const agentsDir = resolve(process.cwd(), "config/agents");
-      const files = readdirSync(agentsDir);
+      const files = readdirSync(this.agentsDir);
       if (!files.includes(`${name}.md`)) {
         return null;
       }
@@ -27,8 +30,7 @@ export class AgentService implements IAgentService {
 
   listAgents(): { name: string }[] {
     try {
-      const agentsDir = resolve(process.cwd(), "config/agents");
-      const files = readdirSync(agentsDir);
+      const files = readdirSync(this.agentsDir);
       return files
         .filter(f => f.endsWith(".md"))
         .map(f => ({ name: f.replace(/\.md$/, "") }));

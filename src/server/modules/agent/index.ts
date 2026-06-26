@@ -1,1 +1,1 @@
-export { createAgentDispatcher, type AgentDispatcher } from "./dispatcher.js";
+export { type IAgentService, AgentService } from "./service.js";

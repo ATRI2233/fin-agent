@@ -38,8 +38,14 @@ export interface IMcpService {
 }
 
 export class McpService implements IMcpService {
+  private mcpConfigPath: string;
+
+  constructor(mcpConfigPath?: string) {
+    this.mcpConfigPath = mcpConfigPath ?? resolve(process.cwd(), settings.MCP_CONFIG_PATH);
+  }
+
   private async loadMcpConfig(): Promise<McpConfig> {
-    const path = resolve(process.cwd(), settings.MCP_CONFIG_PATH);
+    const path = this.mcpConfigPath;
     try {
       const raw = await readFile(path, "utf-8");
       return JSON.parse(raw) as McpConfig;
